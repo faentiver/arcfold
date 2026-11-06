@@ -18,6 +18,8 @@ public struct LibretroCore: ~Copyable {
     private let handle: UnsafeMutableRawPointer
     private let retroAPIVersion: @convention(c) () -> CUnsignedInt
     private let retroGetSystemInfo: @convention(c) (UnsafeMutablePointer<retro_system_info>?) -> Void
+    /// The rest of the libretro API that a session calls (LibretroCore+Lifecycle.swift).
+    let functions: CoreFunctions
 
     /// Loads `<name>.framework` from the private frameworks folder of `bundle`.
     public init(named name: String, in bundle: Bundle = .main) throws(LibretroError) {
@@ -40,9 +42,11 @@ public struct LibretroCore: ~Copyable {
 
         let apiVersion: @convention(c) () -> CUnsignedInt
         let getSystemInfo: @convention(c) (UnsafeMutablePointer<retro_system_info>?) -> Void
+        let functions: CoreFunctions
         do throws(LibretroError) {
             apiVersion = try Self.function("retro_api_version", in: handle, core: name)
             getSystemInfo = try Self.function("retro_get_system_info", in: handle, core: name)
+            functions = try CoreFunctions(handle: handle, core: name)
         } catch {
             dlclose(handle)
             throw error
@@ -51,6 +55,7 @@ public struct LibretroCore: ~Copyable {
         self.handle = handle
         retroAPIVersion = apiVersion
         retroGetSystemInfo = getSystemInfo
+        self.functions = functions
     }
 
     deinit {
@@ -89,7 +94,7 @@ public struct LibretroCore: ~Copyable {
             .sorted()
     }
 
-    private static func function<Function>(
+    static func function<Function>(
         _ symbol: String, in handle: UnsafeMutableRawPointer, core name: String
     ) throws(LibretroError) -> Function {
         guard let address = dlsym(handle, symbol) else {
@@ -105,8 +110,8 @@ public struct LibretroCore: ~Copyable {
 }
 
 // Not Sendable on purpose: a core keeps global state and is not thread-safe, so
-// it stays in the isolation domain that loaded it (from M1 on the emulation
-// thread). Being noncopyable, the value has exactly one owner, and the handle is
-// closed exactly once.
+// it stays in the isolation domain that loaded it: an EmulationSession creates
+// it on its emulation thread and never lets it leave. Being noncopyable, the
+// value has exactly one owner, and the handle is closed exactly once.
 @available(*, unavailable)
 extension LibretroCore: Sendable {}
