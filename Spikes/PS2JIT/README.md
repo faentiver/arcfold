@@ -11,6 +11,8 @@ Wegwerf-Prototyp für [ADR 0002](../../docs/adr/0002-ps2-jit.md). Die App lädt 
 | `Sources/Host/ArcJIT.c` | `csops`-Flags, `P_TRACED`, TXM-Annahme, Haltepunkt-Protokoll von `universal.js`, Ausführungsprobe |
 | `Sources/App/` | SwiftUI-Oberfläche und Ablauf, Ergebnis nach `Documents/SpikeResults/` |
 | `run-simulator.sh` | Bauen, im Simulator starten, Bericht und Screenshots einsammeln |
+| `try-codegen-pr34.sh` | Kern-Variante mit Play--CodeGen PR #34 und Begleitpatch aus einer Kopie des Submoduls bauen (Version `0.77-pr34`) |
+| `patches/play-basicblock-writable-alias.patch` | Begleitpatch: Block-Verknüpfungen über den beschreibbaren Alias der JIT-Arena schreiben |
 
 Testprogramme kommen aus `Tests/Fixtures/ps2/`: `alu.elf` (CPU-Test, Ausgabe muss `alu.expected` entsprechen) und `gs_sprites.elf` (Bild und Bildrate).
 
@@ -31,4 +33,4 @@ Im Simulator gelten die Regeln des Macs für ausführbaren Speicher. Ein Erfolg 
 
 - libretro erlaubt einen Kern pro Prozess; pro App-Start läuft ein Test.
 - Kein Ton, keine Eingabe, keine Anzeige im Vollbild. Das letzte Bild wird aus dem Framebuffer gelesen und als PNG gespeichert.
-- Der Kern ist unverändert (Play! 0.77). Seine JIT-Speicherverwaltung passt nicht zu Geräten mit TXM, siehe ADR 0002.
+- Der Standard-Kern ist unverändert (Play! 0.77). Seine JIT-Speicherverwaltung passt nicht zu Geräten mit TXM, siehe ADR 0002. Die Variante aus `try-codegen-pr34.sh` ist ein Experiment und kein Teil des Rezepts.
