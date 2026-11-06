@@ -23,7 +23,7 @@ Kennzeichnung: **belegt** heißt im Code, in einer Primärquelle oder im Simulat
 Voraussetzungen (belegt: StikDebug-README und `PAIRING.md` auf Commit `9d7a917`, SideStore-Doku, Apple-Doku):
 
 - Die App braucht `get-task-allow`. Xcode setzt das Entitlement bei jeder Entwicklungs-Signatur automatisch, also auch mit kostenloser Apple-ID.
-- Eine Pairing-Datei des Geräts. Ab iOS 27 erzeugt StikDebug sie selbst (Einstellungen → Pair a Device), sonst mit iloader am Mac.
+- Eine Pairing-Datei des Geräts. Ab iOS 27 erzeugt StikDebug sie selbst (in StikDebug unter Settings → Pair a Device), sonst mit iloader am Mac.
 - LocalDevVPN aus dem App Store. Das VPN leitet die Verbindung zum eigenen Gerät zurück.
 - Entwicklermodus. StikDebug lädt und mountet das Developer Disk Image selbst, einmal pro Neustart (laut StikJIT-Doku ab iOS 26.4 als Cryptex-DDI).
 - StikDebug selbst ist nicht mehr im App Store. Es gibt eine AltSource, eine IPA und den Quellcode zum Selbstbauen.
