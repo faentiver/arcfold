@@ -1,0 +1,33 @@
+{
+  "assumesTXM" : false,
+  "audioFrames" : 0,
+  "date" : 815681085.707254,
+  "debugged" : false,
+  "device" : "iPhone19,2",
+  "endReason" : "marker",
+  "expectedLines" : 788,
+  "extensions" : "elf|iso|cso|isz|cue|chd",
+  "frameSize" : "640x448",
+  "framesPerSecond" : 1.823955400260484,
+  "framesPresented" : 1,
+  "gameLoaded" : true,
+  "getTaskAllow" : false,
+  "glRenderer" : "Apple Software Renderer | OpenGL ES 3.0 APPLE-24.0.2",
+  "library" : "Play!",
+  "osVersion" : "27.2.0",
+  "outputLines" : 788,
+  "outputMatchesExpected" : true,
+  "probes" : [
+    "OK Lokales Dual-Mapping: mapped 16 KiB at 0x10300c000, writable alias 0x1033ac000; Schutz r-x; Testfunktion lieferte 42"
+  ],
+  "program" : "alu",
+  "reportedJITCapable" : true,
+  "requestedContext" : "OpenGL ES 3",
+  "retroRunCalls" : 0,
+  "seconds" : 0.5482590198516846,
+  "simulator" : true,
+  "thermalStateAfter" : "nominal",
+  "thermalStateBefore" : "nominal",
+  "traced" : false,
+  "version" : "0.77-pr34"
+}
