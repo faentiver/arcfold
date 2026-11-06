@@ -73,7 +73,8 @@ declare -F core_build > /dev/null || {
   exit 65
 }
 if [[ ! -e "$REPO_ROOT/$CORE_SOURCE/.git" ]]; then
-  echo "error: $CORE_SOURCE is missing, run: git submodule update --init --recursive $CORE_SOURCE" >&2
+  echo "error: $CORE_SOURCE is missing, run: git submodule update --init $CORE_SOURCE" >&2
+  echo "       If the core needs nested submodules, Scripts/cores/$core.sh names them." >&2
   exit 66
 fi
 
