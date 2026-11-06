@@ -29,7 +29,8 @@ let package = Package(
         ),
         .testTarget(
             name: "LibretroKitTests",
-            dependencies: ["LibretroKit"],
+            // CLibretro gives the tests the constants of libretro.h.
+            dependencies: ["LibretroKit", "CLibretro"],
             swiftSettings: swiftSettings
         ),
     ],
