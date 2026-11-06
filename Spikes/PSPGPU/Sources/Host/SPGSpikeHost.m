@@ -6,7 +6,9 @@
 
 #import <dlfcn.h>
 #import <libretro.h>
+#import <mach/mach.h>
 #import <os/lock.h>
+#import <pthread.h>
 #import <stdarg.h>
 #import <time.h>
 
@@ -18,7 +20,9 @@
                   captureFrames:(NSArray<NSNumber *> *)captureFrames
                      contentURL:(NSURL *)contentURL
                 outputDirectory:(NSURL *)outputDirectory
-            waitForGPUEachFrame:(BOOL)waitForGPUEachFrame {
+            waitForGPUEachFrame:(BOOL)waitForGPUEachFrame
+                         cycles:(NSInteger)cycles
+                  closesLibrary:(BOOL)closesLibrary {
     self = [super init];
     if (self) {
         _backend = backend;
@@ -28,6 +32,8 @@
         _captureFrames = [captureFrames copy];
         _contentURL = [contentURL copy];
         _outputDirectory = [outputDirectory copy];
+        _cycles = MAX(cycles, 1);
+        _closesLibrary = closesLibrary;
     }
     return self;
 }
@@ -212,6 +218,63 @@ static uint64_t SPGNow(void) {
     return clock_gettime_nsec_np(CLOCK_UPTIME_RAW);
 }
 
+/// Names of all threads in the process, "(unnamed)" for threads without one.
+static NSCountedSet<NSString *> *SPGThreadNames(void) {
+    NSCountedSet<NSString *> *names = [NSCountedSet set];
+    thread_act_array_t threads = NULL;
+    mach_msg_type_number_t count = 0;
+    if (task_threads(mach_task_self(), &threads, &count) != KERN_SUCCESS) {
+        return names;
+    }
+    for (mach_msg_type_number_t i = 0; i < count; i++) {
+        char name[64] = "";
+        pthread_t thread = pthread_from_mach_thread_np(threads[i]);
+        if (thread) {
+            pthread_getname_np(thread, name, sizeof(name));
+        }
+        [names addObject:name[0] ? @(name) : @"(unnamed)"];
+        mach_port_deallocate(mach_task_self(), threads[i]);
+    }
+    vm_deallocate(mach_task_self(), (vm_address_t)threads, count * sizeof(thread_act_t));
+    return names;
+}
+
+/// Threads in `now` that `before` did not have, as "name xCount", sorted.
+static NSString *SPGNewThreads(NSCountedSet<NSString *> *before, NSCountedSet<NSString *> *now) {
+    NSMutableArray<NSString *> *added = [NSMutableArray array];
+    for (NSString *name in [now.allObjects sortedArrayUsingSelector:@selector(compare:)]) {
+        NSUInteger more = [now countForObject:name] - MIN([now countForObject:name], [before countForObject:name]);
+        if (more > 0) {
+            [added addObject:[NSString stringWithFormat:@"%@ x%lu", name, (unsigned long)more]];
+        }
+    }
+    return added.count ? [added componentsJoinedByString:@", "] : @"none";
+}
+
+/// `path` relative to the app bundle (<app>/...) or the app's data container
+/// (~/...), for reports without machine-specific paths.
+static NSString *SPGDisplayPath(NSString *path) {
+    NSString *bundle = NSBundle.mainBundle.bundlePath;
+    NSString *home = NSHomeDirectory();
+    if ([path hasPrefix:bundle]) {
+        return [@"<app>" stringByAppendingString:[path substringFromIndex:bundle.length]];
+    }
+    if ([path hasPrefix:home]) {
+        return [@"~" stringByAppendingString:[path substringFromIndex:home.length]];
+    }
+    return path;
+}
+
+/// Relative path and size of every file below `directory`, sorted.
+static NSArray<NSString *> *SPGFileList(NSString *directory) {
+    NSMutableArray<NSString *> *files = [NSMutableArray array];
+    NSDirectoryEnumerator<NSString *> *enumerator = [NSFileManager.defaultManager enumeratorAtPath:directory];
+    for (NSString *path in enumerator) {
+        [files addObject:[NSString stringWithFormat:@"%@ %llu", path, enumerator.fileAttributes.fileSize]];
+    }
+    return [files sortedArrayUsingSelector:@selector(compare:)];
+}
+
 @interface SPGSpikeHost ()
 - (void)note:(NSString *)format, ... NS_FORMAT_FUNCTION(1, 2);
 - (bool)handleEnvironment:(unsigned)command data:(void *)data;
@@ -302,6 +365,7 @@ static retro_proc_address_t SPGGetProcAddress(const char *symbol) {
     NSUInteger _softwarePitch;
     uint64_t _audioFrames;
     BOOL _shutdownRequested;
+    NSInteger _cycle;
 }
 
 - (instancetype)initWithConfiguration:(SPGConfiguration *)configuration {
@@ -350,13 +414,13 @@ static NSData *SPGCString(NSString *string) {
 #pragma mark - Run
 
 - (SPGResult *)run {
-    NSArray<NSURL *> *captured = @[];
+    NSMutableArray<NSURL *> *captured = [NSMutableArray array];
     BOOL succeeded = NO;
     if (sActiveHost) {
         [self note:@"error: another run is active"];
     } else {
         sActiveHost = self;
-        succeeded = [self runCore:&captured];
+        succeeded = [self runCycles:captured];
         sActiveHost = nil;
     }
     if (_coreLog) {
@@ -368,25 +432,112 @@ static NSData *SPGCString(NSString *string) {
                                  capturedImages:captured];
 }
 
-- (BOOL)runCore:(NSArray<NSURL *> **)captured {
+- (BOOL)runCycles:(NSMutableArray<NSURL *> *)captured {
     SPGConfiguration *configuration = _configuration;
-    NSString *backendName = SPGBackendName(configuration.backend);
-    NSFileManager *files = NSFileManager.defaultManager;
     NSURL *output = configuration.outputDirectory;
     NSURL *saves = [output URLByAppendingPathComponent:@"saves" isDirectory:YES];
-    [files createDirectoryAtURL:saves withIntermediateDirectories:YES attributes:nil error:NULL];
+    [NSFileManager.defaultManager createDirectoryAtURL:saves withIntermediateDirectories:YES attributes:nil error:NULL];
     _coreLog = fopen([output URLByAppendingPathComponent:@"core.log"].fileSystemRepresentation, "w");
     if (_coreLog) {
         setvbuf(_coreLog, NULL, _IOLBF, 0);
     }
-    [self note:@"backend %@, %ld frames, render scale %ld, content %@%@", backendName, (long)configuration.frameCount,
-               (long)configuration.renderScale, configuration.contentURL.lastPathComponent,
-               configuration.waitForGPUEachFrame ? @", waiting for the GPU after every frame" : @""];
+    [self note:@"backend %@, %ld frames, render scale %ld, content %@%@%@", SPGBackendName(configuration.backend),
+               (long)configuration.frameCount, (long)configuration.renderScale,
+               SPGDisplayPath(configuration.contentURL.path),
+               configuration.waitForGPUEachFrame ? @", waiting for the GPU after every frame" : @"",
+               configuration.cycles > 1 || configuration.closesLibrary
+                   ? [NSString stringWithFormat:@", %ld cycles%@", (long)configuration.cycles,
+                                                configuration.closesLibrary ? @" with dlclose" : @" without dlclose"]
+                   : @""];
 
-    // Load the core from the app bundle (plan, section 5, guideline 1).
+    // The core comes from the app bundle (plan, section 5, guideline 1) and
+    // reads its assets from the framework (Scripts/cores/ppsspp.sh).
     NSString *frameworkPath =
         [NSBundle.mainBundle.privateFrameworksPath stringByAppendingPathComponent:@"ppsspp_libretro.framework"];
+    NSString *systemPath = [frameworkPath stringByAppendingPathComponent:@"system"];
+    NSArray<NSString *> *systemFiles = SPGFileList(systemPath);
+    NSCountedSet<NSString *> *threadsAtStart = SPGThreadNames();
+    BOOL succeeded = YES;
+    for (NSInteger cycle = 1; cycle <= configuration.cycles && succeeded; cycle++) {
+        _cycle = cycle;
+        [self resetCycleState];
+        if (configuration.cycles > 1) {
+            [self note:@"cycle %ld of %ld", (long)cycle, (long)configuration.cycles];
+            os_unfair_lock_lock(&_logLock);
+            if (_coreLog) {
+                fprintf(_coreLog, "[host] cycle %ld of %ld\n", (long)cycle, (long)configuration.cycles);
+            }
+            os_unfair_lock_unlock(&_logLock);
+        }
+        succeeded = [self runCycleWithFrameworkPath:frameworkPath captured:captured];
+    }
+
+    // Files (with their sizes) that appeared, vanished or changed size.
+    NSArray<NSString *> *systemFilesAfter = SPGFileList(systemPath);
+    NSMutableSet<NSString *> *changes = [NSMutableSet setWithArray:systemFiles];
+    [changes unionSet:[NSSet setWithArray:systemFilesAfter]];
+    NSMutableSet<NSString *> *unchanged = [NSMutableSet setWithArray:systemFiles];
+    [unchanged intersectSet:[NSSet setWithArray:systemFilesAfter]];
+    [changes minusSet:unchanged];
+    [self note:@"system directory %@: %lu files before the run, %lu after, %@", SPGDisplayPath(systemPath),
+               (unsigned long)systemFiles.count,
+               (unsigned long)systemFilesAfter.count,
+               changes.count ? [NSString stringWithFormat:@"changed: %@", [[changes.allObjects
+                                                                     sortedArrayUsingSelector:@selector(compare:)]
+                                                                     componentsJoinedByString:@", "]]
+                             : @"unchanged"];
+    if (configuration.closesLibrary && succeeded) {
+        // Threads the core left behind would crash once their code is gone.
+        sleep(2);
+        [self note:@"2 s after the last dlclose the process still runs; threads not there before the first dlopen: %@",
+                   SPGNewThreads(threadsAtStart, SPGThreadNames())];
+    }
+    [self note:@"result %@", succeeded ? @"OK" : @"FAILED"];
+    return succeeded;
+}
+
+- (void)resetCycleState {
+    os_unfair_lock_lock(&_stateLock);
+    [_environmentCalls removeAllObjects];
+    [_unhandledCalls removeAllObjects];
+    os_unfair_lock_unlock(&_stateLock);
+    os_unfair_lock_lock(&_logLock);
+    _coreWarnings = 0;
+    _coreErrors = 0;
+    os_unfair_lock_unlock(&_logLock);
+    _hwRender = (struct retro_hw_render_callback){0};
+    _hwRenderAccepted = NO;
+    _hwRenderRequests = @"";
+    _negotiation = NULL;
+    _vulkan = nil;
+    _videoCalls = 0;
+    _hardwareFrames = 0;
+    _softwareFrames = 0;
+    _dupedFrames = 0;
+    _frameWidth = 0;
+    _frameHeight = 0;
+    _softwarePixels = nil;
+    _softwarePitch = 0;
+    _audioFrames = 0;
+    _shutdownRequested = NO;
+}
+
+- (void)closeLibrary:(void *)library path:(NSString *)path {
+    int status = dlclose(library);
+    // With RTLD_NOLOAD, dlopen only finds the image if dyld kept it mapped.
+    void *probe = dlopen(path.fileSystemRepresentation, RTLD_NOW | RTLD_NOLOAD);
+    if (probe) {
+        dlclose(probe);
+    }
+    [self note:@"dlclose returned %d, the image is %@", status, probe ? @"still loaded" : @"unloaded"];
+}
+
+- (BOOL)runCycleWithFrameworkPath:(NSString *)frameworkPath captured:(NSMutableArray<NSURL *> *)captured {
+    SPGConfiguration *configuration = _configuration;
+    NSString *backendName = SPGBackendName(configuration.backend);
+    NSURL *saves = [configuration.outputDirectory URLByAppendingPathComponent:@"saves" isDirectory:YES];
     NSString *binaryPath = [frameworkPath stringByAppendingPathComponent:@"ppsspp_libretro"];
+    NSCountedSet<NSString *> *threadsBeforeLoad = SPGThreadNames();
     uint64_t loadStart = SPGNow();
     void *library = dlopen(binaryPath.fileSystemRepresentation, RTLD_NOW | RTLD_LOCAL);
     if (!library) {
@@ -594,8 +745,11 @@ static NSData *SPGCString(NSString *string) {
     [gles tearDown];
     [_vulkan tearDown];
     sFramebuffer = 0;
-    // No dlclose: PPSSPP keeps static state and threads that do not expect
-    // the image to go away.
+    [self note:@"threads after retro_deinit that were not there before dlopen: %@",
+               SPGNewThreads(threadsBeforeLoad, SPGThreadNames())];
+    if (configuration.closesLibrary) {
+        [self closeLibrary:library path:binaryPath];
+    }
 
     [self note:@"video callbacks %lu (hardware %lu, software %lu, duplicate %lu), last size %ux%u",
                (unsigned long)_videoCalls, (unsigned long)_hardwareFrames, (unsigned long)_softwareFrames,
@@ -612,9 +766,11 @@ static NSData *SPGCString(NSString *string) {
     [self note:@"core log: %lu warnings, %lu errors (core.log)", (unsigned long)_coreWarnings,
                (unsigned long)_coreErrors];
     [self note:@"environment calls: %@", [self environmentSummary]];
-    *captured = images;
+    [captured addObjectsFromArray:images];
     BOOL succeeded = !failed && images.count > 0;
-    [self note:@"result %@", succeeded ? @"OK" : @"FAILED"];
+    if (configuration.cycles > 1) {
+        [self note:@"cycle %ld %@", (long)_cycle, succeeded ? @"OK" : @"FAILED"];
+    }
     return succeeded;
 }
 
@@ -647,7 +803,8 @@ static NSData *SPGCString(NSString *string) {
         [self note:@"capture frame %ld failed: %@", (long)frame, error];
         return nil;
     }
-    NSString *name = [NSString stringWithFormat:@"%@-frame-%04ld.png", SPGBackendName(_configuration.backend),
+    NSString *cycle = _cycle > 1 ? [NSString stringWithFormat:@"-cycle%ld", (long)_cycle] : @"";
+    NSString *name = [NSString stringWithFormat:@"%@%@-frame-%04ld.png", SPGBackendName(_configuration.backend), cycle,
                                                 (long)frame];
     NSURL *url = [_configuration.outputDirectory URLByAppendingPathComponent:name];
     NSError *writeError = nil;

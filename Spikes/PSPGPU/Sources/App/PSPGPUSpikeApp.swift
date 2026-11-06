@@ -7,6 +7,8 @@ import SwiftUI
 ///   -scale N                         PPSSPP render scale, default 1
 ///   -capture 60,300                  emulated frames to save besides the last one
 ///   -waitForGPU YES                  wait for the GPU after every frame
+///   -cycles N                        run the whole core lifecycle N times
+///   -dlclose YES                     dlclose the core after every cycle
 ///   -exitWhenDone YES                quit after the run, for scripted runs
 @main
 struct PSPGPUSpikeApp: App {

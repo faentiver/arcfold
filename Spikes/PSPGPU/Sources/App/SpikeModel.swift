@@ -23,12 +23,19 @@ final class SpikeModel {
             .compactMap { Int($0.trimmingCharacters(in: .whitespaces)) }
         let exitWhenDone = defaults.bool(forKey: "exitWhenDone")
         let waitForGPU = defaults.bool(forKey: "waitForGPU")
+        let cycles = max(defaults.integer(forKey: "cycles"), 1)
+        let closesLibrary = defaults.bool(forKey: "dlclose")
 
-        guard let content = Bundle.main.url(forResource: "gu-test", withExtension: "elf") else {
-            report = "gu-test.elf is missing from the app bundle"
+        // The core writes next to the content, so it runs from a writable
+        // folder, as imported games will on the device.
+        let documents = URL.documentsDirectory
+        let content = documents.appending(path: "content/gu-test.elf")
+        do {
+            try Self.copyContent(to: content)
+        } catch {
+            report = "Cannot prepare the content: \(error.localizedDescription)"
             return
         }
-        let documents = URL.documentsDirectory
         let output = documents.appending(path: Self.name(of: backend), directoryHint: .isDirectory)
         try? FileManager.default.removeItem(at: output)
         try? FileManager.default.createDirectory(at: output, withIntermediateDirectories: true)
@@ -41,7 +48,9 @@ final class SpikeModel {
             captureFrames: captures.map { NSNumber(value: $0) },
             contentURL: content,
             outputDirectory: output,
-            waitForGPUEachFrame: waitForGPU
+            waitForGPUEachFrame: waitForGPU,
+            cycles: cycles,
+            closesLibrary: closesLibrary
         )
         SpikeHost(configuration: configuration).start { [weak self] result in
             self?.finish(result, output: output, exitWhenDone: exitWhenDone)
@@ -58,6 +67,19 @@ final class SpikeModel {
         if exitWhenDone {
             exit(result.succeeded ? 0 : 1)
         }
+    }
+
+    private static func copyContent(to destination: URL) throws {
+        guard let source = Bundle.main.url(forResource: "gu-test", withExtension: "elf") else {
+            throw CocoaError(.fileNoSuchFile, userInfo: [NSFilePathErrorKey: "gu-test.elf"])
+        }
+        let files = FileManager.default
+        try files.createDirectory(
+            at: destination.deletingLastPathComponent(), withIntermediateDirectories: true)
+        if files.fileExists(atPath: destination.path(percentEncoded: false)) {
+            try files.removeItem(at: destination)
+        }
+        try files.copyItem(at: source, to: destination)
     }
 
     private static func backend(named name: String) -> SpikeBackend {
