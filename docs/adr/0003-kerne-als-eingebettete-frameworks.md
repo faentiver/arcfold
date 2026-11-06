@@ -44,10 +44,10 @@ Stand 6. November 2026, Xcode 27.2 (27B52), XcodeGen 2.45.4:
 
 ## Folgen
 
-- Ein neuer Kern braucht ein Rezept und eine Zeile in `project.yml`. `Scripts/bootstrap.sh` baut jeden Kern, den `project.yml` einbettet. PPSSPP kommt so ohne Umbau dazu.
+- Ein neuer Kern braucht ein Rezept und eine Zeile in `project.yml`. `Scripts/bootstrap.sh` baut jeden Kern, den `project.yml` einbettet. Für PPSSPP braucht `bootstrap.sh` vorher einen Rezept-Haken für die nötigen Unter-Submodule. Sonst holt es alle 23 rekursiv, rund 800 MB (Plan M3, ADR 0001).
 - Ein Kern nur für den JIT-Build (Play!) bekommt zusätzlich in Debug und Release `EXCLUDED_SOURCE_FILE_NAMES: <CORE_NAME>.framework`. Ausprobiert mit mGBA: Der Name des Frameworks nimmt den Kern aus „Embed Frameworks“, der Name des xcframeworks nicht.
 - Fehlt ein xcframework, bricht Xcode schon beim Erstellen der Build-Beschreibung ab, mit „There is no XCFramework found at '…/Cores/Build/mgba_libretro.xcframework'“. Das passiert vor jeder Build-Phase, ein eigenes Run-Script käme also nie zu Wort. Den Hinweis „run Scripts/bootstrap.sh“ gibt deshalb `Scripts/bootstrap.sh --check`, das XcodeGen vor jedem Generieren ausführt (`preGenCommand`). Ein Projekt ohne Kerne entsteht so gar nicht erst, und ein später gelöschter Kern lässt den Build mit Pfadangabe scheitern statt still ohne Kern.
 - XcodeGen setzt für jede `framework:`-Abhängigkeit zusätzlich `FRAMEWORK_SEARCH_PATHS = Cores/Build`. Das ist harmlos, weil nichts gegen die Kerne gelinkt wird.
 - Die Kerne gibt es nur für arm64, deshalb baut auch die App nur arm64 (`ARCHS = arm64`). Simulatoren auf Intel-Macs fallen weg.
 - `LibretroCore` ist nicht kopierbar und bewusst nicht `Sendable`: Ein Kern hat genau einen Besitzer und bleibt in der Isolationsdomäne, die ihn geladen hat. Ab M1 ist das der Emulations-Thread, an den der Wert mit `sending` übergeben werden kann. Die Callback-Trampoline für genau einen aktiven Kern kommen in M1.
-- Ob sich ein Kern per `dlclose` sauber entladen lässt, hängt vom Kern ab (statische Destruktoren, eigene Threads). Für mGBA ist in M0 nichts aufgefallen. Während einer Spielsitzung bleibt der Kern ohnehin geladen.
+- Ob sich ein Kern per `dlclose` sauber entladen lässt, hängt vom Kern ab (statische Destruktoren, eigene Threads). Für mGBA ist in M0 nichts aufgefallen. PPSSPP bleibt nach `dlclose` geladen, ein zweiter Durchlauf im selben Prozess klappt trotzdem (belegt in ADR 0001). Auf `dlclose` als Speicherfreigabe verlässt sich LibretroKit deshalb nicht. Während einer Spielsitzung bleibt der Kern ohnehin geladen.

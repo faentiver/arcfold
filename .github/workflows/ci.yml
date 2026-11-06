@@ -1,15 +1,14 @@
 # Builds Arcfold and runs the tests in the iOS Simulator.
 #
 # Costs: the repository is private for now, and GitHub bills every macOS
-# minute ten times against the free quota of private repositories. So there is
-# a single job, the built core is cached, and a new push cancels the run that is
-# still going for the same branch.
+# minute ten times against the free quota of private repositories. So the
+# workflow runs only for pull requests and on demand, there is a single job,
+# the built core is cached, and a new push cancels the run that is still going
+# for the same branch.
 
 name: CI
 
 on:
-  push:
-    branches: [main]
   pull_request:
   workflow_dispatch:
 

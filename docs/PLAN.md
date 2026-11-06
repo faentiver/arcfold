@@ -23,7 +23,7 @@ Eine offene SwiftUI-App, die mehrere Konsolen emuliert und jedes System für den
 | --- | --- |
 | Projekt | Weiter wie geplant, obwohl PPSSPP und Delta 2.0 das Duo inzwischen unterstützen |
 | Name | Arcfold, gewählt am 6. November 2026 aus Arcfold, Foldplay, Twofold, Crease und Gatefold. Nur Arcfold ist im App Store (DE, US) und auf GitHub frei, „Foldplay“ ist schon eine Spiele-App. Jederzeit änderbar |
-| Repo | `github.com/faentiver/arcfold`, GPL-3.0. Zunächst privat angelegt, öffentlich nach Fatihs Okay |
+| Repo | `github.com/faentiver/arcfold`, GPL-3.0, privat. Öffentlich wird es erst, wenn die App an andere geht, denn erst dann verlangt die GPL den Quellcode für die Empfänger (Fatih, 6. November 2026) |
 | Apple-Account | Vorerst kostenlose Apple-ID. Das Developer Program kommt später für TestFlight und Store |
 | Ziel | Lernen und Portfolio, später App Store mit einem Store-Build ohne PS2 |
 | Reihenfolge | GBA, DS, PSP, danach PS2 als JIT-Build, dann GB/GBC, NES, SNES, PS1 |
@@ -42,8 +42,8 @@ Eine offene SwiftUI-App, die mehrere Konsolen emuliert und jedes System für den
 - **PPSSPP:** Duo-Support für Ränder und Touch-Steuerung am 26. Oktober gemergt, Meilenstein 1.21, nur im Simulator getestet. Posen-Layouts sind nicht bekannt.
 - **Delta 2.0:** seit 22. Oktober DS-Modus mit Falz. Kein PSP.
 - **3DS:** Folium ist der einzige 3DS-Emulator im App Store, ohne Duo-Anpassung.
-- **PS2:** JIT ist praktisch Pflicht. Play! stürzt ohne JIT ab, Provenance startet PS2 nur mit JIT. iPSX2, ein Port von ARMSX2, gibt es nur per Sideloading und mit eigenem BIOS-Dump.
-- **JIT:** im App Store verboten. PSP läuft laut PPSSPP trotzdem in voller Geschwindigkeit. Per Sideloading geht JIT unter iOS 26 und 27 nur über StikDebug und bisher nur mit wenigen gelisteten Apps. Voraussetzungen sind `get-task-allow`, eine Pairing-Datei und LocalDevVPN.
+- **PS2:** JIT ist praktisch Pflicht. Play! lehnt ohne JIT über `RETRO_ENVIRONMENT_GET_JIT_CAPABLE` sauber ab und stürzt nur ab, wenn das Frontend darauf nicht antwortet (Spike M0, ADR 0002). Provenance startet PS2 nur mit JIT. iPSX2, ein Port von ARMSX2, gibt es nur per Sideloading und mit eigenem BIOS-Dump.
+- **JIT:** im App Store verboten. PSP läuft laut PPSSPP trotzdem in voller Geschwindigkeit. Per Sideloading geht JIT unter iOS 26 und 27 nur über StikDebug. Voraussetzungen sind `get-task-allow`, eine Pairing-Datei und LocalDevVPN. Die App-Liste von StikDebug ist eine Empfehlung, keine Sperre. Auf Geräten mit TXM (A15 und neuer, also auch beim Duo) muss die App das Haltepunkt-Protokoll von StikDebug umsetzen. Ob der Debugger während des Spielens verbunden bleiben muss, klärt der Gerätetest aus ADR 0002.
 - **App Store:** Emulatoren dürfen Spiele zum Download anbieten (Richtlinie 4.7). Ausführbaren Code nachladen ist verboten, die App muss in sich geschlossen sein (2.5.2).
 
 ## 4. Umfang
@@ -90,7 +90,7 @@ Technische Leitplanken:
 2. **Zwei Build-Varianten.** Scheme `Store` ohne JIT und ohne PS2. Scheme `JIT` für Sideloading, mit PS2 und freigeschalteten Rekompilierern, gesteuert über das Compiler-Flag `JIT_BUILD`.
 3. **Callbacks ohne Kontext.** Die Libretro-Callbacks haben keinen User-Data-Zeiger. Es gibt daher genau einen aktiven Kern, und statische Trampolin-Funktionen leiten an die aktive Host-Instanz weiter.
 4. **Eigener Emulations-Thread.** Der Kern läuft nie auf dem Main Thread. Der Takt kommt aus `retro_get_system_av_info` und ist unabhängig von den 120 Hz des Displays.
-5. **Bild.** Software-Kerne liefern einen Pixelpuffer (RGB565 oder XRGB8888), den der Renderer als Metal-Textur in ganzen Vielfachen skaliert. GPU-Kerne (PSP, PS2) brauchen einen HW-Render-Kontext über `RETRO_ENVIRONMENT_SET_HW_RENDER`: Vulkan über MoltenVK oder OpenGL ES, Entscheidung in ADR 0001.
+5. **Bild.** Software-Kerne liefern einen Pixelpuffer (RGB565 oder XRGB8888), den der Renderer als Metal-Textur in ganzen Vielfachen skaliert. GPU-Kerne (PSP, PS2) brauchen einen HW-Render-Kontext über `RETRO_ENVIRONMENT_SET_HW_RENDER`. PSP: Vulkan über MoltenVK, das Bild kommt als `MTLTexture` in den Renderer, der Software-Renderer bleibt als Ausweg (Empfehlung in ADR 0001). PS2: Play!s libretro-Kern kann nur OpenGL ES 3 (ADR 0002). Wo dieser Kontext entsteht, wird vor der PS2-Spur entschieden, LibretroKit selbst bekommt keinen OpenGL-ES-Code.
 6. **Ton.** Samples landen in einem lock-freien Ringpuffer, den ein `AVAudioSourceNode` abspielt. Leichtes dynamisches Resampling gleicht Taktunterschiede aus.
 7. **Eingabe.** Touch-Overlay und GameController-Framework schreiben in einen gemeinsamen Eingabezustand, den der Kern über `input_state` abfragt.
 8. **Spielstände.** Batteriespeicher über `retro_get_memory_data(RETRO_MEMORY_SAVE_RAM)`, Save States über `retro_serialize`, jeweils mit Vorschaubild.
@@ -103,8 +103,8 @@ Technische Leitplanken:
 | --- | --- | --- | --- | --- | --- | --- |
 | M1 | GBA | [mGBA](https://github.com/mgba-emu/mgba) | MPL-2.0 | nicht nötig, eingebauter Ersatz | Software | niedrig |
 | M2 | DS | [melonDS](https://github.com/melonDS-emu/melonDS) | GPL-3.0 | nicht nötig, freier Ersatz; DSi braucht echtes BIOS | Software | mittel |
-| M3 | PSP | [PPSSPP](https://github.com/hrydgard/ppsspp) | GPL-2.0 oder später | nicht nötig | GPU über Vulkan oder OpenGL ES | hoch |
-| nach M3, JIT-Build | PS2 | [Play!](https://github.com/jpd002/Play-), Alternative [ARMSX2](https://github.com/ARMSX2/ARMSX2) | Play!: BSD, ARMSX2: GPL-3.0 | Play!: nicht nötig, eingebauter Ersatz; ARMSX2: eigener Dump | GPU | sehr hoch, nur mit JIT |
+| M3 | PSP | [PPSSPP](https://github.com/hrydgard/ppsspp) | GPL-2.0 oder später; der gebaute Kern steht wegen gebündelter Teile effektiv unter GPL-3.0 (ADR 0001) | nicht nötig | GPU über Vulkan mit MoltenVK, Ausweg Software-Renderer (ADR 0001) | mittel, Spike bestanden |
+| nach M3, JIT-Build | PS2 | [Play!](https://github.com/jpd002/Play-), Alternative [ARMSX2](https://github.com/ARMSX2/ARMSX2) | Play!: BSD, ARMSX2: GPL-3.0 | Play!: nicht nötig, eingebauter Ersatz; ARMSX2: eigener Dump | GPU über OpenGL ES 3 (ADR 0002) | sehr hoch, nur mit JIT |
 | M5 | GB, GBC | [SameBoy](https://github.com/LIJI32/SameBoy) | MIT | nicht nötig, eigene Boot-ROMs | Software | niedrig |
 | M5 | NES | [Mesen 2](https://github.com/SourMesen/Mesen2) | GPL-3.0 | nicht nötig | Software | niedrig |
 | M5 | SNES | [bsnes](https://github.com/bsnes-emu/bsnes) | GPL-3.0 oder später | nur für Spiele mit Spezialchips | Software | mittel |
@@ -158,8 +158,8 @@ Ausgeschlossen: snes9x (nur nicht-kommerziell), Genesis Plus GX (keine kommerzie
 - Das Xcode-Projekt entsteht per XcodeGen aus `project.yml` (ADR 0004), damit es textbasiert und im Review lesbar bleibt. `Scripts/bootstrap.sh` baut vorher die eingebetteten Kerne.
 - Gearbeitet wird in Branches `m<Nummer>/<thema>` mit Pull Requests, die Fatih am iPhone prüfen kann.
 - Commit-Messages im Stil von Conventional Commits.
-- Tests: Emulation ist deterministisch. Unit-Tests prüfen deshalb die Bild-Prüfsumme nach einer festen Zahl Frames.
-- CI: GitHub Actions baut für den Simulator und führt die Tests aus. Das Vorschau-Image `xcode-27` hat inzwischen Xcode 27.1 und den Duo-Simulator mit iOS 27.1 (Image vom 26. Oktober 2026), darauf läuft der Workflow. Fehlt Xcode 27.1 auf dem Runner, meldet der Job das und überspringt den Rest; dann baut der Mac mini lokal.
+- Tests: Emulation ist deterministisch. Unit-Tests prüfen deshalb die Bild-Prüfsumme nach einer festen Zahl Frames. Bei PSP geht das nur auf dem Vulkan- oder Software-Weg, OpenGL ES ist im Simulator nicht bitgenau (ADR 0001).
+- CI: GitHub Actions baut für den Simulator und führt die Tests aus. Das Vorschau-Image `xcode-27` hat inzwischen Xcode 27.1 und den Duo-Simulator mit iOS 27.1 (Image vom 26. Oktober 2026), darauf läuft der Workflow. Fehlt Xcode 27.1 auf dem Runner, meldet der Job das und überspringt den Rest; dann baut der Mac mini lokal. Solange das Repo privat ist, zählt jede macOS-Minute zehnfach. Die CI läuft deshalb nur bei Pull Requests und auf manuellen Start.
 - Debug-Overlay mit Bildrate, Audio-Aussetzern und `ProcessInfo.thermalState`, damit Abnahmen auf Messwerten stehen.
 
 ## 10. Meilensteine
@@ -168,7 +168,7 @@ Jeder Meilenstein endet mit einer Abnahme durch Fatih. Bildrate und Wärme zähl
 
 ### M0 · Fundament
 
-1. Repo anlegen mit `gh repo create faentiver/arcfold`, zunächst mit `--private`, öffentlich nach Fatihs Okay. Dazu GPL-3.0-`LICENSE`, kurzes `README.md`, `.gitignore` für Swift und Xcode, `CLAUDE.md` mit den Regeln aus Abschnitt 0 und 8, dieser Plan als `docs/PLAN.md`.
+1. Repo anlegen mit `gh repo create faentiver/arcfold --private`. Öffentlich wird es erst, wenn die App an andere geht. Dazu GPL-3.0-`LICENSE`, kurzes `README.md`, `.gitignore` für Swift und Xcode, `CLAUDE.md` mit den Regeln aus Abschnitt 0 und 8, dieser Plan als `docs/PLAN.md`.
 2. `project.yml` für XcodeGen: App-Target, Deployment-Target iOS 27.0, Swift 6, Schemes `Store` und `JIT`.
 3. Lokale Pakete `LibretroKit` (mit C-Target für `libretro.h`), `FoldLayout` und `Renderer` anlegen.
 4. mGBA als Submodul unter `Cores/`. `Scripts/build-core.sh <kern>` baut ein `.xcframework` mit dynamischem Framework für Gerät und Simulator (arm64).
@@ -178,6 +178,8 @@ Jeder Meilenstein endet mit einer Abnahme durch Fatih. Bildrate und Wärme zähl
 8. Spike PS2-JIT, braucht das Duo: Play!-Libretro-Kern bauen, JIT per StikDebug unter iOS 27 prüfen. Ergebnis in ADR 0002.
 
 **Abnahme:** Build grün, mGBA-Test grün, ADR 0001 und 0002 geschrieben.
+
+Stand 6. November 2026: Schritte 1 bis 7 sind erledigt, Schritt 8 ist im Simulator erledigt. Der Gerätetest aus ADR 0002 steht aus, bis das Duo für Tests eingerichtet ist.
 
 ### M1 · GBA läuft
 
@@ -195,11 +197,26 @@ melonDS-Kern. Der Kern liefert beide Bildschirme in einem Puffer, der Renderer t
 
 PPSSPP-Kern mit dem GPU-Weg aus ADR 0001, PSP-Layouts inklusive Tabletop, Leistungsoptimierung.
 
+Aus dem Spike (ADR 0001, Abschnitt Folgen) kommen dazu:
+- ein eigenes FFmpeg-Rezept (LGPL) für Video und AAC, weil PPSSPPs vorkompiliertes FFmpeg keine arm64-Simulator-Scheibe hat;
+- PPGe-Atlas und Ersatzschriften aus freien Schriften;
+- GPU-Synchronisation über `MTLSharedEvent` und ein Test des gepufferten Renderns;
+- den Kern erst nach dem ersten emulierten Bild entladen;
+- die Link-Prüfung des Kerns behalten; streicht ein SDK die GL-Header, das GL-Backend per Patch entfernen;
+- der Bildschirm „Lizenzen“ mit den Komponenten aus `docs/adr/0001/kern-komponenten.md` und MoltenVK;
+- in `Scripts/build-core.sh` eine feste Liste der 25 libretro-Funktionen statt `_retro_*` (PPSSPP exportiert sonst 21 `retro_vfs_*_impl` mit) und ein Rezept-Haken für die nötigen Unter-Submodule, damit `bootstrap.sh` nicht alle 23 von PPSSPP holt (rund 800 MB).
+
 **Abnahme:** volle Geschwindigkeit in einer anspruchsvollen Homebrew-Demo, 30 Minuten ohne thermische Drosselung auf dem Duo.
 
 ### PS2 · JIT-Build (nach M3, parallel zu M4 und M5)
 
-Play!-Kern nur im Scheme `JIT`, JIT-Aktivierung gemäß ADR 0002, GPU-Weg aus M3, PS2-Layouts, Anleitung zum Sideloading im README.
+Play!-Kern nur im Scheme `JIT`, JIT-Aktivierung gemäß ADR 0002, PS2-Layouts, Anleitung zum Sideloading im README.
+
+Vorher kommt der Gerätetest aus ADR 0002 (Tests A und D). Dazu gehören:
+- ein Patch für Play!s JIT-Speicher unter TXM (CodeGen-PR #34, Play!-PR #1622);
+- die JIT-Prüfung in `App/JIT/`, nur im JIT-Build, mit einem neutralen Haken in LibretroKit;
+- Play! per `EXCLUDED_SOURCE_FILE_NAMES` aus Debug und Release herausnehmen;
+- die Entscheidung, wo der OpenGL-ES-3-Kontext für Play! entsteht (nur im JIT-Build) oder ob eine Vulkan-Anbindung für Play!s `GSH_Vulkan` lohnt.
 
 **Abnahme:** Homebrew läuft flüssig mit JIT auf dem Duo.
 
@@ -229,11 +246,13 @@ Fork von `hrydgard/ppsspp`, Tabletop-Layout über `UIHingeInteraction`, Test auf
 
 | Risiko | Folge | Gegenmaßnahme |
 | --- | --- | --- |
-| PSP-Grafik im eigenen Host | M3 verzögert sich stark | Spike in M0, Ausweg über PPSSPPs Software-Renderer |
+| PSP-Grafik im eigenen Host | M3 verzögert sich stark | Spike in M0 bestanden: OpenGL ES, Vulkan und Software laufen im Simulator (ADR 0001). Restrisiko: Leistung und Wärme am Gerät |
 | Gleiche Funktionsnamen aller Kerne | Kerne lassen sich nicht zusammen linken | Jeder Kern als eigenes Framework, zur Laufzeit geladen |
 | Delta und PPSSPP decken schon viel ab | Weniger Nutzer als erhofft | Fokus auf PSP und DS gemeinsam plus Tabletop. Als Lern- und Portfolio-Projekt lohnt es sich so oder so |
 | Kein JIT im Store | Schwere Systeme zu langsam, PS2 gar nicht | Store-Build nur mit Systemen, die per Interpreter flüssig laufen. PS2 nur im JIT-Build, Test in M0 |
 | JIT unter iOS 27 unzuverlässig | PS2 startet nicht | ADR 0002 vor jeder PS2-Arbeit, Play! als Kern ohne BIOS-Zwang |
+| Play!s JIT-Speicher passt nicht zu TXM | PS2 startet auf dem Duo nicht | Patch nach CodeGen-PR #34 und Play!-PR #1622, geprüft im Gerätetest D (ADR 0002) |
+| StikDebug muss während des Spielens verbunden bleiben | Umständliche Bedienung im JIT-Build | Klärt Gerätetest A (ADR 0002) |
 | GPL und App Store | Keine Store-Veröffentlichung | Erst eigene Geräte, vor einer Einreichung die Kern-Entwickler fragen |
 | Neue Duo-APIs, lückenhafte Doku | Verhalten weicht ab | Hinter `#available(iOS 27.1, *)` kapseln, früh auf dem Duo testen |
 | Knacken im Ton, unruhiger Takt bei 120 Hz | Spielgefühl leidet | Eigener Takt je Kern, Resampling, Messwerte im Debug-Overlay |
@@ -244,8 +263,10 @@ Fork von `hrydgard/ppsspp`, Tabletop-Layout über `UIHingeInteraction`, Test auf
 ## 12. Offene Punkte
 
 - [x] Projektname festlegen (englisch), danach App Store und GitHub auf Konflikte prüfen. Ergebnis: Arcfold, geprüft am 6. November 2026.
-- [ ] Repo öffentlich schalten (Fatihs Okay).
-- [ ] Tests auf dem Duo schon ab M0 mit kostenloser Apple-ID?
+- [x] Sichtbarkeit des Repos: Es bleibt privat, bis die App an andere geht (Fatih, 6. November 2026).
+- [ ] ADR 0001 annehmen: Vulkan über MoltenVK für PSP (Fatih).
+- [ ] Tests auf dem Duo schon ab M0 mit kostenloser Apple-ID? Davon hängt der Gerätetest aus ADR 0002 ab.
+- [ ] Lizenzvariante festlegen: GPL-3.0-only oder GPL-3.0-or-later. Die eigenen Testprogramme sind derzeit gemischt (`gu-test` or-later, `gs_sprites` only).
 - [ ] Libretro-Schnittstelle von Mesen 2 prüfen (M5).
 
 ## 13. Quellen

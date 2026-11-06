@@ -3,8 +3,13 @@
 ## Status
 
 - **Ziel:** Eine offene SwiftUI-App, die mehrere Konsolen emuliert und jedes System für den Falz des iPhone Duo auslegt.
-- **Stand:** M0 (Fundament) läuft. Repo, Lizenz, Regeln und Plan stehen. Auf `m0/fundament`: Xcode-Projekt per XcodeGen mit den Schemes Store und JIT, die Pakete LibretroKit, FoldLayout und Renderer, mGBA 0.10.5 als eingebettetes, nicht gelinktes Framework, der mGBA-Test grün, CI-Workflow angelegt. Die Spikes zu PSP-Grafik und PS2-JIT laufen in eigenen Branches.
-- **Nächster Schritt:** Pull Request von `m0/fundament` prüfen und den ersten CI-Lauf ansehen, Spikes abschließen (ADR 0001 und 0002), danach Abnahme durch Fatih. Für Tests im Duo-Simulator fehlt lokal die Runtime iOS 27.1.
+- **Stand:** M0 (Fundament) ist umgesetzt und wartet auf die Abnahme. Auf `m0/fundament` liegen:
+  - das Xcode-Projekt per XcodeGen mit den Schemes Store und JIT,
+  - die Pakete LibretroKit, FoldLayout und Renderer,
+  - mGBA 0.10.5 als eingebettetes, nicht gelinktes Framework, der mGBA-Test ist grün,
+  - der CI-Workflow,
+  - die Spikes zu PSP-Grafik (ADR 0001, Empfehlung Vulkan über MoltenVK) und PS2-JIT (ADR 0002, Gerätetest ausstehend).
+- **Nächster Schritt:** Fatih prüft den Pull Request für M0 und nimmt ADR 0001 an. Danach folgt M1 (GBA läuft).
 - **Datum:** 6. November 2026
 
 ## Arbeitsregeln
@@ -78,3 +83,6 @@ actionlint -ignore 'label "xcode-27" is unknown' .github/workflows/ci.yml
 - `docs/wissen/umgebung.md`: Werkzeuge, Versionen, Stolperfallen und wie man alles wieder entfernt
 - `docs/wissen/bauen-und-ci.md`: bootstrap.sh, Stempel, XcodeGen, Eigenheiten von Xcode 27.2, GitHub Actions
 - `docs/wissen/libretrokit.md`: Aufbau und Entscheidungen in LibretroKit, Stolperfallen
+- `docs/wissen/psp-grafik.md`: PPSSPP als libretro-Kern bauen und hosten, Grafikwege, Stolperfallen (zu ADR 0001)
+- `docs/wissen/ps2-jit.md`: PS2 mit JIT, StikDebug und TXM, Einbau in den JIT-Build, Anleitung für den Gerätetest (zu ADR 0002)
+- `Spikes/`: Spike-Code aus M0 als Referenz, nicht Teil der App
