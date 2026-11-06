@@ -20,14 +20,11 @@ Planned compatibility, in this order: Game Boy Advance (mGBA), Nintendo DS (melo
 
 ## Building
 
-You need a Mac with Apple silicon, Xcode 27.1 or later and four tools from Homebrew:
+You need a Mac with Apple silicon, Xcode 27.1 or later and three tools from Homebrew:
 
 ```sh
-brew install xcodegen cmake ninja git-lfs
-git lfs install
+brew install xcodegen cmake ninja
 ```
-
-Git LFS stores the freely licensed homebrew test programs; `git lfs install` sets it up once per user account.
 
 Then prepare the checkout and open the project:
 

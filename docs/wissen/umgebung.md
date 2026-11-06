@@ -12,7 +12,7 @@ Stand 6. November 2026, Mac mini (M4 Pro, 14 Kerne, 24 GB, macOS 27.2).
 | Xcode | 27.2 (27B52), iOS-SDK 27.2 | war vorhanden | App, Simulator, Tests |
 | Swift | 6.4.2 | Xcode | |
 | XcodeGen | 2.45.4 | Homebrew, war vorhanden | Xcode-Projekt aus `project.yml` |
-| Git LFS | 3.7.1 | Homebrew, war vorhanden | Homebrew-Test-ROMs |
+| Git LFS | 3.7.1 | Homebrew, war vorhanden | in Arcfold derzeit nicht genutzt, siehe Stolperfallen |
 | CMake | 4.4.5 | Homebrew, für Arcfold installiert | Kerne bauen |
 | Ninja | 1.13.2 | Homebrew, für Arcfold installiert | Kerne bauen |
 | actionlint | 1.7.12 | Homebrew, für Arcfold installiert | CI-Workflow lokal prüfen |
@@ -30,6 +30,7 @@ Stand 6. November 2026, Mac mini (M4 Pro, 14 Kerne, 24 GB, macOS 27.2).
 - actionlint 1.7.12 kennt das Runner-Label `xcode-27` (Vorschau-Image) noch nicht. Aufruf deshalb mit `actionlint -ignore 'label "xcode-27" is unknown' .github/workflows/ci.yml`.
 - `xcrun simctl launch --console-pty` gibt den Exit-Code der App nicht weiter, er ist immer 0. Skripte müssen das Ergebnis aus der Ausgabe oder einer Berichtsdatei lesen.
 - OpenGL ES läuft im Simulator über den „Apple Software Renderer“. Bildraten sind dort nur Plausibilitätswerte, und die Bilder sind nicht bitgenau (ADR 0001).
+- **Test-ROMs ohne Git LFS.** Die drei Test-ROMs (zusammen rund 245 KB) liegen als normale Dateien im Repo. LFS hängt am LFS-Budget des GitHub-Kontos: Ist es aufgebraucht, scheitern Pushes mit LFS-Objekten mit „This repository exceeded its LFS budget“, und zwar für alle Repos des Kontos. Größere Testdateien deshalb erst nach einem Blick auf das Budget per LFS einchecken.
 
 ## Entfernen
 

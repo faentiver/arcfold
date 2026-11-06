@@ -48,7 +48,7 @@ docs/           PLAN.md, adr/, wissen/
 
 ## Bauen und Testen
 
-Voraussetzungen: Xcode 27.1 oder neuer, dazu `brew install xcodegen cmake ninja git-lfs` und einmal `git lfs install`, denn die Test-ROMs liegen per Git LFS im Repo. Optional für die Prüfung des CI-Workflows: `brew install actionlint`.
+Voraussetzungen: Xcode 27.1 oder neuer, dazu `brew install xcodegen cmake ninja`. Optional für die Prüfung des CI-Workflows: `brew install actionlint`. Die Test-ROMs sind klein und liegen als normale Dateien im Repo, ohne Git LFS (`docs/wissen/umgebung.md`).
 
 ```bash
 # Nach dem Klonen und nach jedem Pull: Submodule der Kerne, fehlende oder
