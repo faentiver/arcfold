@@ -24,6 +24,26 @@ public struct ScreenPlacement: Sendable, Hashable {
     public static func fitting(
         sourceWidth: Int, sourceHeight: Int, drawableWidth: Int, drawableHeight: Int
     ) -> ScreenPlacement {
-        fatalError("M1 track A")
+        guard sourceWidth > 0, sourceHeight > 0 else {
+            return ScreenPlacement(scale: 1, originX: 0, originY: 0, width: 0, height: 0)
+        }
+        let scale = max(1, min(drawableWidth / sourceWidth, drawableHeight / sourceHeight))
+        let width = sourceWidth * scale
+        let height = sourceHeight * scale
+        // A source larger than the drawable gets a negative origin: it stays
+        // centred and its edges are cut off.
+        return ScreenPlacement(
+            scale: scale,
+            originX: (drawableWidth - width).floorHalf,
+            originY: (drawableHeight - height).floorHalf,
+            width: width,
+            height: height
+        )
     }
+}
+
+private extension Int {
+    /// Half, rounded down also for negative values, so that the picture always
+    /// starts on a whole pixel and an odd remainder goes to the right or bottom.
+    var floorHalf: Int { self >> 1 }
 }

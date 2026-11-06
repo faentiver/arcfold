@@ -22,16 +22,25 @@ let package = Package(
         .package(path: "../LibretroKit"),
     ],
     targets: [
+        // The audio ring and its real-time render block in C and Objective-C,
+        // because Swift is not supported on audio real-time threads (ADR 0005).
+        .target(
+            name: "CRendererAudio",
+            linkerSettings: [.linkedFramework("AVFAudio")]
+        ),
         .target(
             name: "Renderer",
             dependencies: [
+                "CRendererAudio",
                 .product(name: "LibretroKit", package: "LibretroKit"),
             ],
+            // Compiled by Xcode into default.metallib inside Bundle.module.
+            resources: [.process("Shaders")],
             swiftSettings: swiftSettings
         ),
         .testTarget(
             name: "RendererTests",
-            dependencies: ["Renderer"],
+            dependencies: ["Renderer", "CRendererAudio"],
             swiftSettings: swiftSettings
         ),
     ],
