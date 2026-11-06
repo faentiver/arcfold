@@ -18,9 +18,14 @@ extension CoreSessionTests {
             let session = EmulationSession(configuration: try folder.configuration())
             #expect(session.state == .idle)
 
+            let systemFolder = folder.url.appending(path: "System", directoryHint: .isDirectory)
+            #expect(!FileManager.default.fileExists(atPath: systemFolder.path(percentEncoded: false)))
+
             let info = try await session.load()
 
             #expect(session.state == .ready)
+            // load() creates a missing system folder; it stays empty.
+            #expect(try FileManager.default.contentsOfDirectory(atPath: systemFolder.path(percentEncoded: false)).isEmpty)
             #expect(info.system.libraryName == "mGBA")
             #expect(info.system.libraryVersion == "0.10.5")
             #expect(info.geometry.baseWidth == 240)
