@@ -1,0 +1,120 @@
+@testable import Arcfold
+import CryptoKit
+import Foundation
+import Testing
+
+/// Importing files into a library in a temporary folder (ADR 0005, section 9).
+struct GameImporterTests {
+    /// A library root of its own for every test.
+    static func temporaryLocation() throws -> LibraryLocation {
+        let root = FileManager.default.temporaryDirectory.appending(path: "ArcfoldTests-\(UUID().uuidString)", directoryHint: .isDirectory)
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        return LibraryLocation(root: root)
+    }
+
+    /// Writes `bytes` to a file in a folder outside the library.
+    static func file(named name: String, bytes: [UInt8]) throws -> URL {
+        let folder = FileManager.default.temporaryDirectory.appending(path: "ArcfoldInput-\(UUID().uuidString)", directoryHint: .isDirectory)
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        let url = folder.appending(path: name, directoryHint: .notDirectory)
+        try Data(bytes).write(to: url)
+        return url
+    }
+
+    /// The header fields mGBA checks, nothing else: not a game, but enough to pass.
+    static func headerOnly(size: Int = 192) -> [UInt8] {
+        var bytes = [UInt8](repeating: 0, count: size)
+        bytes[3] = 0xEA
+        bytes[0xB2] = 0x96
+        return bytes
+    }
+
+    @Test func importsTheSelftestFixture() async throws {
+        let location = try Self.temporaryLocation()
+        let source = try Fixture.gbaSelftest.url()
+        let now = Date(timeIntervalSince1970: 1_800_000_000)
+
+        let outcome = try await GameImporter.importGame(from: source, system: .gba, into: location, now: now)
+
+        #expect(!outcome.wasAlreadyInLibrary)
+        let game = outcome.game
+        #expect(game.id == Fixture.gbaSelftest.sha256)
+        #expect(game.name == "selftest")
+        #expect(game.system == "gba")
+        #expect(game.originalFileName == "selftest.gba")
+        #expect(game.size == 864)
+        #expect(game.importedAt == now)
+
+        let files = location.files(for: game)
+        #expect(files.game.path(percentEncoded: false).hasSuffix("Games/\(Fixture.gbaSelftest.sha256)/game.gba"))
+        #expect(try Data(contentsOf: files.game) == Data(contentsOf: source))
+        #expect(try GameImporter.readRecord(at: files.record) == game)
+        #expect(!FileManager.default.fileExists(atPath: files.batterySave.path(percentEncoded: false)),
+                "The import creates no battery save")
+    }
+
+    @Test func aSecondImportOfTheSameFileKeepsTheFirstRecord() async throws {
+        let location = try Self.temporaryLocation()
+        let first = try Self.file(named: "Demo.gba", bytes: Self.headerOnly())
+        let renamed = try Self.file(named: "Renamed.gba", bytes: Self.headerOnly())
+
+        let original = try await GameImporter.importGame(from: first, system: .gba, into: location)
+        let again = try await GameImporter.importGame(from: renamed, system: .gba, into: location)
+
+        #expect(again.wasAlreadyInLibrary)
+        #expect(again.game == original.game, "Same content, same game, same name")
+        let folders = try FileManager.default.contentsOfDirectory(atPath: location.games.path(percentEncoded: false))
+        #expect(folders == [original.game.id])
+    }
+
+    @Test func refusesAFileThatIsTooSmall() async throws {
+        let location = try Self.temporaryLocation()
+        let url = try Self.file(named: "tiny.gba", bytes: [UInt8](repeating: 0, count: 100))
+        await #expect(throws: ImportError.tooSmall(fileName: "tiny.gba")) {
+            try await GameImporter.importGame(from: url, system: .gba, into: location)
+        }
+        #expect(!FileManager.default.fileExists(atPath: location.games.path(percentEncoded: false)))
+    }
+
+    @Test func refusesAFileWithoutTheBranchAtByteThree() async throws {
+        let location = try Self.temporaryLocation()
+        var bytes = Self.headerOnly(size: 1024)
+        bytes[3] = 0x00
+        let url = try Self.file(named: "notes.gba", bytes: bytes)
+        await #expect(throws: ImportError.notAGame(fileName: "notes.gba")) {
+            try await GameImporter.importGame(from: url, system: .gba, into: location)
+        }
+    }
+
+    @Test func refusesAFileWithoutTheFixedHeaderValue() async throws {
+        let location = try Self.temporaryLocation()
+        var bytes = Self.headerOnly(size: 1024)
+        bytes[0xB2] = 0x00
+        let url = try Self.file(named: "image.gba", bytes: bytes)
+        await #expect(throws: ImportError.notAGame(fileName: "image.gba")) {
+            try await GameImporter.importGame(from: url, system: .gba, into: location)
+        }
+    }
+
+    @Test func checksTheUpperSizeLimit() throws {
+        var bytes = [UInt8](repeating: 0, count: GameImporter.maximumSize + 1)
+        bytes[3] = 0xEA
+        bytes[0xB2] = 0x96
+        #expect(throws: ImportError.tooLarge(fileName: "big.gba")) {
+            try GameImporter.check(Data(bytes), fileName: "big.gba")
+        }
+        bytes.removeLast()
+        try GameImporter.check(Data(bytes), fileName: "big.gba")
+    }
+
+    @Test func everyErrorHasAMessageWithTheFileName() {
+        let errors: [ImportError] = [
+            .unreadable(fileName: "a.gba", reason: "gone"), .tooSmall(fileName: "a.gba"), .tooLarge(fileName: "a.gba"),
+            .notAGame(fileName: "a.gba"), .writeFailed(fileName: "a.gba", reason: "full"),
+        ]
+        for error in errors {
+            #expect(error.message.contains("a.gba"))
+            #expect(error.fileName == "a.gba")
+        }
+    }
+}
