@@ -11,7 +11,7 @@ Stand 7. November 2026 (M1, Spur K). Paket unter `Packages/LibretroKit`, swift-t
 
 | Teil | Rolle |
 | --- | --- |
-| `CLibretro` | `include/libretro.h` unverändert (Herkunft in `Sources/CLibretro/README.md`), dazu der Log-Shim `arcfold_log.h/.c` und die Signposts `arcfold_signpost.h/.c`. LibretroKit importiert es mit `internal import`, die öffentliche API ist reines Swift. |
+| `CLibretro` | `include/libretro.h` unverändert (Herkunft in `Sources/CLibretro/README.md`), dazu der Log-Shim `arcfold_log.h/.c`, die Signposts `arcfold_signpost.h/.c` und der Umbrella-Header `CLibretro.h`. LibretroKit importiert es mit `internal import`, die öffentliche API ist reines Swift. |
 | `LibretroCore` | Öffnet `<name>.framework` aus `Bundle.privateFrameworksURL` per `dlopen(RTLD_NOW \| RTLD_LOCAL)`, löst beim Öffnen alle benutzten `retro_*`-Funktionen per `dlsym` auf (`CoreFunctions`) und schließt in `deinit`. Die Lebenszyklus-Funktionen sind interne Methoden (`LibretroCore+Lifecycle.swift`). |
 | `EmulationSession` | Öffentliche Fassade. Hält nur `SessionControl` und leitet Befehle weiter. Ohne `stop()` freigegeben, stoppt sie selbst. |
 | `SessionControl` | Das Geteilte: `Mutex`-Postfach mit `Atomic<Bool>`-Merker, `DispatchSemaphore` zum Wecken, Zustand als `Atomic<UInt8>`, `InputState`, `SessionStats`, `AsyncStream` der Ereignisse. |
@@ -115,6 +115,7 @@ Gezählt wird jeder Aufruf in `SessionSummary.environmentCalls`; `unhandledEnvir
 - Paket-Test für „Symbol fehlt“: Ein Symlink auf die Binärdatei des Test-Bundles als Framework-Binärdatei ergibt den Fehlerfall ohne echten Kern.
 - `Bundle(url:)` merkt sich Bundles pro Pfad. Tests legen deshalb je Fall einen eigenen Ordner mit UUID an.
 - `RETRO_DEVICE_MASK` ist ein Makro mit Ausdruck und kommt in Swift nicht an; stattdessen `(1 << RETRO_DEVICE_TYPE_SHIFT) - 1`.
+- **Umbrella-Verzeichnis:** Ohne Header mit dem Namen des Targets erzeugt SwiftPM für `CLibretro` die Module-Map `umbrella "include"`. Ein später hinzugefügter Header kam dann nicht in das vorher gebaute Modul für `iphoneos`, und der Geräte-Build scheiterte mit „cannot find 'arcfold_signpost_run_begin' in scope“, während die Simulator-Builds liefen. **Anwenden:** Jeden Header in `include/CLibretro.h` eintragen; die geänderte Module-Map baut das Modul neu, auch in einem vorhandenen DerivedData.
 - `retro_log_printf_t` ist variadisch: Swift sieht `retro_log_callback.log` nur als `OpaquePointer?`. Deshalb der C-Shim.
 - Die Sitzung eines nie geladenen Kerns hat keinen Thread, der `events` beendet: Das erledigt `stop()` selbst, sonst hängt `for await`.
 - Swift Testing: `#expect(menge == [ … ])` mit einem `Set` links verglich in einem Fall mit einem Array-Literal und schlug trotz gleicher Elemente fehl. Erwartete Mengen als `let erwartet: Set<UInt32> = [ … ]` anlegen.
