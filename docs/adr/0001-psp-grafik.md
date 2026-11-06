@@ -1,6 +1,6 @@
 # 0001 · PSP-Grafik: Vulkan über MoltenVK
 
-Status: Vorgeschlagen · 6. November 2026, am selben Tag nach einer Prüfung überarbeitet
+Status: Angenommen · 6. November 2026 mit der M0-Abnahme (am selben Tag nach einer Prüfung überarbeitet)
 
 Kennzeichnung: **belegt** heißt im Spike ausgeführt oder im Quelltext/SDK nachgelesen (in Klammern steht, womit), **Annahme** heißt nicht geprüft, **Gerät** heißt erst auf dem iPhone Duo prüfbar.
 
@@ -124,7 +124,7 @@ Begründung: Beide GPU-Wege laufen im Spike. Also entscheiden Zukunftssicherheit
 - **Schreibzugriffe:** Der Kern schreibt Shader-Caches in den Speicherordner (`PSP/SYSTEM/CACHE`) und legt zur Prüfung der Groß-/Kleinschreibung Testdateien im Ordner des Inhalts und im Speicherordner an (belegt, `core.log`). Inhalte gehören also in einen beschreibbaren Ordner, nicht ins App-Bundle; der Spike kopiert sie nach `Documents/content`.
 - **JIT:** Der Kern enthält PPSSPPs ARM64-JIT als Code; unser Host lässt ihn nie laufen (siehe oben). Ob das die harte Regel „kein JIT-Code-Pfad im Store-Build“ erfüllt oder ob der JIT für den Store-Build herausgepatcht werden muss (PPSSPP hat dafür keinen CMake-Schalter), entscheidet Fatih; die Frage steht als offener Punkt im Plan, Abschnitt 12.
 - **PS2:** Der libretro-Kern von Play! fordert nur OpenGL an (`OPENGLES3` mit Version 3.2 unter `GLES_COMPATIBILITY`, `Source/ui_libretro/main_libretro.cpp`), EAGL kann höchstens ES 3.0. ADR 0002 muss den GL-Weg für Play! deshalb neu bewerten; der GL-Teil dieses Spikes kann dafür als Ausgangspunkt dienen, mit zwei Einschränkungen aus diesem ADR: Im Simulator ist GL Software-GL und nicht bitgenau.
-- **Plan:** Der Plan verweist seit M0 auf diese Empfehlung (Abschnitte 5, 6, 11); bei der Annahme entfällt dort das Wort Empfehlung.
+- **Plan:** Der Plan verweist in den Abschnitten 5, 6 und 11 auf diese Entscheidung.
 
 Erst auf dem Gerät prüfbar:
 

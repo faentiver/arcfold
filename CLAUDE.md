@@ -3,13 +3,14 @@
 ## Status
 
 - **Ziel:** Eine offene SwiftUI-App, die mehrere Konsolen emuliert und jedes System für den Falz des iPhone Duo auslegt.
-- **Stand:** M0 (Fundament) ist umgesetzt und wartet auf die Abnahme. Auf `m0/fundament` liegen:
+- **Stand:** M0 (Fundament) ist abgenommen. Fertig sind:
   - das Xcode-Projekt per XcodeGen mit den Schemes Store und JIT,
   - die Pakete LibretroKit, FoldLayout und Renderer,
   - mGBA 0.10.5 als eingebettetes, nicht gelinktes Framework, der mGBA-Test ist grün,
   - der CI-Workflow,
-  - die Spikes zu PSP-Grafik (ADR 0001, Empfehlung Vulkan über MoltenVK) und PS2-JIT (ADR 0002, Gerätetest ausstehend).
-- **Nächster Schritt:** Fatih prüft den Pull Request für M0 und nimmt ADR 0001 an. Danach folgt M1 (GBA läuft).
+  - ADR 0001: PSP über Vulkan mit MoltenVK, angenommen,
+  - ADR 0002: PS2 mit JIT, Gerätetest ausstehend.
+- **Nächster Schritt:** M1 · GBA läuft (Plan, Abschnitt 10). Dazu gehören Emulations-Thread mit Takt, Metal-Bild, Ton, Touch und Controller, Import, Batteriespeicher, Debug-Overlay und der Bildschirm „Lizenzen“.
 - **Datum:** 6. November 2026
 
 ## Arbeitsregeln

@@ -90,7 +90,7 @@ Technische Leitplanken:
 2. **Zwei Build-Varianten.** Scheme `Store` ohne JIT und ohne PS2. Scheme `JIT` für Sideloading, mit PS2 und freigeschalteten Rekompilierern, gesteuert über das Compiler-Flag `JIT_BUILD`.
 3. **Callbacks ohne Kontext.** Die Libretro-Callbacks haben keinen User-Data-Zeiger. Es gibt daher genau einen aktiven Kern, und statische Trampolin-Funktionen leiten an die aktive Host-Instanz weiter.
 4. **Eigener Emulations-Thread.** Der Kern läuft nie auf dem Main Thread. Der Takt kommt aus `retro_get_system_av_info` und ist unabhängig von den 120 Hz des Displays.
-5. **Bild.** Software-Kerne liefern einen Pixelpuffer (RGB565 oder XRGB8888), den der Renderer als Metal-Textur in ganzen Vielfachen skaliert. GPU-Kerne (PSP, PS2) brauchen einen HW-Render-Kontext über `RETRO_ENVIRONMENT_SET_HW_RENDER`. PSP: Vulkan über MoltenVK, das Bild kommt als `MTLTexture` in den Renderer, der Software-Renderer bleibt als Ausweg (Empfehlung in ADR 0001). Für PSP bekommt LibretroKit keinen OpenGL-ES-Code (ADR 0001). PS2: Play!s libretro-Kern kann nur OpenGL ES 3. Wo der OpenGL-ES-3-Kontext für Play! entsteht (LibretroKit, `App/JIT` oder ein eigenes Paket), wird vor der PS2-Spur entschieden (ADR 0002).
+5. **Bild.** Software-Kerne liefern einen Pixelpuffer (RGB565 oder XRGB8888), den der Renderer als Metal-Textur in ganzen Vielfachen skaliert. GPU-Kerne (PSP, PS2) brauchen einen HW-Render-Kontext über `RETRO_ENVIRONMENT_SET_HW_RENDER`. PSP: Vulkan über MoltenVK, das Bild kommt als `MTLTexture` in den Renderer, der Software-Renderer bleibt als Ausweg (ADR 0001). Für PSP bekommt LibretroKit keinen OpenGL-ES-Code (ADR 0001). PS2: Play!s libretro-Kern kann nur OpenGL ES 3. Wo der OpenGL-ES-3-Kontext für Play! entsteht (LibretroKit, `App/JIT` oder ein eigenes Paket), wird vor der PS2-Spur entschieden (ADR 0002).
 6. **Ton.** Samples landen in einem lock-freien Ringpuffer, den ein `AVAudioSourceNode` abspielt. Leichtes dynamisches Resampling gleicht Taktunterschiede aus.
 7. **Eingabe.** Touch-Overlay und GameController-Framework schreiben in einen gemeinsamen Eingabezustand, den der Kern über `input_state` abfragt.
 8. **Spielstände.** Batteriespeicher über `retro_get_memory_data(RETRO_MEMORY_SAVE_RAM)`, Save States über `retro_serialize`, jeweils mit Vorschaubild.
@@ -103,7 +103,7 @@ Technische Leitplanken:
 | --- | --- | --- | --- | --- | --- | --- |
 | M1 | GBA | [mGBA](https://github.com/mgba-emu/mgba) | MPL-2.0 | nicht nötig, eingebauter Ersatz | Software | niedrig |
 | M2 | DS | [melonDS](https://github.com/melonDS-emu/melonDS) | GPL-3.0 | nicht nötig, freier Ersatz; DSi braucht echtes BIOS | Software | mittel |
-| M3 | PSP | [PPSSPP](https://github.com/hrydgard/ppsspp) | GPL-2.0 oder später; der gebaute Kern steht wegen gebündelter Teile effektiv unter GPL-3.0 (ADR 0001) | nicht nötig | Empfehlung: GPU über Vulkan mit MoltenVK, Ausweg Software-Renderer (ADR 0001, vorgeschlagen) | mittel, Spike bestanden |
+| M3 | PSP | [PPSSPP](https://github.com/hrydgard/ppsspp) | GPL-2.0 oder später; der gebaute Kern steht wegen gebündelter Teile effektiv unter GPL-3.0 (ADR 0001) | nicht nötig | GPU über Vulkan mit MoltenVK, Ausweg Software-Renderer (ADR 0001) | mittel, Spike bestanden |
 | nach M3, JIT-Build | PS2 | [Play!](https://github.com/jpd002/Play-), Alternative [ARMSX2](https://github.com/ARMSX2/ARMSX2) | Play!: BSD, ARMSX2: GPL-3.0 | Play!: nicht nötig, eingebauter Ersatz; ARMSX2: eigener Dump | GPU über OpenGL ES 3 (ADR 0002) | sehr hoch, nur mit JIT |
 | M5 | GB, GBC | [SameBoy](https://github.com/LIJI32/SameBoy) | MIT | nicht nötig, eigene Boot-ROMs | Software | niedrig |
 | M5 | NES | [Mesen 2](https://github.com/SourMesen/Mesen2) | GPL-3.0 | nicht nötig | Software | niedrig |
@@ -185,7 +185,7 @@ Jeder Meilenstein endet mit einer Abnahme durch Fatih. Bildrate und Wärme zähl
 
 **Abnahme:** Build grün, mGBA-Test grün, ADR 0001 und 0002 geschrieben.
 
-Stand 6. November 2026: Schritte 1 bis 7 sind erledigt, Schritt 8 ist im Simulator erledigt. Der Gerätetest aus ADR 0002 steht aus, bis das Duo für Tests eingerichtet ist.
+Abgenommen am 6. November 2026. Schritte 1 bis 7 sind erledigt, Schritt 8 ist im Simulator erledigt. Der Gerätetest aus ADR 0002 steht aus, bis das Duo für Tests eingerichtet ist.
 
 ### M1 · GBA läuft
 
@@ -270,7 +270,7 @@ Fork von `hrydgard/ppsspp`, Tabletop-Layout über `UIHingeInteraction`, Test auf
 
 - [x] Projektname festlegen (englisch), danach App Store und GitHub auf Konflikte prüfen. Ergebnis: Arcfold, geprüft am 6. November 2026.
 - [x] Sichtbarkeit des Repos: Es bleibt privat, bis die App an andere geht (Fatih, 6. November 2026).
-- [ ] ADR 0001 annehmen: Vulkan über MoltenVK für PSP (Fatih).
+- [x] ADR 0001 angenommen: Vulkan über MoltenVK für PSP (Fatih, mit der M0-Abnahme am 6. November 2026).
 - [ ] Store-Build: Darf PPSSPPs nie ausgeführter ARM64-JIT-Code im Kern bleiben (der Host meldet kein JIT, der Kern nutzt den IR-Interpreter), oder wird er herausgepatcht? Harte Regel JIT, ADR 0001 Folgen; vor M3 (Fatih).
 - [ ] Tests auf dem Duo schon ab M0 mit kostenloser Apple-ID? Davon hängt der Gerätetest aus ADR 0002 ab.
 - [ ] Lizenzvariante festlegen: GPL-3.0-only oder GPL-3.0-or-later. Die eigenen Testprogramme sind derzeit gemischt (`gu-test` or-later, `gs_sprites` only).
