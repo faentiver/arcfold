@@ -15,7 +15,7 @@ Stand 6. November 2026, Xcode 27.2, XcodeGen 2.45.4. Die Entscheidungen dahinter
 
 **Veraltet** heißt: Der Stempel `Cores/Build/<CORE_NAME>.stamp` stimmt nicht mehr mit `Scripts/build-core.sh <rezept> --fingerprint` überein. Der Fingerabdruck enthält den ausgecheckten Commit des Submoduls, SHA-256 von Rezept und `build-core.sh` sowie den Build-Typ. build-core.sh schreibt den Stempel nach jedem erfolgreichen Build, auch beim Aufruf von Hand. Ungespeicherte Änderungen im Submodul erfasst der Fingerabdruck nicht.
 
-**Anwenden:** Nach jedem Pull `Scripts/bootstrap.sh`. Einen neuen Kern trägt man nur in `project.yml` ein (plus Rezept), bootstrap und die Prüfung ziehen nach.
+**Anwenden:** Nach jedem Pull `Scripts/bootstrap.sh`. Einen neuen Kern trägt man in `project.yml` ein (plus Rezept), bootstrap und die Prüfung ziehen nach. Außerdem braucht er in `.github/workflows/ci.yml` den Submodul-Schritt („Fetch core sources“) und den Cache-Schlüssel („Compute core cache key“), bis die CI die Liste selbst aus `project.yml` liest (geplant für M3 zusammen mit dem Rezept-Haken für Unter-Submodule).
 
 ## Eigenheiten von Xcode und XcodeGen
 
@@ -35,7 +35,7 @@ Stand 6. November 2026, Xcode 27.2, XcodeGen 2.45.4. Die Entscheidungen dahinter
 - Actions: `actions/checkout@v7`, `actions/cache/restore@v6` und `actions/cache/save@v6` (aktuelle Major-Versionen am 6. November 2026).
 - Gewählt wird das Standard-Xcode des Images, wenn es mindestens 27.1 ist, sonst das neueste installierte. Ohne Xcode 27.1 gibt der Job eine `::notice::` aus, überspringt den Rest und bleibt grün.
 - Die Kerne werden gecacht, Schlüssel aus Xcode-Build, Submodul-Commit (`git rev-parse HEAD:Cores/mgba`), Rezept und `build-core.sh`. Gespeichert wird gleich nach dem Bauen, damit ein roter Test den Cache nicht verwirft.
-- **Kosten:** Das Repo ist privat. macOS-Minuten zählen zehnfach gegen das Gratis-Kontingent. Deshalb ein Job, Cache und `cancel-in-progress`.
+- **Kosten:** Das Repo ist privat. macOS-Minuten zählen zehnfach gegen das Gratis-Kontingent. Die wichtigste Sparmaßnahme: Der Workflow läuft nur bei `pull_request` und auf manuellen Start (`workflow_dispatch`), nicht bei jedem Push. Dazu kommen ein einziger Job, der Cache und `cancel-in-progress`.
 - **Flacher Submodul-Klon:** Ohne Tags setzt build-core.sh die Framework-Version (`CFBundleShortVersionString`) auf 0.0.0. mGBA meldet trotzdem „0.10.5“, weil es im abgelösten HEAD auf seine CMake-Version zurückfällt. Für die CI reicht das.
 - Lokal nachgestellt am 6. November 2026: frischer Klon, `git submodule update --init --depth 1 -- Cores/mgba`, `Scripts/bootstrap.sh` (mGBA kalt in 11 s), Tests Store grün, JIT gebaut, keine Warnungen. Auf GitHub selbst lief der Workflow noch nicht, weil der Branch nicht gepusht ist.
 - Prüfen: `actionlint -ignore 'label "xcode-27" is unknown' .github/workflows/ci.yml` (das Label kennt actionlint 1.7.12 noch nicht).

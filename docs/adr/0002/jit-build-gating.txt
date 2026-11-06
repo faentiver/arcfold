@@ -3,7 +3,8 @@ App-Targets (Stand m0/fundament) statt eines zweiten Targets, JIT-Prüfung im
 App-Target statt in LibretroKit.
 
 Aufbau
-- Kopie von m0/fundament b13cbbda (git archive) in einem Wegwerf-Ordner,
+- Kopie von m0/fundament auf dem Stand des Commits „docs: describe building
+  and testing, update status and plan“ (git archive) in einem Wegwerf-Ordner,
   Xcode 27.2 (27B52), XcodeGen 2.45.4, Play! 0.77 aus Cores/Build.
 - project.yml: Änderungen siehe Diff unten. mGBA und preGenCommand fehlen nur,
   weil die Kopie keinen gebauten mGBA-Kern hatte.

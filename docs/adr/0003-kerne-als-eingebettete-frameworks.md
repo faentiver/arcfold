@@ -1,6 +1,6 @@
 # 0003 · Kerne als eingebettete, nicht gelinkte Frameworks
 
-Status: Angenommen · 6. November 2026
+Status: Vorgeschlagen · 6. November 2026, Annahme mit der M0-Abnahme
 
 ## Kontext
 
@@ -20,9 +20,9 @@ Status: Angenommen · 6. November 2026
 
 Option 3.
 
-**Aufbau.** `Scripts/build-core.sh <kern>` baut je SDK (`iphoneos`, `iphonesimulator`, beide arm64, minos 27.0) eine Dylib nach dem Rezept `Scripts/cores/<kern>.sh`, verpackt sie als `<CORE_NAME>.framework` mit eigener Info.plist (Bundle-ID `com.faentiver.arcfold.core.<name>`, Version aus dem Submodul-Tag) und fasst beide Scheiben zu `Cores/Build/<CORE_NAME>.xcframework` zusammen (`ios-arm64`, `ios-arm64-simulator`).
+**Aufbau.** `Scripts/build-core.sh <kern>` baut je SDK (`iphoneos`, `iphonesimulator`, beide arm64, minos 27.0) eine Dylib nach dem Rezept `Scripts/cores/<kern>.sh`, verpackt sie als `<CORE_NAME>.framework` mit eigener Info.plist (Bundle-ID `com.faentiver.arcfold.core.<CORE_NAME mit - statt _>`, etwa `com.faentiver.arcfold.core.mgba-libretro`, Version aus dem Submodul-Tag) und fasst beide Scheiben zu `Cores/Build/<CORE_NAME>.xcframework` zusammen (`ios-arm64`, `ios-arm64-simulator`).
 
-**Exporte.** Gelinkt wird mit `-Wl,-exported_symbol,_retro_*`. Exportiert ist also nur die Libretro-API, bei mGBA genau 25 Funktionen. So kollidiert ein Kern weder mit der App noch mit anderen Kernen.
+**Exporte.** Gelinkt wird mit `-Wl,-exported_symbol,_retro_*`. Exportiert sind also nur Symbole mit dem Präfix `retro_`: bei mGBA genau die 25 Funktionen der Libretro-API. PPSSPP exportiert über dasselbe Muster zusätzlich 21 `retro_vfs_*_impl` aus libretro-common (`docs/wissen/psp-grafik.md`); die feste Liste der 25 Funktionen kommt in M3 (Plan, Abschnitt 10). So kollidiert ein Kern weder mit der App noch mit anderen Kernen.
 
 **Install-Name.** `@rpath/<CORE_NAME>.framework/<CORE_NAME>`, gesetzt mit `install_name_tool`. Danach signiert build-core.sh ad hoc. Xcode signiert beim Einbetten neu.
 
@@ -44,7 +44,7 @@ Stand 6. November 2026, Xcode 27.2 (27B52), XcodeGen 2.45.4:
 
 ## Folgen
 
-- Ein neuer Kern braucht ein Rezept und eine Zeile in `project.yml`. `Scripts/bootstrap.sh` baut jeden Kern, den `project.yml` einbettet. Für PPSSPP braucht `bootstrap.sh` vorher einen Rezept-Haken für die nötigen Unter-Submodule. Sonst holt es alle 23 rekursiv, rund 800 MB (Plan M3, ADR 0001).
+- Ein neuer Kern braucht ein Rezept und eine Zeile in `project.yml`. `Scripts/bootstrap.sh` baut jeden Kern, den `project.yml` einbettet. Außerdem braucht er in `.github/workflows/ci.yml` den Submodul-Schritt und den Cache-Schlüssel, bis die CI die Liste selbst aus `project.yml` liest (geplant für M3 zusammen mit dem Rezept-Haken für Unter-Submodule). Für PPSSPP braucht `bootstrap.sh` vorher diesen Rezept-Haken, sonst holt es alle 23 Unter-Submodule rekursiv, allein FFmpeg rund 800 MB (Plan M3, ADR 0001).
 - Ein Kern nur für den JIT-Build (Play!) bekommt zusätzlich in Debug und Release `EXCLUDED_SOURCE_FILE_NAMES: <CORE_NAME>.framework`. Ausprobiert mit mGBA: Der Name des Frameworks nimmt den Kern aus „Embed Frameworks“, der Name des xcframeworks nicht.
 - Fehlt ein xcframework, bricht Xcode schon beim Erstellen der Build-Beschreibung ab, mit „There is no XCFramework found at '…/Cores/Build/mgba_libretro.xcframework'“. Das passiert vor jeder Build-Phase, ein eigenes Run-Script käme also nie zu Wort. Den Hinweis „run Scripts/bootstrap.sh“ gibt deshalb `Scripts/bootstrap.sh --check`, das XcodeGen vor jedem Generieren ausführt (`preGenCommand`). Ein Projekt ohne Kerne entsteht so gar nicht erst, und ein später gelöschter Kern lässt den Build mit Pfadangabe scheitern statt still ohne Kern.
 - XcodeGen setzt für jede `framework:`-Abhängigkeit zusätzlich `FRAMEWORK_SEARCH_PATHS = Cores/Build`. Das ist harmlos, weil nichts gegen die Kerne gelinkt wird.

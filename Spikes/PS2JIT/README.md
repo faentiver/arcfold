@@ -19,7 +19,12 @@ Testprogramme kommen aus `Tests/Fixtures/ps2/`: `alu.elf` (CPU-Test, Ausgabe mus
 
 ## Bauen und im Simulator ausführen
 
+Vor dem Bau des Kerns `Cores/play` und nur die Unter-Submodule holen, die der Kern braucht (Liste im Kopf von `Scripts/cores/play.sh`):
+
 ```bash
+git submodule update --init Cores/play
+git -C Cores/play submodule update --init deps/CodeGen deps/Dependencies deps/Framework deps/libchdr
+git -C Cores/play/deps/Dependencies submodule update --init ghc_filesystem xxHash zstd
 Scripts/build-core.sh play
 Spikes/PS2JIT/run-simulator.sh <simulator-udid> <ausgabeordner> -program alu
 Spikes/PS2JIT/run-simulator.sh <simulator-udid> <ausgabeordner> -program gs_sprites -maxFrames 600

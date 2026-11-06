@@ -80,13 +80,13 @@ Bewertung:
 
 ### Wo die Prüfung im Projekt hingehört
 
-- Lokale Swift-Pakete sehen weder `SWIFT_ACTIVE_COMPILATION_CONDITIONS` noch `GCC_PREPROCESSOR_DEFINITIONS` des App-Targets, und SwiftPM unterscheidet nur debug und release. Ein `#if JIT_BUILD` in LibretroKit ist deshalb auch im JIT-Build falsch (belegt, Experiment des Prüfers).
+- Lokale Swift-Pakete sehen weder `SWIFT_ACTIVE_COMPILATION_CONDITIONS` noch `GCC_PREPROCESSOR_DEFINITIONS` des App-Targets, und SwiftPM unterscheidet nur debug und release. Ein `#if JIT_BUILD` in LibretroKit ist deshalb auch im JIT-Build falsch (belegt, Build-Experiment vom 6. November 2026).
 - LibretroKit bekommt nur einen neutralen Haken, etwa `JITCapability` mit einer Closure und dem Standard „nein“. Die Prüfung selbst liegt in `App/JIT/` (C-Teil wie `Spikes/PS2JIT/Sources/Host/ArcJIT.c`, Swift-Hülle). Debug und Release schließen den Ordner mit `EXCLUDED_SOURCE_FILE_NAMES: JIT/*` aus, den Bridging-Header setzen nur Debug-JIT und Release-JIT.
 - Mit einer Kopie von `m0/fundament` gebaut (belegt, `docs/adr/0002/jit-build-gating.txt`): Store-Builds ohne `csops`, ohne `brk #0xf00d` und ohne Play!, Debug-JIT mit allen dreien (Release-JIT ohne `brk`, weil das Experiment die Funktionen dafür nicht aufruft und der Optimierer sie entfernt); keine Warnung im eigenen Code. Der JIT-Build listet „Play! 0.77“ in der Kernliste.
 
 ## Befunde im Simulator
 
-6. November 2026, eigenes Gerät „Arcfold PS2JIT“ (iPhone 18 Pro, iOS 27.2, 24B8117), Play! 0.77, Spike-Stand dieses Branches. Im Simulator gelten die Regeln des Macs für ausführbaren Speicher; nichts davon sagt etwas über JIT auf dem Gerät.
+6. November 2026, eigenes Gerät „Arcfold PS2JIT“ (iPhone 18 Pro, iOS 27.2, 24B8117), Play! 0.77, Spike in `Spikes/PS2JIT/`, Stand wie auf `m0/fundament`, nach dem Merge auf `main`. Im Simulator gelten die Regeln des Macs für ausführbaren Speicher; nichts davon sagt etwas über JIT auf dem Gerät.
 
 | Lauf | Ergebnis | Beleg |
 | --- | --- | --- |
@@ -121,7 +121,7 @@ Ziel: in etwa 30 Minuten klären, ob StikDebug mit `universal.js` unserer App au
 
 ### Vorbereitung am Mac (einmalig, etwa 10 Minuten)
 
-1. Branch mit dem Spike auschecken, nur die nötigen Submodule holen und den Kern bauen:
+1. `m0/fundament` auschecken, nach dem Merge `main`. Dann nur die nötigen Submodule holen und den Kern bauen:
    ```bash
    git submodule update --init Cores/play
    git -C Cores/play submodule update --init deps/CodeGen deps/Dependencies deps/Framework deps/libchdr

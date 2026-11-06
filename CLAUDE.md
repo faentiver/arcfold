@@ -19,6 +19,7 @@
 - Jede größere technische Entscheidung als ADR in `docs/adr/` festhalten: Kontext, Optionen, Entscheidung, Folgen.
 - Weicht die Umsetzung vom Plan ab, `docs/PLAN.md` im selben Pull Request aktualisieren.
 - Mit Fatih auf Deutsch, knapp und direkt. Code, Kommentare und Commit-Messages sind englisch.
+- README.md ist englisch, weil es die öffentliche Projektseite ist; alle übrigen Dokumente sind deutsch.
 - Branches heißen `m<Nummer>/<thema>`. Jede Änderung kommt als Pull Request, den Fatih am iPhone prüfen kann. Commit-Messages im Stil von Conventional Commits.
 
 ## Harte Regeln
@@ -39,13 +40,15 @@ App/            SwiftUI-App: Quellen, String Catalog, Entitlements des JIT-Build
 Packages/       LibretroKit, FoldLayout, Renderer (lokale Swift-Pakete)
 Cores/          Kerne als Git-Submodule, auf Tags oder Commits fixiert; Build/ mit den xcframeworks (ignoriert)
 Scripts/        bootstrap.sh, build-core.sh, cores/ mit einem Rezept je Kern
+Spikes/         Spike-Code aus M0 (PSPGPU, PS2JIT) als Referenz, nicht Teil der App
 Tests/          ArcfoldTests (Unit-Tests mit der App als Host), Fixtures/ (Homebrew-ROMs, Lizenzen)
 docs/           PLAN.md, adr/, wissen/
+.github/        workflows/ci.yml, die CI mit GitHub Actions
 ```
 
 ## Bauen und Testen
 
-Voraussetzungen: Xcode 27.1 oder neuer, dazu `brew install xcodegen cmake ninja`.
+Voraussetzungen: Xcode 27.1 oder neuer, dazu `brew install xcodegen cmake ninja git-lfs` und einmal `git lfs install`, denn die Test-ROMs liegen per Git LFS im Repo. Optional für die Prüfung des CI-Workflows: `brew install actionlint`.
 
 ```bash
 # Nach dem Klonen und nach jedem Pull: Submodule der Kerne, fehlende oder
@@ -63,17 +66,20 @@ xcodebuild build -project Arcfold.xcodeproj -scheme Store -destination 'generic/
 xcodebuild build -project Arcfold.xcodeproj -scheme JIT -destination 'generic/platform=iOS Simulator' -derivedDataPath build/DerivedData
 xcodebuild build -project Arcfold.xcodeproj -scheme Store -destination 'generic/platform=iOS' -derivedDataPath build/DerivedData CODE_SIGNING_ALLOWED=NO
 
-# Testen (ArcfoldTests und LibretroKitTests), ebenso mit -scheme JIT
-xcodebuild test -project Arcfold.xcodeproj -scheme Store -destination 'platform=iOS Simulator,name=iPhone 18 Pro,OS=latest' -derivedDataPath build/DerivedData
+# Testen (ArcfoldTests und LibretroKitTests) auf dem Duo-Simulator mit iOS 27.1, ebenso mit -scheme JIT
+xcodebuild test -project Arcfold.xcodeproj -scheme Store -destination 'platform=iOS Simulator,name=iPhone Duo,OS=27.1' -derivedDataPath build/DerivedData
 
-# CI-Workflow prüfen
+# Alternative: iPhone 18 Pro mit iOS 27.2
+xcodebuild test -project Arcfold.xcodeproj -scheme Store -destination 'platform=iOS Simulator,name=iPhone 18 Pro,OS=27.2' -derivedDataPath build/DerivedData
+
+# CI-Workflow prüfen (optional, braucht actionlint)
 actionlint -ignore 'label "xcode-27" is unknown' .github/workflows/ci.yml
 ```
 
 - Projekteinstellungen nur in `project.yml` ändern, danach `xcodegen generate`. `Arcfold.xcodeproj` wird nicht committet.
-- Ein neuer Kern braucht ein Rezept in `Scripts/cores/` und einen Eintrag unter den Abhängigkeiten in `project.yml`. Mehr nicht, bootstrap baut ihn dann mit.
+- Ein neuer Kern braucht ein Rezept in `Scripts/cores/` und einen Eintrag unter den Abhängigkeiten in `project.yml`; bootstrap baut ihn dann mit. Außerdem braucht er in `.github/workflows/ci.yml` den Submodul-Schritt („Fetch core sources“) und den Cache-Schlüssel („Compute core cache key“), bis die CI die Liste selbst aus `project.yml` liest (geplant für M3 zusammen mit dem Rezept-Haken für Unter-Submodule).
 - Meldet Xcode „There is no XCFramework found at …/Cores/Build/…“, fehlt ein Kern: `Scripts/bootstrap.sh` ausführen.
-- Der Duo-Simulator braucht die Runtime iOS 27.1. Die Runtime iOS 27.2 schließt das Duo aus, bis dahin auf einem anderen iPhone mit iOS 27.2 testen (siehe `docs/wissen/umgebung.md`).
+- Der Duo-Simulator braucht die Runtime iOS 27.1; sie ist lokal installiert. Die Runtime iOS 27.2 schließt das Duo aus, für Tests mit iOS 27.2 dient deshalb das iPhone 18 Pro (siehe `docs/wissen/umgebung.md`).
 - CI: `.github/workflows/ci.yml` auf dem Image `xcode-27`. Details und Kosten in `docs/wissen/bauen-und-ci.md`.
 
 ## Wissen

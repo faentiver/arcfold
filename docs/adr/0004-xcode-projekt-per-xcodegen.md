@@ -1,6 +1,6 @@
 # 0004 · Xcode-Projekt per XcodeGen
 
-Status: Angenommen · 6. November 2026
+Status: Vorgeschlagen · 6. November 2026, Annahme mit der M0-Abnahme
 
 ## Kontext
 

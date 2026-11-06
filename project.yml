@@ -58,8 +58,12 @@ targets:
       # never linked, because every core exports the same retro_* symbols.
       # LibretroKit loads them with dlopen. A new core needs a recipe in
       # Scripts/cores/ and an entry here; Scripts/bootstrap.sh builds every core
-      # listed here. A core for the JIT build only (Play!) is also left out of
-      # Debug and Release with EXCLUDED_SOURCE_FILE_NAMES: <CORE_NAME>.framework.
+      # listed here. Until CI reads this list too (planned for M3, together with
+      # the recipe hook for nested submodules), a new core also needs its
+      # submodule in the "Fetch core sources" step and in the cache key of
+      # .github/workflows/ci.yml. A core for the JIT build only (Play!) is also
+      # left out of Debug and Release with
+      # EXCLUDED_SOURCE_FILE_NAMES: <CORE_NAME>.framework.
       - framework: Cores/Build/mgba_libretro.xcframework
         embed: true
         link: false

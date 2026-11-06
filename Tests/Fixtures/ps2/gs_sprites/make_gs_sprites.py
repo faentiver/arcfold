@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: GPL-3.0-only
-# Copyright 2026 The Arcfold Authors
+# Copyright 2026 Fatih (faentiver)
 """Writes gs_sprites.elf, a tiny PS2 test program for Arcfold.
 
 The program needs no SDK and no BIOS. It switches the display to NTSC

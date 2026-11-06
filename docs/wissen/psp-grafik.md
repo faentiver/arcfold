@@ -20,7 +20,7 @@ CMAKE_BUILD_PARALLEL_LEVEL=6 Scripts/build-core.sh ppsspp
 
 Ergebnis: `Cores/Build/ppsspp_libretro.xcframework`, je Scheibe 12,7 MB Binärdatei plus 4,8 MB Assets. Ein sauberer Build für beide Scheiben dauert auf dem Mac mini mit 6 Jobs knapp 2 Minuten. Das Submodul belegt 220 MB Arbeitskopie und 425 MB Git-Daten.
 
-Das Rezept `Scripts/cores/ppsspp.sh` prüft die Unter-Submodule und nennt bei Fehlen genau die Befehle oben. `git submodule update --init --recursive` geht auch, holt aber zusätzlich FFmpeg (800 MB), MoltenVK, SDL und die Testsammlung.
+Das Rezept `Scripts/cores/ppsspp.sh` prüft die Unter-Submodule und nennt bei Fehlen die beiden `git -C …`-Befehle oben. Diese Prüfung greift erst, wenn `Cores/ppsspp` schon geholt ist; fehlt das Submodul selbst, bricht `Scripts/build-core.sh` vorher ab und nennt `git submodule update --init Cores/ppsspp`. `git submodule update --init --recursive` geht auch, holt aber zusätzlich FFmpeg (800 MB), MoltenVK, SDL und die Testsammlung.
 
 ## Stolperfallen im Rezept
 

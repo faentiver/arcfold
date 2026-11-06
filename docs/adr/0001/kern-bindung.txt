@@ -1,5 +1,5 @@
 # Bindung des Kerns an System-Bibliotheken (Scripts/cores/ppsspp.sh, Stand nach -weak_framework OpenGLES und -dead_strip_dylibs)
-# Vorher (Rezept aus f1ef9cd): LC_LOAD_DYLIB für libobjc, libz, GLKit, OpenGLES, libc++, libSystem; 0 Importe aus GLKit und libobjc, 98 aus OpenGLES.
+# Vorher (Rezept aus dem Commit „build(cores): add PPSSPP v1.20.4 as libretro core“): LC_LOAD_DYLIB für libobjc, libz, GLKit, OpenGLES, libc++, libSystem; 0 Importe aus GLKit und libobjc, 98 aus OpenGLES.
 
 $ otool -l <ios-arm64>/ppsspp_libretro | Load-Commands der Bibliotheken
   LC_LOAD_DYLIB /usr/lib/libz.1.dylib

@@ -12,7 +12,19 @@ Weitere Argumente: `-frames 600` (emulierte Frames), `-scale 2` (Renderauflösun
 
 ## Bauen und starten
 
-Voraussetzungen: `Scripts/build-core.sh ppsspp` und `Spikes/PSPGPU/Scripts/fetch-moltenvk.sh`.
+Voraussetzungen: der PPSSPP-Kern und MoltenVK. Vor dem Bau des Kerns `Cores/ppsspp` und nur die Unter-Submodule holen, die der Kern braucht (Liste in `Scripts/cores/ppsspp.sh`, Erklärung in `docs/wissen/psp-grafik.md`):
+
+```bash
+git submodule update --init Cores/ppsspp
+git -C Cores/ppsspp submodule update --init --depth 1 libretro/libretro-common ext/OpenXR-SDK \
+  ext/SPIRV-Cross ext/aemu_postoffice ext/armips ext/cpu_features ext/glslang ext/libchdr ext/lua \
+  ext/miniupnp ext/rapidjson ext/rcheevos ext/zstd
+git -C Cores/ppsspp/ext/armips submodule update --init --depth 1 ext/filesystem
+CMAKE_BUILD_PARALLEL_LEVEL=6 Scripts/build-core.sh ppsspp
+Spikes/PSPGPU/Scripts/fetch-moltenvk.sh
+```
+
+Dann bauen und starten:
 
 ```bash
 cd Spikes/PSPGPU && xcodegen --spec project.yml && cd ../..

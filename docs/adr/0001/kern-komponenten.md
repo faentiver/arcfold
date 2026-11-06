@@ -9,7 +9,7 @@ ninja -C build/cores/ppsspp/iphonesimulator/cmake -t inputs ppsspp_libretro   # 
 ninja -C build/cores/ppsspp/iphonesimulator/cmake -t deps                     # eingebundene Header
 ```
 
-Die Lizenzen habe ich aus den Lizenzdateien der Ordner gelesen, wo es keine gibt aus den Kopfkommentaren der Quellen (Spalte „Beleg“). Pfade relativ zu `Cores/ppsspp`.
+Die Lizenzen stammen aus den Lizenzdateien der Ordner, wo es keine gibt, aus den Kopfkommentaren der Quellen (Spalte „Beleg“). Pfade relativ zu `Cores/ppsspp`.
 
 ## Kompiliert
 
