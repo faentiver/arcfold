@@ -5,7 +5,7 @@ CORE_NAME="mgba_libretro"
 CORE_SOURCE="Cores/mgba"
 
 core_build() {
-  local sdk="$1" work_dir="$2"
+  local work_dir="$2"
   cmake -S "$REPO_ROOT/$CORE_SOURCE" -B "$work_dir/cmake" "${IOS_CMAKE_ARGS[@]}" \
     -DBUILD_LIBRETRO=ON \
     -DSKIP_LIBRARY=ON \

@@ -4,7 +4,12 @@
 # iOS Simulator (both arm64) and combines them into
 # Cores/Build/<CORE_NAME>.xcframework.
 #
-# Usage: Scripts/build-core.sh <core> [--debug] [--clean]
+# Usage: Scripts/build-core.sh <core> [--debug] [--clean] [--fingerprint]
+#
+# --fingerprint prints what the build depends on (submodule commit, recipe,
+# this script, build type) and builds nothing. After a build the same text is
+# stored in Cores/Build/<CORE_NAME>.stamp, so Scripts/bootstrap.sh can tell
+# whether a core is outdated.
 #
 # Every core has a recipe in Scripts/cores/<core>.sh. A recipe sets
 #   CORE_NAME     binary and framework name, for example mgba_libretro
@@ -28,17 +33,19 @@ readonly OUTPUT_DIR="$REPO_ROOT/Cores/Build"
 readonly SDKS=(iphoneos iphonesimulator)
 
 usage() {
-  sed -n '3,21p' "$0" | sed 's/^# \{0,1\}//'
+  sed -n '3,26p' "$0" | sed 's/^# \{0,1\}//'
   exit 64
 }
 
 core=""
 build_type="Release"
 clean=0
+print_fingerprint=0
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --debug) build_type="Debug" ;;
     --clean) clean=1 ;;
+    --fingerprint) print_fingerprint=1 ;;
     -h | --help) usage ;;
     -*) echo "error: unknown option $1" >&2; usage ;;
     *) if [[ -z "$core" ]]; then core="$1"; else usage; fi ;;
@@ -70,12 +77,28 @@ if [[ ! -e "$REPO_ROOT/$CORE_SOURCE/.git" ]]; then
   exit 66
 fi
 
+# Everything the built core depends on. A change in any line makes it outdated.
+fingerprint() {
+  local source_commit recipe_hash script_hash
+  source_commit="$(git -C "$REPO_ROOT/$CORE_SOURCE" rev-parse HEAD)"
+  recipe_hash="$(shasum -a 256 "$recipe" | cut -d ' ' -f 1)"
+  script_hash="$(shasum -a 256 "$REPO_ROOT/Scripts/build-core.sh" | cut -d ' ' -f 1)"
+  printf 'source %s %s\nrecipe %s %s\nbuild-core %s\nbuild-type %s\n' \
+    "$CORE_SOURCE" "$source_commit" "$core" "$recipe_hash" "$script_hash" "$build_type"
+}
+
+if [[ "$print_fingerprint" == 1 ]]; then
+  fingerprint
+  exit 0
+fi
+
 # Common CMake flags for a cross build to one SDK. Package lookups stay inside
 # the SDK so that Homebrew's macOS libraries never end up in an iOS binary.
 # Only the libretro API is exported, so cores never clash with each other.
 set_ios_cmake_args() {
   local sdk="$1" sdk_path
   sdk_path="$(xcrun --sdk "$sdk" --show-sdk-path)"
+  # shellcheck disable=SC2034 # used by the recipes
   IOS_CMAKE_ARGS=(
     -G Ninja
     -DCMAKE_SYSTEM_NAME=iOS
@@ -177,8 +200,10 @@ for sdk in "${SDKS[@]}"; do
 done
 
 mkdir -p "$OUTPUT_DIR"
+rm -f "$OUTPUT_DIR/$CORE_NAME.stamp"
 rm -rf "$OUTPUT_DIR/$CORE_NAME.xcframework"
 xcodebuild -create-xcframework "${frameworks[@]}" -output "$OUTPUT_DIR/$CORE_NAME.xcframework" > /dev/null
+fingerprint > "$OUTPUT_DIR/$CORE_NAME.stamp"
 echo "==> Wrote Cores/Build/$CORE_NAME.xcframework"
 for sdk in "${SDKS[@]}"; do
   xcrun vtool -show-build "$work_root/$sdk/framework/$CORE_NAME.framework/$CORE_NAME" |
