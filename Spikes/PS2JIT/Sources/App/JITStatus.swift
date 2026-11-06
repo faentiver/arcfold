@@ -52,71 +52,92 @@ struct JITProbe: Identifiable, Sendable {
     let detail: String
 }
 
+/// Labels of the probes, also the keys in probes.json.
+enum ProbeLabel {
+    static let debugger = "Debugger"
+    static let stikDebug = "StikDebug öffnen"
+    static let localDualMapping = "Lokales Dual-Mapping"
+    static let localNewPage = "Lokales Dual-Mapping, zweite Seite"
+    static let localRewrite = "Lokales Dual-Mapping, erste Seite neu beschrieben"
+    static let debuggerRegion = "universal.js, Region vom Debugger"
+    static let selfMapped = "universal.js, eigene r-x-Region"
+    static let protectFlip = "Play!s Weg (vm_protect auf r-x)"
+    static let detach = "Detach (x16 = 0)"
+    static let afterDetachNewPage = "Nach Detach: Region vom Debugger, unbenutzte Seite"
+    static let afterDetachRewrite = "Nach Detach: Region vom Debugger, erste Seite neu beschrieben"
+}
+
 enum JITProbes {
-    static let probeSize = 16 * 1024
+    /// universal.js prepares memory in 16 KiB pages (StikDebug JSDebugSupport.swift).
+    static let pageSize = 16 * 1024
 
     /// Simulator: the Mac kernel lets the process map r-x and alias it rw-
     /// without a debugger. This says nothing about a device (plan, section 10).
-    static func localDualMapping() -> JITProbe {
-        let label = "Lokales Dual-Mapping"
+    /// Two pages, so the second one can be probed later like after a detach.
+    static func localDualMapping(label: String) -> (probe: JITProbe, region: ArcJITRegion?) {
         var region = ArcJITRegion()
         let (created, message) = callWithMessage { buffer, count in
-            ArcJITCreateLocalRegion(probeSize, &region, buffer, count)
+            ArcJITCreateLocalRegion(2 * pageSize, &region, buffer, count)
         }
         guard created else {
-            return JITProbe(label: label, passed: false, detail: message)
+            return (JITProbe(label: label, passed: false, detail: message), nil)
         }
-        return probe(region, label: label, setup: message)
+        return (probe(region, page: 0, value: 42, label: label, setup: message), region)
     }
 
     /// Device: asks universal.js for a region, either allocated by the
     /// debugger (x0 = NULL) or mapped by the app.
-    static func debuggerRegion(_ source: ArcJITRegionSource) -> JITProbe {
-        let label = source == ArcJITRegionSourceDebugger
-            ? "universal.js, Region vom Debugger"
-            : "universal.js, eigene r-x-Region"
+    static func debuggerRegion(
+        _ source: ArcJITRegionSource, pages: Int, label: String
+    ) -> (probe: JITProbe, region: ArcJITRegion?) {
         var region = ArcJITRegion()
         let (prepared, message) = callWithMessage { buffer, count in
-            ArcJITPrepareRegion(source, probeSize, &region, buffer, count)
+            ArcJITPrepareRegion(source, pages * pageSize, &region, buffer, count)
         }
         guard prepared else {
-            return JITProbe(label: label, passed: false, detail: message)
+            return (JITProbe(label: label, passed: false, detail: message), nil)
         }
-        return probe(region, label: label, setup: message)
+        return (probe(region, page: 0, value: 42, label: label, setup: message), region)
+    }
+
+    /// Writes new code into a region probed before and runs it: on an unused
+    /// page or over the code of the first probe.
+    static func reprobe(_ region: ArcJITRegion, page: Int, value: UInt16, label: String, note: String) -> JITProbe {
+        probe(region, page: page, value: value, label: label, setup: note)
     }
 
     /// Play! 0.77's own path: write, then vm_protect to r-x.
-    static func protectFlip() -> JITProbe {
-        let label = "Play!s Weg (vm_protect auf r-x)"
+    static func protectFlip(label: String) -> JITProbe {
         var protection: Int32 = 0
         var outcome = ArcJITProbeNotExecutable
         let (_, message) = callWithMessage { buffer, count in
             outcome = ArcJITProbeProtectFlip(&protection, buffer, count)
             return true
         }
-        return result(outcome, label: label, detail: "\(message); Schutz \(protectionString(protection))")
+        return result(outcome, label: label, value: 42, detail: "\(message); Schutz \(protectionString(protection))")
     }
 
-    static func detach() -> JITProbe {
+    static func detach(label: String) -> JITProbe {
         let (detached, message) = callWithMessage { buffer, count in
             ArcJITDetach(buffer, count)
         }
-        return JITProbe(label: "Detach (x16 = 0)", passed: detached, detail: message)
+        return JITProbe(label: label, passed: detached, detail: message)
     }
 
-    private static func probe(_ region: ArcJITRegion, label: String, setup: String) -> JITProbe {
+    private static func probe(_ region: ArcJITRegion, page: Int, value: UInt16, label: String, setup: String) -> JITProbe {
         var region = region
         var protection: Int32 = 0
-        let outcome = ArcJITProbeRegion(&region, &protection)
-        return result(outcome, label: label, detail: "\(setup); Schutz \(protectionString(protection))")
+        let outcome = ArcJITProbeRegionAt(&region, page * pageSize, value, &protection)
+        return result(outcome, label: label, value: value,
+                      detail: "\(setup); Seite \(page + 1), Schutz \(protectionString(protection))")
     }
 
-    private static func result(_ outcome: ArcJITProbeOutcome, label: String, detail: String) -> JITProbe {
+    private static func result(_ outcome: ArcJITProbeOutcome, label: String, value: UInt16, detail: String) -> JITProbe {
         switch outcome {
         case ArcJITProbePassed:
-            return JITProbe(label: label, passed: true, detail: "\(detail); Testfunktion lieferte 42")
+            return JITProbe(label: label, passed: true, detail: "\(detail); Testfunktion lieferte \(value)")
         case ArcJITProbeWrongResult:
-            return JITProbe(label: label, passed: false, detail: "\(detail); falsches Ergebnis")
+            return JITProbe(label: label, passed: false, detail: "\(detail); falsches Ergebnis statt \(value)")
         default:
             return JITProbe(label: label, passed: false, detail: "\(detail); Seite nicht ausführbar")
         }

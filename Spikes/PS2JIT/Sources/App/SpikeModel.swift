@@ -1,5 +1,6 @@
 import Foundation
 import Observation
+import OSLog
 import UIKit
 
 /// Drives the spike: reads core and JIT state, prepares JIT on a device,
@@ -10,6 +11,7 @@ final class SpikeModel {
     enum RunState: Equatable {
         case idle
         case waitingForDebugger
+        case probing
         case running
         case finished
     }
@@ -26,20 +28,29 @@ final class SpikeModel {
     /// Play!'s own vm_protect path worked (enough for an unpatched core).
     private(set) var protectJITReady = false
 
+    /// Where this launch keeps probes.json, report.json, frame.png and ps2_stdout.txt.
+    let results: ResultStore
+
+    /// The region universal.js prepared for the first device probe. It stays
+    /// mapped, so its pages can be probed again after a detach.
+    @ObservationIgnored private var debuggerRegion: ArcJITRegion?
+
     /// Lets the test start the core although no suitable JIT path passed,
     /// to watch what happens without one.
     var forceJITCapable = false
 
     private let defaults = UserDefaults.standard
+    private static let log = Logger(subsystem: "com.faentiver.arcfold.spike.jit", category: "spike")
 
     init() {
+        results = ResultStore(requestedName: UserDefaults.standard.string(forKey: "resultsName"))
         do {
             coreInfo = try PS2SpikeHost.loadCoreInfo()
         } catch {
             coreError = error.localizedDescription
         }
         if status.isSimulator {
-            probes = [JITProbes.localDualMapping(), JITProbes.protectFlip()]
+            runSimulatorProbes()
         }
     }
 
@@ -74,7 +85,7 @@ final class SpikeModel {
 
     /// Launch arguments: `-autorun YES` boots a test right away, `-program
     /// gs_sprites` picks the drawing test instead of alu, `-maxFrames N`
-    /// overrides the frame count.
+    /// overrides the frame count, `-resultsName NAME` names the results folder.
     func autorunIfRequested() async {
         guard defaults.bool(forKey: "autorun"), runState == .idle else { return }
         let program = TestProgram(rawValue: defaults.string(forKey: "program") ?? "") ?? .alu
@@ -98,58 +109,120 @@ final class SpikeModel {
         guard let url = components.url else { return }
         let opened = await UIApplication.shared.open(url)
         guard opened else {
-            probes.append(JITProbe(label: "StikDebug öffnen", passed: false,
-                                   detail: "stikdebug:// ließ sich nicht öffnen. Ist StikDebug installiert?"))
+            record(ProbeLabel.stikDebug) {
+                JITProbe(label: $0, passed: false, detail: "stikdebug:// ließ sich nicht öffnen. Ist StikDebug installiert?")
+            }
             return
         }
         await waitForDebuggerAndPrepare()
     }
 
-    /// Waits up to two minutes for a debugger, then probes every JIT path.
-    /// Where TXM is assumed it runs the breakpoint protocol and leaves the
-    /// script attached: the PR #34 core asks for its arena only when it
-    /// compiles the first block, and a later request after a detach would
-    /// trap without a handler.
+    /// Waits up to two minutes for a debugger, then probes every JIT path,
+    /// one after the other and each saved right away. Where TXM is assumed it
+    /// runs the breakpoint protocol and leaves the script attached: the PR #34
+    /// core asks for its arena only when it compiles the first block, and a
+    /// later request after a detach would trap without a handler.
     func waitForDebuggerAndPrepare() async {
         runState = .waitingForDebugger
-        defer { if runState == .waitingForDebugger { runState = .idle } }
+        defer { runState = .idle }
         for _ in 0..<240 {
             refreshStatus()
             if status.debugged && (status.traced || !status.assumesTXM) { break }
             try? await Task.sleep(for: .milliseconds(500))
         }
         guard status.debugged else {
-            probes.append(JITProbe(label: "Debugger", passed: false,
-                                   detail: "CS_DEBUGGED kam nicht innerhalb von 120 s"))
+            record(ProbeLabel.debugger) { JITProbe(label: $0, passed: false, detail: "CS_DEBUGGED kam nicht innerhalb von 120 s") }
             return
         }
+        runState = .probing
         if status.assumesTXM {
             guard status.traced else {
-                probes.append(JITProbe(label: "Debugger", passed: false,
-                                       detail: "CS_DEBUGGED gesetzt, aber kein Debugger mehr verbunden. Ohne Skript gibt es unter TXM kein JIT."))
+                record(ProbeLabel.debugger) {
+                    JITProbe(label: $0, passed: false,
+                             detail: "CS_DEBUGGED gesetzt, aber kein Debugger mehr verbunden. Ohne Skript gibt es unter TXM kein JIT.")
+                }
                 return
             }
-            let debuggerRegion = JITProbes.debuggerRegion(ArcJITRegionSourceDebugger)
-            let selfMapped = JITProbes.debuggerRegion(ArcJITRegionSourceSelfMapped)
-            let protectFlip = JITProbes.protectFlip()
-            probes.append(contentsOf: [debuggerRegion, selfMapped, protectFlip])
-            arenaJITReady = debuggerRegion.passed
-            protectJITReady = protectFlip.passed
+            // The central question first: does a region from universal.js run code?
+            var prepared: ArcJITRegion?
+            let central = record(ProbeLabel.debuggerRegion) { label in
+                let outcome = JITProbes.debuggerRegion(ArcJITRegionSourceDebugger, pages: 2, label: label)
+                prepared = outcome.region
+                return outcome.probe
+            }
+            debuggerRegion = prepared
+            arenaJITReady = central.passed
+            await pauseForDisplay()
+            record(ProbeLabel.selfMapped) { JITProbes.debuggerRegion(ArcJITRegionSourceSelfMapped, pages: 1, label: $0).probe }
+            await pauseForDisplay()
+            protectJITReady = record(ProbeLabel.protectFlip) { JITProbes.protectFlip(label: $0) }.passed
         } else {
-            let protectFlip = JITProbes.protectFlip()
-            let local = JITProbes.localDualMapping()
-            probes.append(contentsOf: [protectFlip, local])
-            protectJITReady = protectFlip.passed
-            arenaJITReady = local.passed
+            protectJITReady = record(ProbeLabel.protectFlip) { JITProbes.protectFlip(label: $0) }.passed
+            await pauseForDisplay()
+            arenaJITReady = record(ProbeLabel.localDualMapping) { JITProbes.localDualMapping(label: $0).probe }.passed
         }
         refreshStatus()
     }
 
-    /// Ends the universal.js session (x16 = 0). Afterwards no new executable
-    /// region can be prepared in this process.
-    func detachDebugger() {
-        probes.append(JITProbes.detach())
+    /// Ends the universal.js session (x16 = 0), then writes new code into the
+    /// region of the first probe and runs it: on its unused second page and
+    /// over the first page. That answers whether prepared pages stay usable
+    /// without the debugger. StikJIT's INTEGRATION.md detaches before JIT is
+    /// ready; Play--CodeGen PR #34 never detaches because, it says, execution
+    /// depends on the debugger staying attached.
+    func detachDebugger() async {
+        runState = .probing
+        defer { runState = .idle }
+        let detach = record(ProbeLabel.detach) { JITProbes.detach(label: $0) }
+        guard detach.passed else {
+            refreshStatus()
+            return
+        }
+        // P_TRACED clears once debugserver has let go of the process.
+        for _ in 0..<20 {
+            refreshStatus()
+            if !status.traced { break }
+            try? await Task.sleep(for: .milliseconds(250))
+        }
+        guard let region = debuggerRegion else { return }
+        let note = status.traced ? "P_TRACED noch gesetzt" : "Debugger getrennt, P_TRACED aus"
+        record(ProbeLabel.afterDetachNewPage) { JITProbes.reprobe(region, page: 1, value: 43, label: $0, note: note) }
+        await pauseForDisplay()
+        record(ProbeLabel.afterDetachRewrite) { JITProbes.reprobe(region, page: 0, value: 44, label: $0, note: note) }
         refreshStatus()
+    }
+
+    /// Simulator: the Mac's rules apply, so these probes only check the probe
+    /// code itself, including the reprobe that a device runs after a detach.
+    private func runSimulatorProbes() {
+        var local: ArcJITRegion?
+        let first = record(ProbeLabel.localDualMapping) { label in
+            let outcome = JITProbes.localDualMapping(label: label)
+            local = outcome.region
+            return outcome.probe
+        }
+        if first.passed, let local {
+            record(ProbeLabel.localNewPage) { JITProbes.reprobe(local, page: 1, value: 43, label: $0, note: "ohne Debugger") }
+            record(ProbeLabel.localRewrite) { JITProbes.reprobe(local, page: 0, value: 44, label: $0, note: "ohne Debugger") }
+        }
+        record(ProbeLabel.protectFlip) { JITProbes.protectFlip(label: $0) }
+    }
+
+    /// Runs one probe and saves it at once. A pending entry goes to
+    /// probes.json first, so the file still names the probe if it kills the app.
+    @discardableResult
+    private func record(_ label: String, _ run: (String) -> JITProbe) -> JITProbe {
+        results.saveProbes(probes, pending: label)
+        let probe = run(label)
+        probes.append(probe)
+        results.saveProbes(probes, pending: nil)
+        Self.log.notice("probe \(probe.passed ? "OK" : "FEHLER", privacy: .public) \(probe.label, privacy: .public): \(probe.detail, privacy: .public)")
+        return probe
+    }
+
+    /// Lets SwiftUI show a probe before the next one starts.
+    private func pauseForDisplay() async {
+        try? await Task.sleep(for: .milliseconds(300))
     }
 
     private(set) var program: TestProgram?
@@ -157,7 +230,7 @@ final class SpikeModel {
     /// Boots one test program. libretro allows a single run per process, so
     /// the next test needs a relaunch.
     func boot(_ program: TestProgram) async {
-        guard runState != .running, report == nil else { return }
+        guard runState == .idle, report == nil else { return }
         guard let elf = Bundle.main.url(forResource: program.rawValue, withExtension: "elf") else {
             coreError = "\(program.rawValue).elf fehlt im App-Bundle"
             return
@@ -183,22 +256,19 @@ final class SpikeModel {
     }
 
     private func saveResults(_ report: PS2RunReport) {
-        let directory = URL.documentsDirectory.appending(path: "SpikeResults", directoryHint: .isDirectory)
-        try? FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         let result = SpikeResult(model: self, report: report)
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+        encoder.dateEncodingStrategy = .iso8601
         if let data = try? encoder.encode(result) {
-            try? data.write(to: directory.appending(path: "report.json"))
+            results.save(data, as: "report.json")
         }
-        if let compact = try? JSONEncoder().encode(result), let line = String(data: compact, encoding: .utf8) {
-            print("ARCFOLD-SPIKE-RESULT \(line)")
-        }
+        // A run without a frame leaves no frame.png; the folder is new for every launch.
         if let png = report.lastFramePNG {
-            try? png.write(to: directory.appending(path: "frame.png"))
+            results.save(png, as: "frame.png")
         }
-        try? report.programOutput.write(to: directory.appending(path: "ps2_stdout.txt"),
-                                        atomically: true, encoding: .utf8)
+        results.save(Data(report.programOutput.utf8), as: "ps2_stdout.txt")
+        Self.log.notice("run finished, results in SpikeResults/\(self.results.name, privacy: .public)")
     }
 }
 
@@ -212,8 +282,8 @@ struct OutputCheck: Sendable {
     init(output: String) {
         let expected = Bundle.main.url(forResource: "alu", withExtension: "expected")
             .flatMap { try? String(contentsOf: $0, encoding: .utf8) } ?? ""
-        let expectedLines = expected.split(separator: "\n", omittingEmptySubsequences: false)
-        let actualLines = output.split(separator: "\n", omittingEmptySubsequences: false)
+        let expectedLines = Self.lines(of: expected)
+        let actualLines = Self.lines(of: output)
         self.expectedLines = expectedLines.count
         self.actualLines = actualLines.count
         matches = !expected.isEmpty && expected == output
@@ -224,6 +294,15 @@ struct OutputCheck: Sendable {
         } else {
             firstDifference = "Längen unterschiedlich: \(expectedLines.count) erwartet, \(actualLines.count) erhalten"
         }
+    }
+
+    /// Lines as `wc -l` counts them: a final line break ends the last line.
+    private static func lines(of text: String) -> [Substring] {
+        var lines = text.split(separator: "\n", omittingEmptySubsequences: false)
+        if text.isEmpty || text.hasSuffix("\n") {
+            lines.removeLast()
+        }
+        return lines
     }
 }
 
@@ -250,6 +329,7 @@ extension ProcessInfo.ThermalState {
 /// What the run script collects, also written to Documents/SpikeResults/report.json.
 struct SpikeResult: Codable {
     let date: Date
+    let results: String
     let program: String
     let device: String
     let osVersion: String
@@ -286,6 +366,7 @@ struct SpikeResult: Codable {
     init(model: SpikeModel, report: PS2RunReport) {
         let check = model.outputCheck
         date = Date()
+        results = "SpikeResults/\(model.results.name)"
         program = model.program?.rawValue ?? ""
         device = model.status.hardwareIdentifier
         osVersion = model.status.osVersion

@@ -204,15 +204,16 @@ bool ArcJITCreateLocalRegion(size_t size, ArcJITRegion *region, char *message, s
     return true;
 }
 
-static const uint32_t ArcJITProbeCode[] = {
-    0x52800540, // mov w0, #42
-    0xd65f03c0, // ret
-};
+// `mov w0, #value; ret`
+static void ArcJITProbeCode(uint16_t value, uint32_t code[2]) {
+    code[0] = 0x52800000u | ((uint32_t)value << 5); // movz w0, #value
+    code[1] = 0xd65f03c0u;                          // ret
+}
 
 // Calls the probe code only when the kernel reports its page as executable,
 // so a missing execute right shows up as a result instead of a crash.
-static ArcJITProbeOutcome ArcJITCallIfExecutable(void *code, int *protection) {
-    sys_icache_invalidate(code, sizeof(ArcJITProbeCode));
+static ArcJITProbeOutcome ArcJITCallIfExecutable(void *code, size_t length, uint16_t expected, int *protection) {
+    sys_icache_invalidate(code, length);
     vm_address_t address = (vm_address_t)code;
     vm_size_t size = 0;
     vm_region_basic_info_data_64_t info;
@@ -225,12 +226,19 @@ static ArcJITProbeOutcome ArcJITCallIfExecutable(void *code, int *protection) {
         return ArcJITProbeNotExecutable;
     }
     int (*function)(void) = (int (*)(void))code;
-    return function() == 42 ? ArcJITProbePassed : ArcJITProbeWrongResult;
+    return function() == expected ? ArcJITProbePassed : ArcJITProbeWrongResult;
 }
 
-ArcJITProbeOutcome ArcJITProbeRegion(const ArcJITRegion *region, int *protection) {
-    memcpy(region->writable, ArcJITProbeCode, sizeof(ArcJITProbeCode));
-    return ArcJITCallIfExecutable(region->executable, protection);
+ArcJITProbeOutcome ArcJITProbeRegionAt(const ArcJITRegion *region, size_t offset, uint16_t value,
+                                       int *protection) {
+    uint32_t code[2];
+    ArcJITProbeCode(value, code);
+    *protection = -1;
+    if (offset > region->size || region->size - offset < sizeof(code)) {
+        return ArcJITProbeNotExecutable;
+    }
+    memcpy((uint8_t *)region->writable + offset, code, sizeof(code));
+    return ArcJITCallIfExecutable((uint8_t *)region->executable + offset, sizeof(code), value, protection);
 }
 
 ArcJITProbeOutcome ArcJITProbeProtectFlip(int *protection, char *message, size_t messageSize) {
@@ -242,11 +250,13 @@ ArcJITProbeOutcome ArcJITProbeProtectFlip(int *protection, char *message, size_t
         snprintf(message, messageSize, "vm_allocate failed: %d (%s)", result, mach_error_string(result));
         return ArcJITProbeNotExecutable;
     }
-    memcpy((void *)address, ArcJITProbeCode, sizeof(ArcJITProbeCode));
+    uint32_t code[2];
+    ArcJITProbeCode(42, code);
+    memcpy((void *)address, code, sizeof(code));
     result = vm_protect(mach_task_self(), address, size, FALSE, VM_PROT_READ | VM_PROT_EXECUTE);
     snprintf(message, messageSize, "vm_protect(r-x) returned %d (%s)", result, mach_error_string(result));
     if (result != KERN_SUCCESS) {
         return ArcJITProbeNotExecutable;
     }
-    return ArcJITCallIfExecutable((void *)address, protection);
+    return ArcJITCallIfExecutable((void *)address, sizeof(code), 42, protection);
 }

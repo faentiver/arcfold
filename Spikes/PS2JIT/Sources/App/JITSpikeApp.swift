@@ -86,21 +86,25 @@ struct SpikeView: View {
             if model.runState == .waitingForDebugger {
                 ProgressView("Warte auf den Debugger …")
             }
-            Button("Detach an universal.js senden") {
-                model.detachDebugger()
+            if model.runState == .probing {
+                ProgressView("Prüfe JIT …")
+            }
+            Button("Detach senden, dann Region erneut prüfen") {
+                Task { await model.detachDebugger() }
             }
             .disabled(!model.status.traced || model.runState != .idle)
             Toggle("Kern trotzdem starten (Absturz erwartet)", isOn: $model.forceJITCapable)
         } header: {
             Text("Gerätetest")
         } footer: {
-            Text("Ohne passenden JIT-Weg meldet der Kern „Cannot run without JIT“ und startet nicht. Der Schalter gibt ihm trotzdem JIT frei, um das Verhalten ohne ausführbaren Speicher zu beobachten. Detach erst nach dem Lauf senden: Die Kern-Variante mit PR #34 fordert ihre Arena beim ersten kompilierten Block an.")
+            Text("Nach dem Detach schreibt die App neuen Code in die Region vom Debugger und führt ihn aus, auf einer unbenutzten und auf der schon benutzten Seite. Das zeigt, ob StikDebug für eine ganze Spielsitzung verbunden bleiben muss. Mit der Kern-Variante PR #34 Detach erst nach dem Lauf senden, sie fordert ihre Arena beim ersten kompilierten Block an. Ohne passenden JIT-Weg meldet der Kern „Cannot run without JIT“; der Schalter gibt ihm trotzdem JIT frei, um das Verhalten ohne ausführbaren Speicher zu beobachten.")
         }
     }
 
     private var runSection: some View {
         Section {
             LabeledContent("JIT an den Kern gemeldet", value: model.jitCapableForCore ? "ja" : "nein")
+            LabeledContent("Ergebnisordner", value: "SpikeResults/\(model.results.name)")
             Button("alu.elf starten (CPU-Test)") {
                 Task { await model.boot(.alu) }
             }
@@ -120,12 +124,12 @@ struct SpikeView: View {
         } header: {
             Text("Lauf")
         } footer: {
-            Text("Pro App-Start ist ein Lauf möglich. Für den zweiten Test die App neu starten.")
+            Text("Pro App-Start ist ein Lauf möglich. Für den zweiten Test die App neu starten. Jeder Start schreibt in einen eigenen Ergebnisordner, die Proben sofort, den Lauf an seinem Ende.")
         }
     }
 
     private var canStart: Bool {
-        model.runState != .running && model.report == nil && model.coreInfo != nil
+        model.runState == .idle && model.report == nil && model.coreInfo != nil
     }
 }
 

@@ -65,10 +65,13 @@ typedef enum {
     ArcJITProbePassed = 2,
 } ArcJITProbeOutcome;
 
-/// Writes `mov w0, #42; ret` through the writable alias and calls the
-/// executable view, but only if the kernel reports the page as executable.
+/// Writes `mov w0, #value; ret` at `offset` through the writable alias and
+/// calls it through the executable view, but only if the kernel reports the
+/// page as executable. Passes when the call returns `value`, so a second probe
+/// with a new value shows that freshly written code runs, not a stale copy.
 /// `protection` receives the VM protection of the executable view.
-ArcJITProbeOutcome ArcJITProbeRegion(const ArcJITRegion *region, int *protection);
+ArcJITProbeOutcome ArcJITProbeRegionAt(const ArcJITRegion *region, size_t offset, uint16_t value,
+                                       int *protection);
 
 /// Play! 0.77's own way (CodeGen MemoryFunction.cpp on iOS): vm_allocate,
 /// write the code, vm_protect to read-execute, then call it if the kernel
