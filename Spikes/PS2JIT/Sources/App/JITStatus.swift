@@ -52,7 +52,7 @@ struct JITProbe: Identifiable, Sendable {
     let detail: String
 }
 
-/// Labels of the probes, also the keys in probes.json.
+/// Labels of the probes, as the app and probes.json show them.
 enum ProbeLabel {
     static let debugger = "Debugger"
     static let stikDebug = "StikDebug öffnen"
