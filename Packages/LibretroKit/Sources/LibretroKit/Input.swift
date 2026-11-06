@@ -1,3 +1,5 @@
+import Synchronization
+
 /// Buttons of the libretro RetroPad. Bit n is `RETRO_DEVICE_ID_JOYPAD_*` = n,
 /// so the raw value is the mask a core reads with `RETRO_DEVICE_ID_JOYPAD_MASK`.
 ///
@@ -45,19 +47,44 @@ public final class InputState: Sendable {
         case keyboard
     }
 
-    public init() {
-        fatalError("M1 track K")
-    }
+    private let touch = Atomic<UInt32>(0)
+    private let controller = Atomic<UInt32>(0)
+    private let keyboard = Atomic<UInt32>(0)
+    /// Buttons pressed since the last poll, kept even if released again.
+    private let latch = Atomic<UInt32>(0)
+
+    public init() {}
 
     /// Replaces the buttons held through `source`. Callable from any thread,
     /// but only from one writer per source.
     public func set(_ buttons: JoypadButtons, from source: Source) {
-        fatalError("M1 track K")
+        let previous = switch source {
+        case .touch: touch.exchange(buttons.rawValue, ordering: .relaxed)
+        case .controller: controller.exchange(buttons.rawValue, ordering: .relaxed)
+        case .keyboard: keyboard.exchange(buttons.rawValue, ordering: .relaxed)
+        }
+        let pressed = buttons.rawValue & ~previous
+        if pressed != 0 {
+            latch.bitwiseOr(pressed, ordering: .relaxed)
+        }
     }
 
     /// The union of all sources right now, without the latch. For the debug
     /// overlay and tests; the core reads its own snapshot once per frame.
     public var heldButtons: JoypadButtons {
-        fatalError("M1 track K")
+        JoypadButtons(rawValue: held)
+    }
+
+    /// The snapshot for one frame (`retro_input_poll`): every button held now,
+    /// plus every button pressed since the previous poll. Clears the latch.
+    /// Emulation thread only; no locks, no allocation.
+    func poll() -> UInt32 {
+        held | latch.exchange(0, ordering: .relaxed)
+    }
+
+    private var held: UInt32 {
+        touch.load(ordering: .relaxed)
+            | controller.load(ordering: .relaxed)
+            | keyboard.load(ordering: .relaxed)
     }
 }
