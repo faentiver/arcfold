@@ -4,3 +4,6 @@
 [submodule "Cores/ppsspp"]
 	path = Cores/ppsspp
 	url = https://github.com/hrydgard/ppsspp.git
+[submodule "Cores/play"]
+	path = Cores/play
+	url = https://github.com/jpd002/Play-.git
