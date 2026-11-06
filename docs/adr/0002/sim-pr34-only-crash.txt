@@ -1,0 +1,22 @@
+Crash report excerpt: Play! 0.77 with Play--CodeGen PR #34 (head 23b29221, patches/codegen-pr34-23b29221.patch)
+WITHOUT the BasicBlock companion patch, iOS Simulator 27.2 (iPhone 18 Pro), test program alu.elf,
+2026-11-06 20:17:26, built with Spikes/PS2JIT/try-codegen-pr34.sh --without-companion.
+
+app: JITSpike com.faentiver.arcfold.spike.jit
+os: macOS 27.2 (26B123)
+exception: EXC_BAD_ACCESS SIGBUS (KERN_PROTECTION_FAILURE at 0x000000010e80024c)
+faulting thread 8, frames:
+  CBasicBlock::LinkBlock(LINK_SLOT, CBasicBlock*) + 64 (play_libretro)
+  CGenericMipsExecutor<BlockLookupTwoWay, 4u>::SetupBlockLinks(unsigned int, unsigned int, unsigned int) + 756 (play_libretro)
+  std::__1::__function::__func<CGenericMipsExecutor<BlockLookupTwoWay, 4u>::CGenericMipsExecutor(CMIPS&, unsigned int, BLOCK_CATEGORY)::'lambda'(CMIPS*), void (CMIPS*)>::operator()(CMIPS*&&) + 52 (play_libretro)
+  EmptyBlockHandler + 40 (play_libretro)
+  CGenericMipsExecutor<BlockLookupTwoWay, 4u>::Execute(int) + 108 (play_libretro)
+  Ee::CSubSystem::ExecuteCpu(int) + 368 (play_libretro)
+  CPS2VM::UpdateEe() + 184 (play_libretro)
+  CPS2VM::EmuThread() + 544 (play_libretro)
+
+0x10e80024c is in 0x10e800000-0x112800000;  bytes after start: 588  bytes before end: 67108275
+      REGION TYPE                    START - END         [ VSIZE] PRT/MAX SHRMOD  REGION DETAIL
+      Malloc Large                10c800000-10e800000    [ 32.0M] rw-/rwx SM=PRV
+--->  shared memory               10e800000-112800000    [ 64.0M] r-x/rwx SM=SHM
+      shared memory               112800000-116800000    [ 64.0M] rw-/rwx SM=SHM

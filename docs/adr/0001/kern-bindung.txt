@@ -1,0 +1,36 @@
+# Bindung des Kerns an System-Bibliotheken (Scripts/cores/ppsspp.sh, Stand nach -weak_framework OpenGLES und -dead_strip_dylibs)
+# Vorher (Rezept aus dem Commit „build(cores): add PPSSPP v1.20.4 as libretro core“): LC_LOAD_DYLIB für libobjc, libz, GLKit, OpenGLES, libc++, libSystem; 0 Importe aus GLKit und libobjc, 98 aus OpenGLES.
+
+$ otool -l <ios-arm64>/ppsspp_libretro | Load-Commands der Bibliotheken
+  LC_LOAD_DYLIB /usr/lib/libz.1.dylib
+  LC_LOAD_WEAK_DYLIB /System/Library/Frameworks/OpenGLES.framework/OpenGLES
+  LC_LOAD_DYLIB /usr/lib/libc++.1.dylib
+  LC_LOAD_DYLIB /usr/lib/libSystem.B.dylib
+$ xcrun dyld_info -imports <ios-arm64>/ppsspp_libretro, gezählt je Bibliothek
+  241 (from libSystem)
+  150 (from libc++)
+  98 (from OpenGLES)
+  18 (from libz)
+  7 (from <weak-def-coalesce>)
+  davon aus OpenGLES als [weak-import] markiert: 98
+$ xcrun vtool -show-build
+  platform IOS
+  minos 27.0
+  sdk 27.2
+
+$ otool -l <ios-arm64-simulator>/ppsspp_libretro | Load-Commands der Bibliotheken
+  LC_LOAD_DYLIB /usr/lib/libz.1.dylib
+  LC_LOAD_WEAK_DYLIB /System/Library/Frameworks/OpenGLES.framework/OpenGLES
+  LC_LOAD_DYLIB /usr/lib/libc++.1.dylib
+  LC_LOAD_DYLIB /usr/lib/libSystem.B.dylib
+$ xcrun dyld_info -imports <ios-arm64-simulator>/ppsspp_libretro, gezählt je Bibliothek
+  240 (from libSystem)
+  150 (from libc++)
+  98 (from OpenGLES)
+  18 (from libz)
+  7 (from <weak-def-coalesce>)
+  davon aus OpenGLES als [weak-import] markiert: 98
+$ xcrun vtool -show-build
+  platform IOSSIMULATOR
+  minos 27.0
+  sdk 27.2

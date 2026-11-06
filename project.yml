@@ -1,0 +1,152 @@
+# Xcode project for Arcfold, generated with XcodeGen (ADR 0004).
+# Run Scripts/bootstrap.sh, or `xcodegen generate` after changing this file.
+# The generated Arcfold.xcodeproj is not committed.
+
+name: Arcfold
+
+options:
+  minimumXcodeGenVersion: 2.45.4
+  xcodeVersion: "27.2"
+  deploymentTarget:
+    iOS: "27.0"
+  developmentLanguage: en
+  defaultConfig: Debug
+  createIntermediateGroups: true
+  # Refuses to generate the project while a core is missing or outdated.
+  # Xcode itself only reports "There is no XCFramework found at ...".
+  preGenCommand: Scripts/bootstrap.sh --check
+
+configs:
+  Debug: debug
+  Release: release
+  Debug-JIT: debug
+  Release-JIT: release
+
+settings:
+  base:
+    # Project defaults of the Xcode 27.2 app template that XcodeGen's presets lack
+    CLANG_CXX_LANGUAGE_STANDARD: gnu++20
+    GCC_C_LANGUAGE_STANDARD: gnu17
+    ENABLE_USER_SCRIPT_SANDBOXING: YES
+    LOCALIZATION_PREFERS_STRING_CATALOGS: YES
+    ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS: YES
+    SWIFT_VERSION: "6.0"
+    SWIFT_APPROACHABLE_CONCURRENCY: YES
+    SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY: YES
+    # The cores exist for arm64 only (Scripts/build-core.sh), so the app does too.
+    ARCHS: arm64
+
+packages:
+  LibretroKit:
+    path: Packages/LibretroKit
+  FoldLayout:
+    path: Packages/FoldLayout
+  Renderer:
+    path: Packages/Renderer
+
+targets:
+  Arcfold:
+    type: application
+    platform: iOS
+    sources:
+      - path: App
+    dependencies:
+      - package: LibretroKit
+      - package: FoldLayout
+      - package: Renderer
+      # Libretro cores (ADR 0003): copied into Arcfold.app/Frameworks and signed,
+      # never linked, because every core exports the same retro_* symbols.
+      # LibretroKit loads them with dlopen. A new core needs a recipe in
+      # Scripts/cores/ and an entry here; Scripts/bootstrap.sh builds every core
+      # listed here. Until CI reads this list too (planned for M3, together with
+      # the recipe hook for nested submodules), a new core also needs its
+      # submodule in the "Fetch core sources" step and in the cache key of
+      # .github/workflows/ci.yml. A core for the JIT build only (Play!) is also
+      # left out of Debug and Release with
+      # EXCLUDED_SOURCE_FILE_NAMES: <CORE_NAME>.framework.
+      - framework: Cores/Build/mgba_libretro.xcframework
+        embed: true
+        link: false
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.faentiver.arcfold
+        INFOPLIST_KEY_CFBundleDisplayName: Arcfold
+        TARGETED_DEVICE_FAMILY: "1"
+        MARKETING_VERSION: "0.1"
+        CURRENT_PROJECT_VERSION: "1"
+        GENERATE_INFOPLIST_FILE: YES
+        INFOPLIST_KEY_UILaunchScreen_Generation: YES
+        INFOPLIST_KEY_UIApplicationSceneManifest_Generation: YES
+        INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents: YES
+        INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone: >-
+          UIInterfaceOrientationPortrait
+          UIInterfaceOrientationLandscapeLeft
+          UIInterfaceOrientationLandscapeRight
+        SWIFT_DEFAULT_ACTOR_ISOLATION: MainActor
+        SWIFT_EMIT_LOC_STRINGS: YES
+        STRING_CATALOG_GENERATE_SYMBOLS: YES
+        ENABLE_PREVIEWS: YES
+        CODE_SIGN_STYLE: Automatic
+      configs:
+        # Sideloading build with JIT (StikDebug needs get-task-allow).
+        # Only here: the Store build must not contain a JIT code path.
+        Debug-JIT: &jit
+          PRODUCT_BUNDLE_IDENTIFIER: com.faentiver.arcfold.jit
+          INFOPLIST_KEY_CFBundleDisplayName: Arcfold JIT
+          CODE_SIGN_ENTITLEMENTS: App/Arcfold-JIT.entitlements
+          SWIFT_ACTIVE_COMPILATION_CONDITIONS: $(inherited) JIT_BUILD
+          GCC_PREPROCESSOR_DEFINITIONS: $(inherited) JIT_BUILD=1
+        Release-JIT: *jit
+
+  ArcfoldTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources:
+      - path: Tests/ArcfoldTests
+    dependencies:
+      - target: Arcfold
+      - package: LibretroKit
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.faentiver.arcfold.tests
+        TARGETED_DEVICE_FAMILY: "1"
+        GENERATE_INFOPLIST_FILE: YES
+        SWIFT_EMIT_LOC_STRINGS: NO
+        STRING_CATALOG_GENERATE_SYMBOLS: NO
+
+schemes:
+  Store:
+    build:
+      targets:
+        Arcfold: all
+    run:
+      config: Debug
+    test:
+      config: Debug
+      targets:
+        - ArcfoldTests
+        - package: LibretroKit/LibretroKitTests
+    profile:
+      config: Release
+    analyze:
+      config: Debug
+    archive:
+      config: Release
+
+  JIT:
+    build:
+      targets:
+        Arcfold: all
+    run:
+      config: Debug-JIT
+    test:
+      config: Debug-JIT
+      targets:
+        - ArcfoldTests
+        - package: LibretroKit/LibretroKitTests
+    profile:
+      config: Release-JIT
+    analyze:
+      config: Debug-JIT
+    archive:
+      config: Release-JIT

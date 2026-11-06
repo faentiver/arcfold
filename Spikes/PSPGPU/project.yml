@@ -1,0 +1,59 @@
+# Spike for ADR 0001 (PSP graphics). Generate with: xcodegen --spec project.yml
+# Needs Cores/Build/ppsspp_libretro.xcframework (Scripts/build-core.sh ppsspp)
+# and build/moltenvk (Spikes/PSPGPU/Scripts/fetch-moltenvk.sh).
+name: PSPGPUSpike
+options:
+  bundleIdPrefix: com.faentiver.arcfold.spike
+  deploymentTarget:
+    iOS: "27.0"
+  createIntermediateGroups: true
+settings:
+  base:
+    SWIFT_VERSION: "6.0"
+    SWIFT_STRICT_CONCURRENCY: complete
+    SWIFT_TREAT_WARNINGS_AS_ERRORS: YES
+    GCC_TREAT_WARNINGS_AS_ERRORS: YES
+    CLANG_ENABLE_OBJC_ARC: YES
+    ENABLE_USER_SCRIPT_SANDBOXING: YES
+targets:
+  PSPGPUSpike:
+    type: application
+    platform: iOS
+    sources:
+      - path: Sources
+      - path: ../../Tests/Fixtures/psp/gu-test.elf
+        buildPhase: resources
+    dependencies:
+      # Loaded with dlopen at run time, so embedded but not linked.
+      - framework: ../../Cores/Build/ppsspp_libretro.xcframework
+        embed: true
+        link: false
+        codeSign: true
+      - framework: ../../build/moltenvk/MoltenVK/MoltenVK/static/MoltenVK.xcframework
+        embed: false
+      - sdk: Metal.framework
+      - sdk: QuartzCore.framework
+      - sdk: IOSurface.framework
+      - sdk: CoreVideo.framework
+      - sdk: OpenGLES.framework
+      - sdk: libc++.tbd
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.faentiver.arcfold.spike.pspgpu
+        TARGETED_DEVICE_FAMILY: "1"
+        GENERATE_INFOPLIST_FILE: YES
+        INFOPLIST_KEY_CFBundleDisplayName: PSP GPU Spike
+        INFOPLIST_KEY_UILaunchScreen_Generation: YES
+        INFOPLIST_KEY_UIApplicationSceneManifest_Generation: YES
+        SWIFT_OBJC_BRIDGING_HEADER: Sources/Host/PSPGPUSpike-Bridging-Header.h
+        # Third-party headers: the core's own libretro.h and libretro_vulkan.h,
+        # MoltenVK's Vulkan headers. As system headers their warnings stay out.
+        SYSTEM_HEADER_SEARCH_PATHS:
+          - $(SRCROOT)/../../Cores/ppsspp/libretro/libretro-common/include
+          - $(SRCROOT)/../../build/moltenvk/MoltenVK/MoltenVK/include
+        # EAGL and CVOpenGLESTextureCache are deprecated; the spike uses them
+        # on purpose to test the OpenGL ES path.
+        GCC_PREPROCESSOR_DEFINITIONS:
+          - $(inherited)
+          - GLES_SILENCE_DEPRECATION=1
+        CODE_SIGN_STYLE: Automatic

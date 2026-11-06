@@ -1,0 +1,18 @@
+backend software, 600 frames, render scale 1, content ~/Documents/content/gu-test.elf
+dlopen /Frameworks/ppsspp_libretro.framework/ppsspp_libretro in 2.8 ms
+core options ppsspp_backend, ppsspp_cpu_core, ppsspp_inflight_frames, ppsspp_internal_resolution
+core PPSSPP v1.20.4, extensions elf|iso|cso|prx|pbp|chd, need_fullpath 1
+retro_load_game in 0.2 ms; hardware context requests: none
+av info 480x270 (max 480x272), 59.940 fps, 44100 Hz audio
+capture frame 60: software-frame-0060.png 480x270, drawn 33.2 %, sha256 6211846bc2423f8efbdb653241007897d2b7fa13dca55fcb81123e17f3eaea38
+capture frame 300: software-frame-0300.png 480x270, drawn 35.7 %, sha256 7353719758f4f57baa8eca430b422b93db3e63cdb9cf9ff5c86a8e8817256ff1
+capture frame 600: software-frame-0600.png 480x270, drawn 34.1 %, sha256 f6c5afcf86f034d081abc7df54f563ac15cf732d58179066f56b83204e59048f
+609 retro_run calls, first emulated frame at call 10; 600 emulated frames in 0.25 s (2354.5 frames/s)
+frame time of retro_run, frames 61-600: mean 0.38 ms, median 0.37 ms, p95 0.46 ms, max 0.80 ms (simulator on the Mac's chip, not meaningful for the device)
+threads after retro_deinit that were not there before dlopen: (unnamed) x8, Main x1
+video callbacks 609 (hardware 0, software 609, duplicate 0), last size 480x270
+audio frames 441408 (10.01 s)
+core log: 2 warnings, 57 errors (core.log)
+environment calls: GET_SYSTEM_DIRECTORY x1, SET_PIXEL_FORMAT x1, SET_INPUT_DESCRIPTORS x1, GET_VARIABLE x85, SET_VARIABLES x1, GET_VARIABLE_UPDATE x600, GET_LOG_INTERFACE x1, GET_SAVE_DIRECTORY x1, SET_CONTROLLER_INFO x1, GET_USERNAME x1, GET_LANGUAGE x1, GET_CORE_OPTIONS_VERSION x1, SET_CORE_OPTIONS_DISPLAY x3, GET_PREFERRED_HW_RENDER x1, SET_CORE_OPTIONS_UPDATE_DISPLAY_CALLBACK x1, GET_JIT_CAPABLE x5, GET_VFS_INTERFACE x1, GET_INPUT_BITMASKS x1
+system directory <app>/Frameworks/ppsspp_libretro.framework/system: 18 files before the run, 18 after, unchanged
+result OK

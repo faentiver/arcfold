@@ -22,7 +22,7 @@ Cores/Build/
 # Claude Code worktrees
 .claude/worktrees/
 
-# Games, BIOS files and firmware never go into the repo (hard rule, see CLAUDE.md)
+# Games, BIOS files, firmware and keys never go into the repo (hard rule, see CLAUDE.md)
 *.gba
 *.gb
 *.gbc
@@ -37,8 +37,12 @@ Cores/Build/
 *.pbp
 *.PBP
 *.cue
+# Freely licensed homebrew test ROMs are the only exception
+!Tests/Fixtures/**
+# BIOS files, firmware and keys stay ignored everywhere, Tests/Fixtures included,
+# so these patterns must come after the exception
 bios*.bin
 scph*.bin
 firmware*.bin
-# Freely licensed homebrew test ROMs are the only exception
-!Tests/Fixtures/**
+*.keys
+keys.txt

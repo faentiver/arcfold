@@ -18,6 +18,42 @@ Planned compatibility, in this order: Game Boy Advance (mGBA), Nintendo DS (melo
 - It ships no games, BIOS files, firmware or keys, and no links to them. Use your own legally made dumps.
 - It is not affiliated with or endorsed by Apple, Nintendo or Sony. All trademarks belong to their owners.
 
+## Building
+
+You need a Mac with Apple silicon, Xcode 27.1 or later and three tools from Homebrew:
+
+```sh
+brew install xcodegen cmake ninja
+```
+
+Then prepare the checkout and open the project:
+
+```sh
+Scripts/bootstrap.sh
+open Arcfold.xcodeproj
+```
+
+`Scripts/bootstrap.sh` fetches the submodules of the emulation cores, builds every core the app embeds as an XCFramework in `Cores/Build/` and generates `Arcfold.xcodeproj` from `project.yml`. The Xcode project is not checked in. Run the script again after every pull; it only rebuilds what changed.
+
+There are two schemes:
+
+- **Store** builds the App Store variant without any JIT code path.
+- **JIT** builds the sideloading variant (`Arcfold JIT`, its own bundle ID) for cores that need a JIT compiler.
+
+To run the tests from the command line on the iPhone Duo simulator:
+
+```sh
+xcodebuild test -project Arcfold.xcodeproj -scheme Store \
+  -destination 'platform=iOS Simulator,name=iPhone Duo,OS=27.1'
+```
+
+The iPhone Duo simulator needs the iOS 27.1 simulator runtime. The iOS 27.2 runtime does not support it, so on iOS 27.2 the tests run on the iPhone 18 Pro:
+
+```sh
+xcodebuild test -project Arcfold.xcodeproj -scheme Store \
+  -destination 'platform=iOS Simulator,name=iPhone 18 Pro,OS=27.2'
+```
+
 ## Project documents
 
 - [Project plan](docs/PLAN.md) (German)

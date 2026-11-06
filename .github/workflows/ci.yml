@@ -1,0 +1,153 @@
+# Builds Arcfold and runs the tests in the iOS Simulator.
+#
+# Costs: the repository is private for now, and GitHub bills every macOS
+# minute ten times against the free quota of private repositories. So the
+# workflow runs only for pull requests and on demand, there is a single job,
+# the built core is cached, and a new push cancels the run that is still going
+# for the same branch.
+
+name: CI
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  build-and-test:
+    name: Build and test
+    # The Xcode 27 image (public preview, arm64). macos-26 only has Xcode 26.
+    runs-on: xcode-27
+    timeout-minutes: 45
+    defaults:
+      run:
+        shell: bash
+    env:
+      # The fold APIs and the iPhone Duo simulator need Xcode 27.1 (docs/PLAN.md).
+      MINIMUM_XCODE: "27.1"
+      DERIVED_DATA: build/DerivedData
+      HOMEBREW_NO_AUTO_UPDATE: "1"
+      HOMEBREW_NO_INSTALL_CLEANUP: "1"
+
+    steps:
+      - name: Check out without submodules
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      # Uses the image's default Xcode if it is new enough, otherwise the newest
+      # installed one. Without Xcode 27.1 the job stays green and skips the rest;
+      # until then the Mac mini builds locally (docs/PLAN.md, section 9).
+      - name: Select Xcode
+        id: xcode
+        run: |
+          as_number() { awk -F. '{ printf "%d%03d%03d\n", $1, $2, $3 }' <<< "$1"; }
+          minimum="$(as_number "$MINIMUM_XCODE")"
+          selected="" selected_number=0
+          default_app="$(xcode-select -p | sed 's#/Contents/Developer$##')"
+          for app in "$default_app" /Applications/Xcode*.app; do
+            version="$(defaults read "$app/Contents/Info.plist" CFBundleShortVersionString 2> /dev/null)" || continue
+            number="$(as_number "$version")"
+            if [[ "$app" == "$default_app" && "$number" -ge "$minimum" ]]; then
+              selected="$app"
+              break
+            fi
+            if [[ "$number" -ge "$minimum" && "$number" -gt "$selected_number" ]]; then
+              selected="$app" selected_number="$number"
+            fi
+          done
+          if [[ -z "$selected" ]]; then
+            echo "::notice title=No Xcode $MINIMUM_XCODE::This runner has no Xcode $MINIMUM_XCODE or later. Build and tests are skipped."
+            echo "available=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          echo "DEVELOPER_DIR=$selected/Contents/Developer" >> "$GITHUB_ENV"
+          export DEVELOPER_DIR="$selected/Contents/Developer"
+          xcodebuild -version
+          echo "available=true" >> "$GITHUB_OUTPUT"
+          echo "build=$(xcodebuild -version | awk '/Build version/ { print $3 }')" >> "$GITHUB_OUTPUT"
+
+      # Only the submodules of the embedded cores, shallow. A new core adds its
+      # submodule here and its recipe to the cache key below.
+      - name: Fetch core sources
+        if: steps.xcode.outputs.available == 'true'
+        run: git submodule update --init --depth 1 -- Cores/mgba
+
+      - name: Install tools
+        if: steps.xcode.outputs.available == 'true'
+        run: |
+          for tool in xcodegen cmake ninja xcbeautify; do
+            command -v "$tool" > /dev/null || brew install "$tool"
+          done
+          echo "XcodeGen $(xcodegen --version | awk '{ print $2 }'), $(cmake --version | head -n 1), Ninja $(ninja --version)"
+
+      # The key covers what makes a core outdated for Scripts/bootstrap.sh:
+      # submodule commit, recipe and build-core.sh, plus the Xcode build.
+      - name: Compute core cache key
+        if: steps.xcode.outputs.available == 'true'
+        id: cores
+        run: |
+          echo "key=cores-${{ steps.xcode.outputs.build }}-$(git rev-parse HEAD:Cores/mgba)-${{ hashFiles('Scripts/build-core.sh', 'Scripts/cores/mgba.sh') }}" >> "$GITHUB_OUTPUT"
+
+      - name: Restore cores
+        if: steps.xcode.outputs.available == 'true'
+        id: restore-cores
+        uses: actions/cache/restore@v6
+        with:
+          path: Cores/Build
+          key: ${{ steps.cores.outputs.key }}
+
+      - name: Build missing cores and generate the project
+        if: steps.xcode.outputs.available == 'true'
+        run: Scripts/bootstrap.sh
+
+      # Saved right away, so a failing test does not throw the built core away.
+      - name: Save cores
+        if: steps.xcode.outputs.available == 'true' && steps.restore-cores.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v6
+        with:
+          path: Cores/Build
+          key: ${{ steps.cores.outputs.key }}
+
+      # The newest iPhone Duo, otherwise the newest iPhone, on iOS 27 or later
+      # (the deployment target).
+      - name: Pick a simulator
+        if: steps.xcode.outputs.available == 'true'
+        id: simulator
+        run: |
+          devices="$(xcrun simctl list devices available --json | jq '[.devices | to_entries[]
+            | (.key | capture("iOS-(?<major>[0-9]+)-(?<minor>[0-9]+)$")) as $os
+            | select(($os.major | tonumber) >= 27)
+            | .value[] | .os = [($os.major | tonumber), ($os.minor | tonumber)]]
+            | sort_by(.os)')"
+          udid="$(jq -r 'map(select(.deviceTypeIdentifier | endswith(".iPhone-Duo"))) | last | .udid // empty' <<< "$devices")"
+          if [[ -z "$udid" ]]; then
+            udid="$(jq -r 'map(select(.name | startswith("iPhone"))) | last | .udid // empty' <<< "$devices")"
+            echo "::notice title=No iPhone Duo simulator::Testing on another iPhone simulator instead."
+          fi
+          if [[ -z "$udid" ]]; then
+            echo "::error::No iPhone simulator found."
+            exit 1
+          fi
+          xcrun simctl list devices | grep "$udid"
+          echo "destination=id=$udid" >> "$GITHUB_OUTPUT"
+
+      - name: Test (Store)
+        if: steps.xcode.outputs.available == 'true'
+        run: |
+          xcodebuild test -project Arcfold.xcodeproj -scheme Store \
+            -destination "${{ steps.simulator.outputs.destination }}" \
+            -derivedDataPath "$DERIVED_DATA" | xcbeautify --renderer github-actions
+
+      - name: Build (JIT)
+        if: steps.xcode.outputs.available == 'true'
+        run: |
+          xcodebuild build -project Arcfold.xcodeproj -scheme JIT \
+            -destination "${{ steps.simulator.outputs.destination }}" \
+            -derivedDataPath "$DERIVED_DATA" | xcbeautify --renderer github-actions

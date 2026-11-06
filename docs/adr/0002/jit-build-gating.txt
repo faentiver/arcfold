@@ -1,0 +1,89 @@
+Experiment zu ADR 0002, 6. November 2026: JIT-Build als Konfiguration eines
+App-Targets (Stand m0/fundament) statt eines zweiten Targets, JIT-Prüfung im
+App-Target statt in LibretroKit.
+
+Aufbau
+- Kopie von m0/fundament auf dem Stand des Commits „docs: describe building
+  and testing, update status and plan“ (git archive) in einem Wegwerf-Ordner,
+  Xcode 27.2 (27B52), XcodeGen 2.45.4, Play! 0.77 aus Cores/Build.
+- project.yml: Änderungen siehe Diff unten. mGBA und preGenCommand fehlen nur,
+  weil die Kopie keinen gebauten mGBA-Kern hatte.
+- App/JIT/: ArcJIT.c und ArcJIT.h aus Spikes/PS2JIT/Sources/Host (csops,
+  P_TRACED, Haltepunkt-Protokoll brk #0xf00d, Probe),
+  Arcfold-JIT-Bridging-Header.h (#import "ArcJIT.h") und JITAvailability.swift
+  (JITCapability, die ArcJITReadProcessStatus liest).
+- Packages/LibretroKit: neuer öffentlicher Typ JITCapability (Closure,
+  Standard .unavailable = false), ohne eigene JIT-Prüfung.
+- App/Sources/CoreListView.swift: eine Zeile mit #if JIT_BUILD
+  JITAvailability.summary, sonst JITCapability.unavailable.
+
+Diff von project.yml gegen m0/fundament
+@@ -12,9 +12,6 @@
+   developmentLanguage: en
+   defaultConfig: Debug
+   createIntermediateGroups: true
+-  # Refuses to generate the project while a core is missing or outdated.
+-  # Xcode itself only reports "There is no XCFramework found at ...".
+-  preGenCommand: Scripts/bootstrap.sh --check
+ 
+ configs:
+   Debug: debug
+@@ -60,7 +57,7 @@
+       # Scripts/cores/ and an entry here; Scripts/bootstrap.sh builds every core
+       # listed here. A core for the JIT build only (Play!) is also left out of
+       # Debug and Release with EXCLUDED_SOURCE_FILE_NAMES: <CORE_NAME>.framework.
+-      - framework: Cores/Build/mgba_libretro.xcframework
++      - framework: Cores/Build/play_libretro.xcframework
+         embed: true
+         link: false
+     settings:
+@@ -84,6 +81,11 @@
+         ENABLE_PREVIEWS: YES
+         CODE_SIGN_STYLE: Automatic
+       configs:
++        # Store build: neither the Play! core nor the JIT sources in App/JIT
++        # (ADR 0002, ADR 0003).
++        Debug: &store
++          EXCLUDED_SOURCE_FILE_NAMES: play_libretro.framework JIT/*
++        Release: *store
+         # Sideloading build with JIT (StikDebug needs get-task-allow).
+         # Only here: the Store build must not contain a JIT code path.
+         Debug-JIT: &jit
+@@ -92,6 +94,7 @@
+           CODE_SIGN_ENTITLEMENTS: App/Arcfold-JIT.entitlements
+           SWIFT_ACTIVE_COMPILATION_CONDITIONS: $(inherited) JIT_BUILD
+           GCC_PREPROCESSOR_DEFINITIONS: $(inherited) JIT_BUILD=1
++          SWIFT_OBJC_BRIDGING_HEADER: App/JIT/Arcfold-JIT-Bridging-Header.h
+         Release-JIT: *jit
+ 
+   ArcfoldTests:
+
+Ergebnis (xcodebuild build; Simulator iPhone 18 Pro mit iOS 27.2, Gerät als
+generic/platform=iOS mit CODE_SIGNING_ALLOWED=NO; alle vier BUILD SUCCEEDED)
+
+Konfiguration          Frameworks im Bundle      _csops (nm -u)   brk #0xf00d (otool -tv)   Bundle-ID
+Debug, Simulator       keins                     0                0                         com.faentiver.arcfold
+Debug-JIT, Simulator   play_libretro.framework   1                2                         com.faentiver.arcfold.jit
+Release, Gerät         keins                     0                0                         com.faentiver.arcfold
+Release-JIT, Gerät     play_libretro.framework   1                0                         com.faentiver.arcfold.jit
+
+- Gezählt in Arcfold und, bei Debug-Builds, in Arcfold.debug.dylib (dort
+  liegt der App-Code). Release-JIT hat kein brk, weil das Experiment nur
+  ArcJITReadProcessStatus aufruft; der Optimierer entfernt die ungenutzten
+  Funktionen für Region und Detach. Debug-JIT behält sie.
+- Übersetzt wurden App/JIT/ArcJIT.c und App/JIT/JITAvailability.swift nur in
+  den JIT-Konfigurationen. Das Log von Debug nennt keine Datei aus App/JIT.
+- Keine Warnung in Dateien unter App/. Einzige Warnung aller vier Builds:
+  appintentsmetadataprocessor „Metadata extraction skipped, no
+  AppIntents.framework dependency found“ (Systemwerkzeug).
+- Der Debug-JIT-Build zeigt im Simulator „Play! 0.77“ (LibretroKit öffnet den
+  Kern in CoreCatalog per dlopen und schließt ihn wieder) und die JIT-Zeile
+  „get-task-allow false, CS_DEBUGGED false, P_TRACED false, capable false“,
+  siehe jit-build-corelist.png. Im Simulator gelten die Regeln des Macs; über
+  JIT auf dem Gerät sagt das nichts.
+
+Warum das Muster greift: swift-build vergleicht ein relatives Muster aus
+EXCLUDED_SOURCE_FILE_NAMES mit den letzten N Pfadteilen der Datei
+(Path.matchesFilenamePattern in Sources/SWBUtil/Path.swift, Commit 699c510).
+„JIT/*“ nimmt also jede Datei direkt in einem Ordner JIT heraus,
+„play_libretro.framework“ die eingebettete Kopie des Kerns.
