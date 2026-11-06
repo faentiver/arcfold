@@ -1,3 +1,4 @@
 # The test programs in Tests/Fixtures are small and stored as regular files.
 # Large fixtures would need Git LFS; see docs/wissen/umgebung.md before adding one.
 Tests/Fixtures/**/*.elf binary
+Tests/Fixtures/**/*.gba binary

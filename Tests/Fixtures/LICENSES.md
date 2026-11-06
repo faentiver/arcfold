@@ -6,7 +6,13 @@ Jeder Eintrag nennt Datei, Herkunft (URL und Commit oder Version), Autor, Lizenz
 
 ## GBA
 
-Noch keine.
+### `gba/selftest.gba`
+
+- **Herkunft:** eigenes Testprogramm in diesem Repo, erzeugt mit `python3 -I Tests/Fixtures/gba/selftest/make_gba_selftest.py Tests/Fixtures/gba/selftest.gba` (ohne SDK, ohne BIOS, Logo-Bereich leer). Zwei Läufe ergaben dieselbe Prüfsumme. Erstellt am 6. November 2026 für ADR 0005.
+- **Autor:** Fatih (faentiver).
+- **Lizenz:** GPL-3.0-only (SPDX-Angabe im Generator), wie `gs_sprites`. Die Variante folgt dem offenen Punkt im Plan (Abschnitt 12).
+- **Inhalt:** Modus 3 mit einem Balken, der pro Bild um ein Pixel wandert, dazu Boot-, Bild- und Tastenzähler als 8 × 8-Blöcke. Rechteckton auf PSG-Kanal 2 mit 439,8 Hz, bei gedrückter Taste A 879,7 Hz. SRAM mit der Kennung „ARCF“, dem Boot-Zähler in Byte 4 und einem Herzschlag alle 64 Bilder in Byte 5. Positionen und Farben stehen im Generator. Startet in mGBA 0.10.5 ohne BIOS (Beleg: `docs/adr/0005/selftest-mgba-macos.txt`).
+- **SHA-256:** `7df143129e713b1188ec40b3d91bd84ccb95188dd1f6264f2bb75fba4544f9fd` (864 Bytes)
 
 ## DS
 
