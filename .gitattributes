@@ -1,0 +1,11 @@
+# Freely licensed homebrew test ROMs are stored with Git LFS
+Tests/Fixtures/**/*.gba filter=lfs diff=lfs merge=lfs -text
+Tests/Fixtures/**/*.gb filter=lfs diff=lfs merge=lfs -text
+Tests/Fixtures/**/*.gbc filter=lfs diff=lfs merge=lfs -text
+Tests/Fixtures/**/*.nds filter=lfs diff=lfs merge=lfs -text
+Tests/Fixtures/**/*.nes filter=lfs diff=lfs merge=lfs -text
+Tests/Fixtures/**/*.sfc filter=lfs diff=lfs merge=lfs -text
+Tests/Fixtures/**/*.pbp filter=lfs diff=lfs merge=lfs -text
+Tests/Fixtures/**/*.PBP filter=lfs diff=lfs merge=lfs -text
+Tests/Fixtures/**/*.elf filter=lfs diff=lfs merge=lfs -text
+Tests/Fixtures/**/*.iso filter=lfs diff=lfs merge=lfs -text

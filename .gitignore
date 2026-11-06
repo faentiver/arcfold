@@ -1,0 +1,44 @@
+# macOS
+.DS_Store
+
+# Xcode (the project is generated from project.yml by XcodeGen)
+*.xcodeproj/
+*.xcworkspace/
+DerivedData/
+xcuserdata/
+build/
+*.xcresult/
+*.ipa
+*.dSYM/
+*.dSYM.zip
+
+# Swift Package Manager
+.build/
+.swiftpm/
+
+# Built cores, reproducible with Scripts/build-core.sh
+Cores/Build/
+
+# Claude Code worktrees
+.claude/worktrees/
+
+# Games, BIOS files and firmware never go into the repo (hard rule, see CLAUDE.md)
+*.gba
+*.gb
+*.gbc
+*.nds
+*.dsi
+*.nes
+*.sfc
+*.smc
+*.iso
+*.cso
+*.chd
+*.pbp
+*.PBP
+*.cue
+bios*.bin
+scph*.bin
+firmware*.bin
+# Freely licensed homebrew test ROMs are the only exception
+!Tests/Fixtures/**
