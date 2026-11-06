@@ -1,0 +1,18 @@
+backend gles, 600 frames, render scale 1, content gu-test.elf, waiting for the GPU after every frame
+dlopen /Frameworks/ppsspp_libretro.framework/ppsspp_libretro in 3.6 ms
+core options ppsspp_backend, ppsspp_cpu_core, ppsspp_inflight_frames, ppsspp_internal_resolution
+core PPSSPP v1.20.4, extensions elf|iso|cso|prx|pbp|chd, need_fullpath 1
+retro_load_game in 0.1 ms; hardware context requests: OPENGLES2 v0.0 (depth 1, stencil 0, bottom_left_origin 1, cache_context 0, debug 0) -> accepted
+av info 480x270 (max 480x272), 59.940 fps, 44100 Hz audio
+OpenGL ES: EAGL API 3; GL_VERSION OpenGL ES 3.0 APPLE-24.0.2; GL_RENDERER Apple Software Renderer; GL_VENDOR Apple Inc.; GLSL OpenGL ES GLSL ES 3.00
+OpenGL ES interop: plain renderbuffer and glReadPixels (IOSurface path failed: CVOpenGLESTextureCacheCreateTextureFromImage -6683)
+context_reset in 0.2 ms
+capture frame 300: gles-frame-0300.png 480x270, drawn 35.7 %, sha256 a011d6d35591cbd1542c6dcfb299abc7859d511c0d97c5557c713cc24e6169bf
+capture frame 600: gles-frame-0600.png 480x270, drawn 34.1 %, sha256 c144bf193d3fe2f8cb43a8a1aab940e2b6a5302ff9f3571b7d55f869cf512a2d
+600 retro_run calls, first emulated frame at call 1; 600 emulated frames in 1.19 s (506.3 frames/s)
+frame time including GPU wait, frames 61-600: mean 1.41 ms, median 1.40 ms, p95 1.52 ms, max 1.79 ms (simulator on the Mac's chip, not meaningful for the device)
+video callbacks 600 (hardware 600, software 0, duplicate 0), last size 480x270
+audio frames 441408 (10.01 s)
+core log: 4 warnings, 63 errors (core.log)
+environment calls: GET_SYSTEM_DIRECTORY x1, SET_PIXEL_FORMAT x1, SET_INPUT_DESCRIPTORS x1, SET_HW_RENDER x1, GET_VARIABLE x85, SET_VARIABLES x1, GET_VARIABLE_UPDATE x600, GET_LOG_INTERFACE x1, GET_SAVE_DIRECTORY x1, SET_CONTROLLER_INFO x1, GET_USERNAME x1, GET_LANGUAGE x1, GET_CORE_OPTIONS_VERSION x1, SET_CORE_OPTIONS_DISPLAY x3, GET_PREFERRED_HW_RENDER x1, SET_CORE_OPTIONS_UPDATE_DISPLAY_CALLBACK x1, GET_JIT_CAPABLE x5, GET_VFS_INTERFACE x1, GET_INPUT_BITMASKS x1
+result OK

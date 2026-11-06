@@ -1,0 +1,32 @@
+# MoltenVK-Ausgabe aus dem Lauf vulkan-1x (Auszug, Erweiterungsliste gekürzt)
+[mvk-info] MoltenVK version 1.4.2, supporting Vulkan version 1.4.357.
+	The following 153 Vulkan extensions are supported:
+	[... Liste der unterstützten Erweiterungen gekürzt ...]
+[mvk-info] GPU device:
+	model: Apple iOS simulator GPU
+	type: Integrated
+	vendorID: 0x106b
+	deviceID: 0x1b020002
+	pipelineCacheUUID: DB660224-1B02-0002-0000-000100000000
+	GPU memory available: 0 MB
+	GPU memory used: 0 MB
+	Metal Shading Language 4.0
+	supports the following GPU Features:
+		GPU Family Apple 2
+		Read-Write Texture Tier 1
+[mvk-info] Created VkInstance for Vulkan version 1.4.357, as requested by app, with the following 4 Vulkan extensions enabled:
+	VK_KHR_get_physical_device_properties2 v2
+	VK_KHR_surface v25
+	VK_EXT_metal_surface v1
+	VK_EXT_swapchain_colorspace v5
+[mvk-info] Vulkan semaphores using MTLEvent.
+[mvk-info] Descriptor sets binding resources using Metal argument buffers.
+[mvk-info] Created VkDevice to run on GPU Apple iOS simulator GPU with the following 5 Vulkan extensions enabled:
+	VK_KHR_portability_subset v1
+	VK_KHR_present_id v1
+	VK_KHR_present_wait v1
+	VK_KHR_swapchain v70
+	VK_EXT_metal_objects v2
+[mvk-info] Destroyed VkDevice on GPU Apple iOS simulator GPU with 5 Vulkan extensions enabled.
+[mvk-info] Destroyed VkPhysicalDevice for GPU Apple iOS simulator GPU with 0 MB of GPU memory still allocated.
+[mvk-info] Destroying VkInstance for Vulkan version 1.4.357 with 4 Vulkan extensions enabled.
