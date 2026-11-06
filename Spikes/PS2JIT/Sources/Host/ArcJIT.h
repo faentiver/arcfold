@@ -70,6 +70,12 @@ typedef enum {
 /// `protection` receives the VM protection of the executable view.
 ArcJITProbeOutcome ArcJITProbeRegion(const ArcJITRegion *region, int *protection);
 
+/// Play! 0.77's own way (CodeGen MemoryFunction.cpp on iOS): vm_allocate,
+/// write the code, vm_protect to read-execute, then call it if the kernel
+/// reports the page as executable. Without TXM a debugged process may do
+/// this; with TXM the execute right is expected to be stripped.
+ArcJITProbeOutcome ArcJITProbeProtectFlip(int *protection, char *message, size_t messageSize);
+
 #ifdef __cplusplus
 }
 #endif

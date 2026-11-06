@@ -85,6 +85,18 @@ enum JITProbes {
         return probe(region, label: label, setup: message)
     }
 
+    /// Play! 0.77's own path: write, then vm_protect to r-x.
+    static func protectFlip() -> JITProbe {
+        let label = "Play!s Weg (vm_protect auf r-x)"
+        var protection: Int32 = 0
+        var outcome = ArcJITProbeNotExecutable
+        let (_, message) = callWithMessage { buffer, count in
+            outcome = ArcJITProbeProtectFlip(&protection, buffer, count)
+            return true
+        }
+        return result(outcome, label: label, detail: "\(message); Schutz \(protectionString(protection))")
+    }
+
     static func detach() -> JITProbe {
         let (detached, message) = callWithMessage { buffer, count in
             ArcJITDetach(buffer, count)
@@ -96,7 +108,10 @@ enum JITProbes {
         var region = region
         var protection: Int32 = 0
         let outcome = ArcJITProbeRegion(&region, &protection)
-        let detail = "\(setup); Schutz \(protectionString(protection))"
+        return result(outcome, label: label, detail: "\(setup); Schutz \(protectionString(protection))")
+    }
+
+    private static func result(_ outcome: ArcJITProbeOutcome, label: String, detail: String) -> JITProbe {
         switch outcome {
         case ArcJITProbePassed:
             return JITProbe(label: label, passed: true, detail: "\(detail); Testfunktion lieferte 42")

@@ -21,11 +21,13 @@ final class SpikeModel {
     private(set) var runState = RunState.idle
     private(set) var report: PS2RunReport?
     private(set) var outputCheck: OutputCheck?
-    private(set) var deviceJITReady = false
+    /// A region prepared through the debugger worked (what a TXM device needs).
+    private(set) var arenaJITReady = false
+    /// Play!'s own vm_protect path worked (enough for an unpatched core).
+    private(set) var protectJITReady = false
 
-    /// Reported to the core as RETRO_ENVIRONMENT_GET_JIT_CAPABLE. In the
-    /// simulator the Mac's rules for executable memory apply, so JIT works.
-    /// On a device only a passed probe counts, unless the test forces it.
+    /// Lets the test start the core although no suitable JIT path passed,
+    /// to watch what happens without one.
     var forceJITCapable = false
 
     private let defaults = UserDefaults.standard
@@ -37,15 +39,27 @@ final class SpikeModel {
             coreError = error.localizedDescription
         }
         if status.isSimulator {
-            probes = [JITProbes.localDualMapping()]
+            probes = [JITProbes.localDualMapping(), JITProbes.protectFlip()]
         }
     }
 
+    /// The variant built by try-codegen-pr34.sh asks the debugger for one JIT
+    /// arena (Play--CodeGen PR #34); upstream Play! 0.77 flips page rights.
+    var coreUsesTXMArena: Bool {
+        coreInfo?.libraryVersion.hasSuffix("-pr34") ?? false
+    }
+
+    /// Answer to RETRO_ENVIRONMENT_GET_JIT_CAPABLE. In the simulator the Mac's
+    /// rules for executable memory apply, so JIT works. On a device it depends
+    /// on whether the probe for the core's own allocation path passed.
     var jitCapableForCore: Bool {
         if defaults.object(forKey: "jitCapable") != nil {
             return defaults.bool(forKey: "jitCapable")
         }
-        return status.isSimulator || deviceJITReady || forceJITCapable
+        if status.isSimulator || forceJITCapable {
+            return true
+        }
+        return coreUsesTXMArena ? arenaJITReady : protectJITReady
     }
 
     /// Frames for the drawing test; 600 are ten seconds at full speed.
@@ -91,8 +105,11 @@ final class SpikeModel {
         await waitForDebuggerAndPrepare()
     }
 
-    /// Waits up to two minutes for a debugger, then runs the breakpoint
-    /// protocol where TXM is assumed. Without TXM the attach alone is enough.
+    /// Waits up to two minutes for a debugger, then probes every JIT path.
+    /// Where TXM is assumed it runs the breakpoint protocol and leaves the
+    /// script attached: the PR #34 core asks for its arena only when it
+    /// compiles the first block, and a later request after a detach would
+    /// trap without a handler.
     func waitForDebuggerAndPrepare() async {
         runState = .waitingForDebugger
         defer { if runState == .waitingForDebugger { runState = .idle } }
@@ -114,14 +131,24 @@ final class SpikeModel {
             }
             let debuggerRegion = JITProbes.debuggerRegion(ArcJITRegionSourceDebugger)
             let selfMapped = JITProbes.debuggerRegion(ArcJITRegionSourceSelfMapped)
-            let detach = JITProbes.detach()
-            probes.append(contentsOf: [debuggerRegion, selfMapped, detach])
-            deviceJITReady = debuggerRegion.passed || selfMapped.passed
+            let protectFlip = JITProbes.protectFlip()
+            probes.append(contentsOf: [debuggerRegion, selfMapped, protectFlip])
+            arenaJITReady = debuggerRegion.passed
+            protectJITReady = protectFlip.passed
         } else {
+            let protectFlip = JITProbes.protectFlip()
             let local = JITProbes.localDualMapping()
-            probes.append(local)
-            deviceJITReady = local.passed
+            probes.append(contentsOf: [protectFlip, local])
+            protectJITReady = protectFlip.passed
+            arenaJITReady = local.passed
         }
+        refreshStatus()
+    }
+
+    /// Ends the universal.js session (x16 = 0). Afterwards no new executable
+    /// region can be prepared in this process.
+    func detachDebugger() {
+        probes.append(JITProbes.detach())
         refreshStatus()
     }
 

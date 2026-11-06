@@ -41,6 +41,8 @@ struct SpikeView: View {
                 LabeledContent("Version", value: info.libraryVersion)
                 LabeledContent("Endungen", value: info.validExtensions)
                 LabeledContent("libretro-API", value: "\(info.apiVersion)")
+                LabeledContent("JIT-Speicher", value: model.coreUsesTXMArena
+                    ? "Arena vom Debugger (PR #34)" : "vm_protect je Block (0.77)")
             } else {
                 Text(model.coreError ?? "Kern nicht geladen").foregroundStyle(.red)
             }
@@ -84,11 +86,15 @@ struct SpikeView: View {
             if model.runState == .waitingForDebugger {
                 ProgressView("Warte auf den Debugger …")
             }
+            Button("Detach an universal.js senden") {
+                model.detachDebugger()
+            }
+            .disabled(!model.status.traced || model.runState != .idle)
             Toggle("Kern trotzdem starten (Absturz erwartet)", isOn: $model.forceJITCapable)
         } header: {
             Text("Gerätetest")
         } footer: {
-            Text("Ohne JIT meldet der Kern „Cannot run without JIT“ und startet nicht. Der Schalter gibt dem Kern trotzdem JIT frei, um das Verhalten ohne passenden Speicher zu beobachten.")
+            Text("Ohne passenden JIT-Weg meldet der Kern „Cannot run without JIT“ und startet nicht. Der Schalter gibt ihm trotzdem JIT frei, um das Verhalten ohne ausführbaren Speicher zu beobachten. Detach erst nach dem Lauf senden: Die Kern-Variante mit PR #34 fordert ihre Arena beim ersten kompilierten Block an.")
         }
     }
 

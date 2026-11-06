@@ -204,15 +204,16 @@ bool ArcJITCreateLocalRegion(size_t size, ArcJITRegion *region, char *message, s
     return true;
 }
 
-ArcJITProbeOutcome ArcJITProbeRegion(const ArcJITRegion *region, int *protection) {
-    static const uint32_t probeCode[] = {
-        0x52800540, // mov w0, #42
-        0xd65f03c0, // ret
-    };
-    memcpy(region->writable, probeCode, sizeof(probeCode));
-    sys_icache_invalidate(region->executable, sizeof(probeCode));
+static const uint32_t ArcJITProbeCode[] = {
+    0x52800540, // mov w0, #42
+    0xd65f03c0, // ret
+};
 
-    vm_address_t address = (vm_address_t)region->executable;
+// Calls the probe code only when the kernel reports its page as executable,
+// so a missing execute right shows up as a result instead of a crash.
+static ArcJITProbeOutcome ArcJITCallIfExecutable(void *code, int *protection) {
+    sys_icache_invalidate(code, sizeof(ArcJITProbeCode));
+    vm_address_t address = (vm_address_t)code;
     vm_size_t size = 0;
     vm_region_basic_info_data_64_t info;
     mach_msg_type_number_t count = VM_REGION_BASIC_INFO_COUNT_64;
@@ -223,6 +224,29 @@ ArcJITProbeOutcome ArcJITProbeRegion(const ArcJITRegion *region, int *protection
     if (result != KERN_SUCCESS || (info.protection & VM_PROT_EXECUTE) == 0) {
         return ArcJITProbeNotExecutable;
     }
-    int (*function)(void) = (int (*)(void))region->executable;
+    int (*function)(void) = (int (*)(void))code;
     return function() == 42 ? ArcJITProbePassed : ArcJITProbeWrongResult;
+}
+
+ArcJITProbeOutcome ArcJITProbeRegion(const ArcJITRegion *region, int *protection) {
+    memcpy(region->writable, ArcJITProbeCode, sizeof(ArcJITProbeCode));
+    return ArcJITCallIfExecutable(region->executable, protection);
+}
+
+ArcJITProbeOutcome ArcJITProbeProtectFlip(int *protection, char *message, size_t messageSize) {
+    vm_address_t address = 0;
+    const vm_size_t size = 16384;
+    *protection = -1;
+    kern_return_t result = vm_allocate(mach_task_self(), &address, size, VM_FLAGS_ANYWHERE);
+    if (result != KERN_SUCCESS) {
+        snprintf(message, messageSize, "vm_allocate failed: %d (%s)", result, mach_error_string(result));
+        return ArcJITProbeNotExecutable;
+    }
+    memcpy((void *)address, ArcJITProbeCode, sizeof(ArcJITProbeCode));
+    result = vm_protect(mach_task_self(), address, size, FALSE, VM_PROT_READ | VM_PROT_EXECUTE);
+    snprintf(message, messageSize, "vm_protect(r-x) returned %d (%s)", result, mach_error_string(result));
+    if (result != KERN_SUCCESS) {
+        return ArcJITProbeNotExecutable;
+    }
+    return ArcJITCallIfExecutable((void *)address, protection);
 }
