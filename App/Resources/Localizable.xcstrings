@@ -1,0 +1,18 @@
+{
+  "sourceLanguage" : "en",
+  "strings" : {
+    "Core Failed to Load" : {
+      "comment" : "Title when an embedded libretro core cannot be loaded. The technical reason follows below it."
+    },
+    "Cores" : {
+      "comment" : "Navigation title of the list of libretro cores embedded in the app."
+    },
+    "No Cores" : {
+      "comment" : "Title when the app contains no libretro cores."
+    },
+    "This build contains no libretro cores." : {
+      "comment" : "Explanation when the app contains no libretro cores."
+    }
+  },
+  "version" : "1.0"
+}
