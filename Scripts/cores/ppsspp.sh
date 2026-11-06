@@ -37,20 +37,39 @@ ppsspp_check_submodules() {
   fi
 }
 
+# The core always contains PPSSPP's OpenGL ES backend, also when the host
+# offers Vulkan. OpenGL ES is deprecated, so it is linked weakly: should iOS
+# drop OpenGLES.framework, the core still loads and only the GL path is gone.
+# GLKit (added by PPSSPP's CMakeLists.txt) and libobjc supply no symbols and
+# are dropped with -dead_strip_dylibs. Fails if either property is lost.
+ppsspp_check_links() {
+  local dylib="$1" load_commands
+  load_commands="$(otool -l "$dylib" | awk '/cmd LC_LOAD/ { cmd = $2 } /name / && cmd { print cmd, $2; cmd = "" }')"
+  if grep -q 'GLKit.framework' <<< "$load_commands"; then
+    echo "error: $CORE_NAME links GLKit, which it does not use" >&2
+    exit 70
+  fi
+  if ! grep -q '^LC_LOAD_WEAK_DYLIB .*/OpenGLES.framework/' <<< "$load_commands"; then
+    echo "error: $CORE_NAME must link OpenGLES weakly" >&2
+    exit 70
+  fi
+}
+
 # CMake leaves CMAKE_SYSTEM_PROCESSOR empty for iOS, but PPSSPP and
 # cpu_features pick their ARM64 sources from it. USING_GLES2 selects the
 # OpenGL ES backend, the only GL flavour on iOS. The Vulkan backend is always
 # built. FFmpeg stays off because PPSSPP's prebuilt iOS libraries have no
 # arm64 simulator slice (ADR 0001).
 core_build() {
-  local sdk="$1" work_dir="$2"
+  local work_dir="$2"
   ppsspp_check_submodules
 
-  # PPSSPP lowers CMAKE_OSX_DEPLOYMENT_TARGET to 12.0 for iOS right after
-  # project(), which the SDK's libc++ no longer supports. This hook runs after
-  # project(PPSSPP) and restores the value build-core.sh passes.
-  local keep_target="$work_dir/keep-deployment-target.cmake"
-  cat > "$keep_target" << 'CMAKE'
+  # Runs right after project(PPSSPP). PPSSPP lowers CMAKE_OSX_DEPLOYMENT_TARGET
+  # to 12.0 for iOS after project(), which the SDK's libc++ no longer
+  # supports; the watch restores the value build-core.sh passes. The link
+  # option applies to every target defined after this point.
+  local hooks="$work_dir/arcfold-hooks.cmake"
+  cat > "$hooks" << 'CMAKE'
 set(ARCFOLD_DEPLOYMENT_TARGET "${CMAKE_OSX_DEPLOYMENT_TARGET}")
 function(arcfold_keep_deployment_target variable access value)
   if(access STREQUAL "MODIFIED_ACCESS" AND NOT value STREQUAL ARCFOLD_DEPLOYMENT_TARGET)
@@ -59,15 +78,16 @@ function(arcfold_keep_deployment_target variable access value)
   endif()
 endfunction()
 variable_watch(CMAKE_OSX_DEPLOYMENT_TARGET arcfold_keep_deployment_target)
+add_link_options("LINKER:-dead_strip_dylibs")
 CMAKE
 
   cmake -S "$REPO_ROOT/$CORE_SOURCE" -B "$work_dir/cmake" "${IOS_CMAKE_ARGS[@]}" \
-    -DCMAKE_PROJECT_PPSSPP_INCLUDE="$keep_target" \
+    -DCMAKE_PROJECT_PPSSPP_INCLUDE="$hooks" \
     -DCMAKE_SYSTEM_PROCESSOR=arm64 \
     -DLIBRETRO=ON \
     -DUSING_GLES2=ON \
     -DMOBILE_DEVICE=ON \
-    "-DOPENGL_LIBRARIES=-framework OpenGLES" \
+    "-DOPENGL_LIBRARIES=-weak_framework OpenGLES" \
     -DUSE_FFMPEG=OFF \
     -DUSE_MINIUPNPC=OFF \
     -DUSE_DISCORD=OFF \
@@ -83,6 +103,7 @@ CMAKE
     "$(git -C "$REPO_ROOT/$CORE_SOURCE" describe --always --tags)" > "$work_dir/cmake/git-version.cpp"
 
   cmake --build "$work_dir/cmake" --target ppsspp_libretro
+  ppsspp_check_links "$work_dir/cmake/lib/ppsspp_libretro.dylib"
   cp "$work_dir/cmake/lib/ppsspp_libretro.dylib" "$work_dir/$CORE_NAME.dylib"
 }
 
