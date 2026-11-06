@@ -144,72 +144,97 @@ public struct SessionSummary: Sendable, Hashable {
 /// `load()`, then `connect(video:audio:)`, then `resume()` and `pause()` as
 /// often as needed, finally `stop()`. Only one session per process can be
 /// loaded at a time, because libretro callbacks carry no context.
+///
+/// Commands reach the thread through a mailbox it checks once per frame, and
+/// the async methods return once the thread has handled them at a frame
+/// boundary. A session that is released without `stop()` stops on its own.
 public final class EmulationSession: Sendable {
+    private let control: SessionControl
+
     /// Creates the session. Nothing is loaded and no thread runs yet.
     public init(configuration: SessionConfiguration) {
-        fatalError("M1 track K")
+        control = SessionControl(configuration: configuration)
+        input = control.input
+        stats = control.stats
+        events = control.events
+    }
+
+    deinit {
+        control.send(.stop(nil))
     }
 
     /// The buttons the core reads. Usable from creation on.
-    public var input: InputState {
-        fatalError("M1 track K")
-    }
+    public let input: InputState
 
     /// Measurements of the emulation thread, for the debug overlay.
-    public var stats: SessionStats {
-        fatalError("M1 track K")
-    }
+    public let stats: SessionStats
 
     /// Events of this session. Meant for one consumer; finishes after `stop()`.
-    public var events: AsyncStream<SessionEvent> {
-        fatalError("M1 track K")
-    }
+    /// While nobody reads, the newest 64 events are kept.
+    public let events: AsyncStream<SessionEvent>
 
     /// The current state, read atomically.
     public var state: SessionState {
-        fatalError("M1 track K")
+        control.state
     }
 
     /// Starts the emulation thread, loads core and game and copies the battery
-    /// save into the core before the first frame. Ends in `.ready`. Call once.
+    /// save into the core before the first frame. Ends in `.ready`, or in
+    /// `.failed` when it throws. Call once; a second call traps.
     public func load() async throws(SessionError) -> SessionInfo {
-        fatalError("M1 track K")
+        precondition(control.beginLoading(), "EmulationSession.load() may be called once, before stop()")
+        let result = await withCheckedContinuation { continuation in
+            EmulationThread.start(control: control, loaded: continuation)
+        }
+        return try result.get()
     }
 
     /// Sets where pictures and sound go. Call after `load()` and before the
     /// first frame; while paused it may replace the sinks. Without sinks,
     /// pictures and sound are dropped and the clock runs at the nominal rate.
     public func connect(video: any VideoSink, audio: any AudioSink) {
-        fatalError("M1 track K")
+        control.send(.connect(video: video, audio: audio))
     }
 
     /// Runs frames with the configured pacing until `pause()` or `stop()`.
     /// Returns at once; after a pause the frame clock starts again from now.
     public func resume() {
-        fatalError("M1 track K")
+        control.send(.resume)
     }
 
     /// Returns once the emulation thread stopped at a frame boundary and a
-    /// changed battery save is on disk.
+    /// changed battery save is on disk. A session that has not run a frame
+    /// yet stays `.ready`.
     public func pause() async {
-        fatalError("M1 track K")
+        await withCheckedContinuation { continuation in
+            control.send(.pause(continuation))
+        }
     }
 
     /// Runs exactly `count` frames as fast as possible and returns paused.
-    /// Only while ready or paused; for tests.
+    /// Only while ready or paused; for tests. Commands sent meanwhile wait
+    /// until the frames are done. The battery save is compared every 30
+    /// frames as usual; `pause()` or `saveBatteryNow()` write it at once.
     public func runFrames(_ count: Int) async {
-        fatalError("M1 track K")
+        await withCheckedContinuation { continuation in
+            control.send(.runFrames(count, continuation))
+        }
     }
 
     /// Writes the battery save now if it changed, for example before the app
     /// goes to the background.
     public func saveBatteryNow() async throws(SessionError) {
-        fatalError("M1 track K")
+        let result = await withCheckedContinuation { continuation in
+            control.send(.saveBattery(continuation))
+        }
+        try result.get()
     }
 
     /// Saves the battery save, unloads the game, deinitializes and closes the
     /// core and ends the thread. Ends in `.stopped`; safe to call in any state.
     public func stop() async -> SessionSummary {
-        fatalError("M1 track K")
+        await withCheckedContinuation { continuation in
+            control.send(.stop(continuation))
+        }
     }
 }
