@@ -16,12 +16,20 @@
 #   the fallback 0.30.
 # libchdr uses the SDK's zlib: its bundled zlib renames zconf.h inside the
 # submodule during configure, which would leave the submodule dirty.
+#
+# The core needs these nested submodules only:
+#   git submodule update --init Cores/play
+#   git -C Cores/play submodule update --init deps/CodeGen deps/Dependencies deps/Framework deps/libchdr
+#   git -C Cores/play/deps/Dependencies submodule update --init ghc_filesystem xxHash zstd
+# A recursive update also fetches AltKit, Nuanceur, SDWebImage and zlib. The
+# build ignores them (iOS app UI, Vulkan GS and a zlib fallback that the SDK's
+# zlib makes unnecessary), they only cost download time.
 
 CORE_NAME="play_libretro"
 CORE_SOURCE="Cores/play"
 
 core_build() {
-  local sdk="$1" work_dir="$2" version
+  local work_dir="$2" version
   version="$(git -C "$REPO_ROOT/$CORE_SOURCE" describe --tags --always)"
   cmake -S "$REPO_ROOT/$CORE_SOURCE" -B "$work_dir/cmake" "${IOS_CMAKE_ARGS[@]}" \
     -DTARGET_IOS=ON \
