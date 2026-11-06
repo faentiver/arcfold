@@ -1,14 +1,110 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
+    "%@ could not be copied into the library: %@" : {
+      "comment" : "Import error. The first value is a file name, the second the system's reason."
+    },
+    "%@ could not be read: %@" : {
+      "comment" : "Import error. The first value is a file name, the second the system's reason."
+    },
+    "%@ does not look like a GBA game." : {
+      "comment" : "Import error when the file header does not match. The value is a file name."
+    },
+    "%@ is larger than 32 MB and cannot be a GBA game." : {
+      "comment" : "Import error. The value is a file name."
+    },
+    "%@ is too small to be a GBA game." : {
+      "comment" : "Import error. The value is a file name."
+    },
+    "Another game is already running. Quit it before you start this one." : {
+      "comment" : "Shown instead of a second game when a game runs in another window."
+    },
+    "Close" : {
+      "comment" : "Button that leaves a game that could not start."
+    },
     "Core Failed to Load" : {
       "comment" : "Title when an embedded libretro core cannot be loaded. The technical reason follows below it."
     },
     "Cores" : {
-      "comment" : "Navigation title of the list of libretro cores embedded in the app."
+      "comment" : "Menu item that lists the embedded emulation cores.\nNavigation title of the list of libretro cores embedded in the app."
+    },
+    "Game controls" : {
+      "comment" : "Accessibility label of the on-screen game buttons."
+    },
+    "Game picture" : {
+      "comment" : "Accessibility label of the emulated picture."
+    },
+    "Hide Debug Overlay" : {
+      "comment" : "Button that hides the measurements over the game."
+    },
+    "Import" : {
+      "comment" : "Button that adds game files to the library."
+    },
+    "Import Games" : {
+      "comment" : "Button in the empty library that opens the file picker."
+    },
+    "Import your own GBA game files. Arcfold comes without games." : {
+      "comment" : "Explanation of the empty library."
+    },
+    "Info" : {
+      "comment" : "Menu with licenses and cores."
+    },
+    "Library" : {
+      "comment" : "Title of the list of imported games."
+    },
+    "Licenses" : {
+      "comment" : "Menu item that opens the license notices.\nTitle of the screen with the license notices."
     },
     "No Cores" : {
       "comment" : "Title when the app contains no libretro cores."
+    },
+    "No Games" : {
+      "comment" : "Title of the empty library."
+    },
+    "OK" : {
+      "comment" : "Closes the import alert."
+    },
+    "Part of mGBA." : {
+      "comment" : "Origin of the inih library on the Licenses screen."
+    },
+    "Part of mGBA. Copyright (C) 2003-2009 Shay Green." : {
+      "comment" : "Origin of the blip_buf library on the Licenses screen."
+    },
+    "Pause" : {
+      "comment" : "Button that pauses the game and opens its menu."
+    },
+    "Paused" : {
+      "comment" : "Title of the menu of a paused game."
+    },
+    "Quit Game" : {
+      "comment" : "Button that ends the game and returns to the library."
+    },
+    "Resume" : {
+      "comment" : "Button that continues a paused game."
+    },
+    "Show Debug Overlay" : {
+      "comment" : "Button that shows the measurements over the game."
+    },
+    "Some Files Were Not Imported" : {
+      "comment" : "Title of the alert after a failed import."
+    },
+    "Source code: github.com/mgba-emu/mgba, tag 0.10.5" : {
+      "comment" : "Where the source of the mGBA core is, on the Licenses screen. Keep the address and tag."
+    },
+    "The Game Could Not Start" : {
+      "comment" : "Title when a game fails to start."
+    },
+    "The game could not start: %@" : {
+      "comment" : "Shown when a game fails to load. The value is the technical reason."
+    },
+    "The libretro API header, from libretro-common." : {
+      "comment" : "Origin of libretro.h on the Licenses screen."
+    },
+    "The license text is missing from this build." : {
+      "comment" : "Shown instead of a license text that is not in the app bundle."
+    },
+    "The save could not be written: %@" : {
+      "comment" : "Notice over the game. The value is the system's reason."
     },
     "This build contains no libretro cores." : {
       "comment" : "Explanation when the app contains no libretro cores."
