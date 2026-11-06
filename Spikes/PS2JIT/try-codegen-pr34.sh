@@ -3,7 +3,8 @@
 # Experiment for ADR 0002: builds the Play! core for iPhone and the iOS
 # Simulator from a copy of Cores/play with Play--CodeGen pull request #34 (JIT
 # arena for iOS 26 devices with TXM, not merged upstream) and, unless
-# --without-companion is given, patches/play-basicblock-writable-alias.patch.
+# --without-companion is given, patches/play-basicblock-writable-alias.patch
+# (the BasicBlock change of Play! pull request #1622).
 # The submodule stays untouched. The core reports its version as 0.77-pr34,
 # which the spike app uses to pick the matching JIT check.
 #
@@ -25,7 +26,7 @@ readonly SPIKE_DIR REPO_ROOT
 readonly TESTED_HEAD="23b29221fd2437dfb918b108a32af571be0a86ab"
 readonly UPSTREAM_XCFRAMEWORK="$REPO_ROOT/Cores/Build/play_libretro.xcframework"
 
-[[ $# -ge 1 ]] || { sed -n '3,17p' "$0" | sed 's/^# \{0,1\}//'; exit 64; }
+[[ $# -ge 1 ]] || { sed -n '3,18p' "$0" | sed 's/^# \{0,1\}//'; exit 64; }
 mkdir -p "$1"
 work="$(cd "$1" && pwd)"
 companion=1
