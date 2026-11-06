@@ -1,6 +1,11 @@
 # CLibretro
 
-`include/libretro.h` ist die Libretro-API, unverändert übernommen.
+C-Target von LibretroKit mit zwei Teilen:
+
+- `include/libretro.h`: die Libretro-API, unverändert übernommen (Herkunft unten).
+- `include/arcfold_log.h` und `arcfold_log.c`: der Log-Shim für `RETRO_ENVIRONMENT_GET_LOG_INTERFACE` (ADR 0005). `retro_log_printf_t` ist variadisch, Swift kann ihn weder umsetzen noch aufrufen. Der Shim zählt Zeilen unter der Mindeststufe (Standard `RETRO_LOG_WARN`) nur, formatiert alle übrigen mit `vsnprintf` in einen Puffer auf dem Stack und reicht sie an eine nicht-variadische Senke aus Swift weiter.
+
+## libretro.h
 
 | | |
 | --- | --- |
