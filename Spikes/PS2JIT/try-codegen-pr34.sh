@@ -10,8 +10,10 @@
 #
 # Usage: Spikes/PS2JIT/try-codegen-pr34.sh <work-dir> [--without-companion]
 #
-# Needs gh (fetches the pull request diff) and Scripts/build-core.sh play
-# first (for the frameworks' Info.plist). The compiler flags repeat those of
+# The pull request comes from patches/codegen-pr34-23b29221.patch, the diff
+# of the tested head, so the build needs no network and stays the same when
+# the pull request changes. Needs Scripts/build-core.sh play first (for the
+# frameworks' Info.plist). The compiler flags repeat those of
 # Scripts/build-core.sh and Scripts/cores/play.sh. Result:
 # <work-dir>/play_libretro.xcframework. To try it, put it in place of
 # Cores/Build/play_libretro.xcframework, build the spike app and rebuild the
@@ -22,11 +24,10 @@ set -euo pipefail
 SPIKE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SPIKE_DIR/../.." && pwd)"
 readonly SPIKE_DIR REPO_ROOT
-# Head of the pull request when ADR 0002 was written.
-readonly TESTED_HEAD="23b29221fd2437dfb918b108a32af571be0a86ab"
+readonly PR_PATCH="$SPIKE_DIR/patches/codegen-pr34-23b29221.patch"
 readonly UPSTREAM_XCFRAMEWORK="$REPO_ROOT/Cores/Build/play_libretro.xcframework"
 
-[[ $# -ge 1 ]] || { sed -n '3,18p' "$0" | sed 's/^# \{0,1\}//'; exit 64; }
+[[ $# -ge 1 ]] || { sed -n '3,20p' "$0" | sed 's/^# \{0,1\}//'; exit 64; }
 mkdir -p "$1"
 work="$(cd "$1" && pwd)"
 companion=1
@@ -36,13 +37,8 @@ if [[ -e "$work/play_libretro.xcframework" ]]; then
   exit 73
 fi
 
-head="$(gh api repos/jpd002/Play--CodeGen/pulls/34 --jq '.head.sha')"
-if [[ "$head" != "$TESTED_HEAD" ]]; then
-  echo "warning: pull request #34 moved to $head (tested: $TESTED_HEAD)" >&2
-fi
 rsync -a --exclude .git "$REPO_ROOT/Cores/play/" "$work/src/"
-gh pr diff 34 --repo jpd002/Play--CodeGen > "$work/codegen-pr34.diff"
-(cd "$work/src/deps/CodeGen" && patch -p1 < "$work/codegen-pr34.diff")
+(cd "$work/src/deps/CodeGen" && patch -p1 < "$PR_PATCH")
 if [[ "$companion" == 1 ]]; then
   (cd "$work/src" && patch -p1 < "$SPIKE_DIR/patches/play-basicblock-writable-alias.patch")
 fi
@@ -74,4 +70,4 @@ for sdk in iphoneos iphonesimulator; do
   frameworks+=(-framework "$framework")
 done
 xcodebuild -create-xcframework "${frameworks[@]}" -output "$work/play_libretro.xcframework" > /dev/null
-echo "==> $work/play_libretro.xcframework (pull request head $head, companion patch $companion)"
+echo "==> $work/play_libretro.xcframework (pull request head 23b29221, companion patch $companion)"
