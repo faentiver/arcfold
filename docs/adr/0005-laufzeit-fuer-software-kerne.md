@@ -112,7 +112,9 @@ Der Code steht in `Packages/LibretroKit/Sources/LibretroKit/` (`Media.swift`, `S
 | `SET_MESSAGE`, `SET_MESSAGE_EXT` | `true`, Ereignis `coreMessage` |
 | `GET_JIT_CAPABLE` | `false`; der JIT-Build bekommt später einen neutralen Haken (ADR 0002) |
 | `SET_MEMORY_MAPS`, `SET_SUPPORT_ACHIEVEMENTS` | `false` (keine Cheats, keine Achievements) |
-| `GET_RUMBLE_INTERFACE`, `GET_SENSOR_INTERFACE`, `SET_HW_RENDER` und alle übrigen | `false`; unbekannte Befehle zählt `SessionSummary` |
+| `GET_RUMBLE_INTERFACE`, `GET_SENSOR_INTERFACE`, `SET_HW_RENDER` und alle übrigen | `false` |
+
+`SessionSummary.unhandledEnvironmentCommands` sammelt jeden Befehl, den der Host mangels Unterstützung ablehnt: unbekannte Befehle und die oben mit `false` abgelehnten. Abfragen, bei denen `false` die erwartete Antwort ist (`GET_CORE_OPTIONS_VERSION`, `GET_JIT_CAPABLE`), zählen nicht.
 
 Gegen Optionen v2 aus Entwurf „Echtzeit“: Eine Oberfläche für Kernoptionen kommt erst in M4. Der Legacy-Weg liefert alle Schlüssel und Standardwerte und erspart das Auslesen der v2-Strukturen mit Feldern fester Länge. In M1 setzt die App nur `mgba_use_bios = OFF`.
 
@@ -208,7 +210,7 @@ Gegen Optionen v2 aus Entwurf „Echtzeit“: Eine Oberfläche für Kernoptionen
   - Ton: ein Batch pro Bild mit 545 bis 552 Frames, Mittel 548,63 ± 0,5, Frequenz 440 ± 2 Hz, mit A 880 ± 2 Hz.
   - Eingabe: A in den Bildern 100 bis 300 setzt Bit 0 der Tastenzeile und den hohen Ton.
   - Spielstand: Sitzung 1 schreibt 32 768 Byte, die mit „ARCF“ und 0x01 beginnen; Sitzung 2 zählt 0x02; Byte 5 trägt den Herzschlag.
-  - Environment: `SessionSummary` nennt als unbekannt nur `SET_MEMORY_MAPS` und `SET_SUPPORT_ACHIEVEMENTS`.
+  - Environment: `SessionSummary.unhandledEnvironmentCommands` enthält bei mGBA genau `SET_MEMORY_MAPS` und `SET_SUPPORT_ACHIEVEMENTS`.
   - Kurzer Lauf mit echtem Takt: laden, 120 Bilder, Pause, Fortsetzen, Stopp, Spielstand geschrieben; die Bildrate nur als Plausibilitätswert.
 - **App-Tests** (`Tests/ArcfoldTests/App`): Import im temporären Ordner (Duplikat, zu klein, falscher Kopf), Bibliothek, Inhalt des App-Bundles.
 - **UI-Tests** (`ArcfoldUITests`, nur im Scheme Store): Start, Spiel per Debug-Start mit Bildrate im Overlay, Bildschirm „Lizenzen“.

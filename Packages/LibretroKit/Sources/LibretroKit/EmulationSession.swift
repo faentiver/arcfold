@@ -124,7 +124,10 @@ public struct SessionSummary: Sendable, Hashable {
     /// How often the core called each environment command (`RETRO_ENVIRONMENT_*`
     /// values as in libretro.h, including the experimental bit 0x10000).
     public var environmentCalls: [UInt32: Int]
-    /// Commands the host does not know and answered with false.
+    /// Commands the host refused because it does not support them: commands it
+    /// does not know and those ADR 0005 lists as refused (for example
+    /// `SET_MEMORY_MAPS`). Queries whose answer false is the expected reply
+    /// (`GET_CORE_OPTIONS_VERSION`, `GET_JIT_CAPABLE`) do not count.
     public var unhandledEnvironmentCommands: Set<UInt32>
 
     public init(framesEmulated: UInt64, environmentCalls: [UInt32: Int], unhandledEnvironmentCommands: Set<UInt32>) {
