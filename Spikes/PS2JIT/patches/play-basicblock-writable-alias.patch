@@ -1,0 +1,26 @@
+Companion change to Play--CodeGen pull request #34 (iOS 26 JIT on TXM devices).
+Block linking must write through the writable alias of the JIT arena, because
+the executable view is not writable. Applies to Play! 0.77 with: patch -p1
+
+diff --git a/Source/BasicBlock.cpp b/Source/BasicBlock.cpp
+index 4c460e6..0cb30ee 100644
+--- a/Source/BasicBlock.cpp
++++ b/Source/BasicBlock.cpp
+@@ -408,7 +408,7 @@ void CBasicBlock::LinkBlock(LINK_SLOT linkSlot, CBasicBlock* otherBlock)
+ 	m_linkBlock[linkSlot] = otherBlock;
+ #endif
+ 	auto patchValue = reinterpret_cast<uintptr_t>(otherBlock->m_function.GetCode());
+-	auto code = reinterpret_cast<uint8*>(m_function.GetCode());
++	auto code = reinterpret_cast<uint8*>(m_function.GetWritableCode());
+ 	m_function.BeginModify();
+ 	*reinterpret_cast<uintptr_t*>(code + m_linkBlockTrampolineOffset[linkSlot]) = patchValue;
+ 	m_function.EndModify();
+@@ -426,7 +426,7 @@ void CBasicBlock::UnlinkBlock(LINK_SLOT linkSlot)
+ 	m_linkBlock[linkSlot] = nullptr;
+ #endif
+ 	auto patchValue = (linkSlot == LINK_SLOT_NEXT) ? reinterpret_cast<uintptr_t>(&NextBlockTrampoline) : reinterpret_cast<uintptr_t>(&BranchBlockTrampoline);
+-	auto code = reinterpret_cast<uint8*>(m_function.GetCode());
++	auto code = reinterpret_cast<uint8*>(m_function.GetWritableCode());
+ 	m_function.BeginModify();
+ 	*reinterpret_cast<uintptr_t*>(code + m_linkBlockTrampolineOffset[linkSlot]) = patchValue;
+ 	m_function.EndModify();

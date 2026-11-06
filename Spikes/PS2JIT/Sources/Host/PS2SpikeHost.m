@@ -173,7 +173,9 @@ static void PS2CaptureFrame(unsigned width, unsigned height) {
         height > (unsigned)PS2FramebufferHeight) {
         return;
     }
-    NSMutableData *pixels = [NSMutableData dataWithLength:(NSUInteger)width * height * 4];
+    // Not autoreleased: the emulation thread has no run loop that drains a
+    // pool, so autoreleased frames would pile up for the whole run.
+    NSMutableData *pixels = [[NSMutableData alloc] initWithLength:(NSUInteger)width * height * 4];
     glBindFramebuffer(GL_FRAMEBUFFER, g_run.framebuffer);
     glPixelStorei(GL_PACK_ALIGNMENT, 1);
     glReadPixels(0, 0, (GLsizei)width, (GLsizei)height, GL_RGBA, GL_UNSIGNED_BYTE, pixels.mutableBytes);
@@ -490,7 +492,9 @@ static int16_t PS2InputState(unsigned port, unsigned device, unsigned index, uns
     dispatch_resume(watcher);
 
     for (NSInteger call = 0; call < maxFrames && !atomic_load(&g_run.finished); call++) {
-        g_run.api.run();
+        @autoreleasepool {
+            g_run.api.run();
+        }
         atomic_fetch_add(&g_run.retroRunCalls, 1);
     }
     [self finishReport:report reason:@"frames" start:start stdoutURL:stdoutURL completion:completion];

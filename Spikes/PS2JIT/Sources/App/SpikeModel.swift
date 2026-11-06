@@ -243,7 +243,7 @@ struct SpikeResult: Codable {
     let retroRunCalls: Int
     let framesPresented: Int
     let seconds: Double
-    let framesPerSecond: Double
+    let framesPerSecond: Double?
     let endReason: String
     let frameSize: String
     let audioFrames: Int
@@ -279,7 +279,8 @@ struct SpikeResult: Codable {
         retroRunCalls = report.retroRunCalls
         framesPresented = report.framesPresented
         seconds = report.seconds
-        framesPerSecond = report.seconds > 0 ? Double(report.framesPresented) / report.seconds : 0
+        framesPerSecond = report.retroRunCalls > 0 && report.seconds > 0
+            ? Double(report.framesPresented) / report.seconds : nil
         endReason = report.endReason
         frameSize = "\(report.frameWidth)x\(report.frameHeight)"
         audioFrames = report.audioFrames

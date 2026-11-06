@@ -171,7 +171,9 @@ private struct ReportSection: View {
                 LabeledContent("retro_run", value: "\(report.retroRunCalls) in \(report.seconds.formatted(.number.precision(.fractionLength(2)))) s")
                 LabeledContent("Ende durch", value: endReasonText)
                 LabeledContent("Bilder", value: "\(report.framesPresented), \(report.frameWidth) × \(report.frameHeight)")
-                if report.seconds > 0 {
+                // Only a run whose retro_run calls returned has a frame rate;
+                // the ALU test ends on its output while retro_run still waits.
+                if report.retroRunCalls > 0, report.seconds > 0 {
                     let rate = Double(report.framesPresented) / report.seconds
                     LabeledContent("Bildrate", value: "\(rate.formatted(.number.precision(.fractionLength(1)))) fps (\((rate / 59.94).formatted(.percent.precision(.fractionLength(0)))) von NTSC)")
                 }
