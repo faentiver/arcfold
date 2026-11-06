@@ -1,0 +1,29 @@
+# GL-Falle: Ruft der Kern auf dem Vulkan- oder Software-Weg OpenGL ES auf?
+# Spikes/PSPGPU/Scripts/make-gl-trap.sh ersetzt per DYLD_INSERT_LIBRARIES jede GL-Funktion, die der Kern importiert, durch eine,
+# die Namen und Aufrufer ausgibt und den Prozess mit Code 86 beendet, so wie ein Aufruf bei fehlendem OpenGLES.framework scheitern würde.
+
+$ Spikes/PSPGPU/Scripts/make-gl-trap.sh
+Wrote build/gl-trap/libgltrap.dylib with 98 traps
+Wrote build/gl-trap/libgltrap-core-only.dylib with 81 traps
+
+$ SIMCTL_CHILD_DYLD_INSERT_LIBRARIES=$PWD/build/gl-trap/libgltrap-core-only.dylib Spikes/PSPGPU/Scripts/run-spike.sh <UDID> gles <Ausgabe> -frames 600 -capture 60,300
+  GL TRAP: glGetIntegerv called from <app>/Frameworks/ppsspp_libretro.framework/ppsspp_libretro
+  (kein Ergebnis: Lauf an der Falle beendet)
+
+$ SIMCTL_CHILD_DYLD_INSERT_LIBRARIES=$PWD/build/gl-trap/libgltrap.dylib Spikes/PSPGPU/Scripts/run-spike.sh <UDID> gles <Ausgabe> -frames 300 -capture 60
+  GL TRAP: glGetString called from <app>/PSPGPUSpike.debug.dylib
+  (kein Ergebnis: Lauf an der Falle beendet)
+
+$ SIMCTL_CHILD_DYLD_INSERT_LIBRARIES=$PWD/build/gl-trap/libgltrap.dylib Spikes/PSPGPU/Scripts/run-spike.sh <UDID> vulkan <Ausgabe> -frames 600 -capture 60,300
+  capture frame 60: vulkan-frame-0060.png 480x270, sha256 caaf8cc33e882cf84783ed7953bb91d7f31fc1a58498daa5ed83b50183428fa4
+  capture frame 300: vulkan-frame-0300.png 480x270, sha256 fb58dfafc51d5d9fce5a748d05ad98827c316a7d0226f096bf76ec18252272c4
+  capture frame 600: vulkan-frame-0600.png 480x270, sha256 88fe249e7c1da386de5d2e20836b89f2890bff5d53f773d80efd5873b63d22cb
+  600 retro_run calls, first emulated frame at call 1; 600 emulated frames in 0.55 s (1100.2 frames/s)
+  result OK
+
+$ SIMCTL_CHILD_DYLD_INSERT_LIBRARIES=$PWD/build/gl-trap/libgltrap.dylib Spikes/PSPGPU/Scripts/run-spike.sh <UDID> software <Ausgabe> -frames 600 -capture 60,300
+  capture frame 60: software-frame-0060.png 480x270, sha256 6211846bc2423f8efbdb653241007897d2b7fa13dca55fcb81123e17f3eaea38
+  capture frame 300: software-frame-0300.png 480x270, sha256 7353719758f4f57baa8eca430b422b93db3e63cdb9cf9ff5c86a8e8817256ff1
+  capture frame 600: software-frame-0600.png 480x270, sha256 f6c5afcf86f034d081abc7df54f563ac15cf732d58179066f56b83204e59048f
+  609 retro_run calls, first emulated frame at call 10; 600 emulated frames in 0.25 s (2354.5 frames/s)
+  result OK

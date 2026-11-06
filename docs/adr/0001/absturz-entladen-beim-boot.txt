@@ -1,0 +1,25 @@
+# Absturz beim Entladen während des Boots (Auszug aus dem Absturzbericht, ohne Pfade und Kennungen)
+# Bericht: ~/Library/Logs/DiagnosticReports/PSPGPUSpike-2026-11-06-185938.ips (bleibt lokal, 84 KB)
+# Aufgetreten am 6. November 2026, 18:59, mit einer frühen Fassung des Spikes: retro_run in enger Schleife ohne Pause,
+# nach 3000 Aufrufen ohne emulierten Frame retro_unload_game. Der Loader-Thread des Kerns lief da noch.
+# Seitdem wartet der Spike 1 ms je leerem Boot-Aufruf (höchstens 10 s) und entlädt erst nach dem ersten emulierten Frame.
+
+Prozess: PSPGPUSpike, Host: macOS 27.2, Simulator: iPhone 18 Pro mit iOS 27.2 (Gerät der ersten Umsetzung, inzwischen gelöscht)
+Ausnahme: EXC_BAD_ACCESS SIGSEGV KERN_INVALID_ADDRESS at 0x0000000000000044
+Abbruchursache: Segmentation fault: 11
+Abstürzender Thread: 36 "ExecLoader"
+Oberste Frames:
+  ppsspp_libretro  __KernelStartIdleThreads(int) + 660
+  ppsspp_libretro  __KernelLoadExec(char const*, unsigned int, std::__1::basic_string<char, std::__1::char_traits<char>, std::__1::allocator<char>>*) + 1904
+  ppsspp_libretro  Load_PSP_ELF_PBP(FileLoader*, std::__1::basic_string_view<char, std::__1::char_traits<char>>, std::__1::basic_string<char, std::__1::char_traits<char>, std::__1::allocator<char>>*) + 5756
+  ppsspp_libretro  PSP_InitStart(CoreParameter const&)::$_0::operator()() const + 4780
+  ppsspp_libretro  void* std::__1::__thread_proxy[abi:nqe220106]<std::__1::tuple<std::__1::unique_ptr<std::__1::__thread_struct, std::__1::default_delete<std::__1::__thread_struct>>, PSP_InitStart(CoreParameter const&)::$_0>>(void*) + 52
+  libsystem_pthread.dylib  _pthread_start + 104
+  libsystem_pthread.dylib  thread_start + 8
+
+Threads des Prozesses zum Absturzzeitpunkt:
+  (ohne Namen), (ohne Namen), (ohne Namen), (ohne Namen), (ohne Namen), (ohne Namen), (ohne Namen), Main, PoolW 
+  0, PoolW 1, PoolW 2, PoolW 3, PoolW 4, PoolW 5, PoolW 6, PoolW 7, PoolW 8, PoolW 9, PoolW 10, PoolW 11, PoolW 
+  12, PoolW 13, PoolW IO 14, PoolW IO 15, PoolW IO 16, PoolW IO 17, PoolW IO 18, PoolW IO 19, PoolW IO 20, 
+  PoolW IO 21, PoolW IO 22, PoolW IO 23, PoolW IO 24, PoolW IO 25, PoolW IO 26, PoolW IO 27, ExecLoader, 
+  FlushMemInfo, SAS, UPnPService

@@ -1,0 +1,75 @@
+# Determinismus der Kernbilder je Grafikweg, iOS-27.2-Simulator (iPhone 18 Pro), 6. November 2026
+# Je Weg 5 Läufe in getrennten Prozessen:
+#   run-spike.sh <UDID> <weg> <Ausgabe> -frames 300 -capture 1,2,3,5,10,20,30,45,60,90,120,200
+# Gezählt: verschiedene SHA-256 der Pixel (Alpha ausgeblendet) je gefangenem Frame. Der Pixelvergleich (RGB) nutzt ein Wegwerf-Programm.
+
+## Vulkan über MoltenVK
+frame    1: 5 runs, 1 variant(s), first 35cee74fe697
+frame    2: 5 runs, 1 variant(s), first 35cee74fe697
+frame    3: 5 runs, 1 variant(s), first 35cee74fe697
+frame    5: 5 runs, 1 variant(s), first b79f80e8fb28
+frame   10: 5 runs, 1 variant(s), first 00d6dc3d5f7e
+frame   20: 5 runs, 1 variant(s), first e65d2bafc88b
+frame   30: 5 runs, 1 variant(s), first 990c860b6ba8
+frame   45: 5 runs, 1 variant(s), first 478733b1b68a
+frame   60: 5 runs, 1 variant(s), first caaf8cc33e88
+frame   90: 5 runs, 1 variant(s), first b8b51dd1d722
+frame  120: 5 runs, 1 variant(s), first e9ed1c2fd8d2
+frame  200: 5 runs, 1 variant(s), first 93c0a0e0cee8
+frame  300: 5 runs, 1 variant(s), first fb58dfafc51d
+
+## Software-Renderer
+frame    1: 5 runs, 1 variant(s), first 35cee74fe697
+frame    2: 5 runs, 1 variant(s), first 35cee74fe697
+frame    3: 5 runs, 1 variant(s), first 35cee74fe697
+frame    5: 5 runs, 1 variant(s), first 386b80252a75
+frame   10: 5 runs, 1 variant(s), first a1c18f7736b8
+frame   20: 5 runs, 1 variant(s), first 35c5b13fab60
+frame   30: 5 runs, 1 variant(s), first ac43ce8ca36c
+frame   45: 5 runs, 1 variant(s), first 2912f0c669ba
+frame   60: 5 runs, 1 variant(s), first 6211846bc242
+frame   90: 5 runs, 1 variant(s), first a3e34fab2635
+frame  120: 5 runs, 1 variant(s), first 1828159ea7fb
+frame  200: 5 runs, 1 variant(s), first 97ed04dbd6f8
+frame  300: 5 runs, 1 variant(s), first 7353719758f4
+
+## OpenGL ES
+frame    1: 5 runs, 1 variant(s), first 35cee74fe697
+frame    2: 5 runs, 1 variant(s), first 35cee74fe697
+frame    3: 5 runs, 1 variant(s), first 35cee74fe697
+frame    5: 5 runs, 1 variant(s), first e901b4d10150
+frame   10: 5 runs, 1 variant(s), first a1227762851e
+frame   20: 5 runs, 1 variant(s), first 9dad569aa5fd
+frame   30: 5 runs, 3 variant(s), first a90112d5532b
+frame   45: 5 runs, 1 variant(s), first 83efb9562f3a
+frame   60: 5 runs, 1 variant(s), first ef252696b3c6
+frame   90: 5 runs, 1 variant(s), first 8c652dce5e31
+frame  120: 5 runs, 1 variant(s), first 62615c1ee17f
+frame  200: 5 runs, 1 variant(s), first 7c24ab4c0e24
+frame  300: 5 runs, 1 variant(s), first a011d6d35591
+
+## OpenGL ES mit -waitForGPU YES (glFinish nach jedem Frame)
+frame    1: 5 runs, 1 variant(s), first 35cee74fe697
+frame    2: 5 runs, 1 variant(s), first 35cee74fe697
+frame    3: 5 runs, 1 variant(s), first 35cee74fe697
+frame    5: 5 runs, 1 variant(s), first e901b4d10150
+frame   10: 5 runs, 1 variant(s), first a1227762851e
+frame   20: 5 runs, 1 variant(s), first 9dad569aa5fd
+frame   30: 5 runs, 2 variant(s), first 953ef012924f
+frame   45: 5 runs, 1 variant(s), first 83efb9562f3a
+frame   60: 5 runs, 1 variant(s), first ef252696b3c6
+frame   90: 5 runs, 1 variant(s), first 8c652dce5e31
+frame  120: 5 runs, 1 variant(s), first 62615c1ee17f
+frame  200: 5 runs, 1 variant(s), first 7c24ab4c0e24
+frame  300: 5 runs, 1 variant(s), first a011d6d35591
+
+## Varianten von Frame 30 auf dem OpenGL-ES-Weg
+  Lauf 1: a90112d5532bd2880f010659fd689694dcb392c04a9040ca6629fa6fc47d2eb5
+  Lauf 2: 953ef012924f3fb9175dc36b419e7e2e72e943a01e1b6e13512237c5bf1d231f
+  Lauf 3: ad581b8049f89c763376d1456a15564936796346e24278318bc448becc437d9b
+  Lauf 4: ad581b8049f89c763376d1456a15564936796346e24278318bc448becc437d9b
+  Lauf 5: 953ef012924f3fb9175dc36b419e7e2e72e943a01e1b6e13512237c5bf1d231f
+  Pixelvergleich der drei Varianten:
+  Lauf 1 gegen 2: 2 of 129600 pixels differ (0.00 %), 0 by more than 8 levels (0.00 %), max delta 1
+  Lauf 1 gegen 3: 1 of 129600 pixels differ (0.00 %), 0 by more than 8 levels (0.00 %), max delta 1
+  Lauf 2 gegen 3: 1 of 129600 pixels differ (0.00 %), 0 by more than 8 levels (0.00 %), max delta 1
