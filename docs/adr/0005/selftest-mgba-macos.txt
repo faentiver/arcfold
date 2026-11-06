@@ -1,0 +1,75 @@
+# selftest.gba in mGBA 0.10.5 (macOS arm64 build of Cores/mgba 26b7884 with the options of Scripts/cores/mgba.sh)
+# Host: throwaway C probe host, legacy core options (GET_CORE_OPTIONS_VERSION refused), mgba_use_bios=OFF, empty system directory.
+# ROM SHA-256 7df143129e713b1188ec40b3d91bd84ccb95188dd1f6264f2bb75fba4544f9fd. Frame hashes: first 16 hex digits of SHA-256 over 240 x 160 RGB565 pixels.
+# Environment commands as numbers: 52 GET_CORE_OPTIONS_VERSION, 16 SET_VARIABLES, 10 SET_PIXEL_FORMAT, 11 SET_INPUT_DESCRIPTORS,
+# 65587 GET_INPUT_BITMASKS, 15 GET_VARIABLE, 27 GET_LOG_INTERFACE, 9 GET_SYSTEM_DIRECTORY, 65572 SET_MEMORY_MAPS,
+# 65578 SET_SUPPORT_ACHIEVEMENTS, 17 GET_VARIABLE_UPDATE. retro_run times are macOS values, plausibility only.
+
+== run1 (fresh SRAM)
+after set_environment: options parsed 13 (version answer -1)
+pixel format 2 (set 1)
+av: base 240x160 max 240x160 aspect 1.5000 fps 59.7275009155 sample_rate 32768.0
+save ram after load_game: size 131072, data present
+video: 300 calls, 0 dupes, 240x160 pitch 512, data pointer changes 0
+  frame 1 53430f5a5f2f35d8
+  frame 2 957f774b8b0aa9b6
+  frame 60 c7e16708d892921a
+  frame 300 74a711472bbc9297
+audio: 300 batch calls, 0 single, 164118 frames (547.0600 per run), batch min 80 max 552, max batches per run 1, peak 7674, fnv 62aad1a6b42a6808
+audio batch sizes: 80:1 545:7 546:5 547:4 548:169 549:44 550:43 551:17 552:10
+input: 300 polls, 900 state calls (300 mask)
+retro_run mean 0.234 ms, max 0.409 ms (macOS, plausibility only)
+save ram after run: size 32768; first bytes: 41 52 43 46 01 04 ff ff
+save ram: wrote 32768 bytes to <out>/run1.sav
+serialize size 430144
+environment calls: 52 x1 16 x1 10 x1 11 x1 65587 x1 15 x8 27 x1 9 x1 65572 x1 65578 x1 17 x300
+unhandled: 65572 65578
+options: mgba_gb_model=Autodetect mgba_use_bios=OFF mgba_skip_bios=OFF mgba_gb_colors=Grayscale mgba_gb_colors_preset=0 mgba_sgb_borders=ON mgba_audio_low_pass_filter=disabled mgba_audio_low_pass_range=60 mgba_allow_opposing_directions=no mgba_solar_sensor_level=0 mgba_force_gbp=OFF mgba_idle_optimization=Remove Known mgba_frameskip=0
+log lines: debug 0 info 6 warn 0 error 0
+== run1b (same as run1)
+  frame 1 53430f5a5f2f35d8
+  frame 2 957f774b8b0aa9b6
+  frame 60 c7e16708d892921a
+  frame 300 74a711472bbc9297
+== run2 (SRAM from run1)
+save ram after load_game: size 131072, data present
+save ram: loaded 32768 bytes from <out>/run1.sav
+  frame 300 13ed11ce3a7203d9
+save ram after run: size 32768; first bytes: 41 52 43 46 02 04 ff ff
+save ram: wrote 32768 bytes to <out>/run2.sav
+== run3 (SRAM from run2)
+save ram after load_game: size 131072, data present
+save ram: loaded 32768 bytes from <out>/run2.sav
+  frame 300 11b08bc6edd22c1d
+save ram after run: size 32768; first bytes: 41 52 43 46 03 04 ff ff
+save ram: wrote 32768 bytes to <out>/run3.sav
+== press (A in frames 100-300)
+  frame 1 53430f5a5f2f35d8
+  frame 2 957f774b8b0aa9b6
+  frame 60 c7e16708d892921a
+  frame 300 2a3991d92f791406
+audio: 300 batch calls, 0 single, 164118 frames (547.0600 per run), batch min 80 max 552, max batches per run 1, peak 7674, fnv d273ede2ce8cbaa0
+== path (game passed as path)
+  frame 1 53430f5a5f2f35d8
+  frame 2 957f774b8b0aa9b6
+  frame 60 c7e16708d892921a
+  frame 300 74a711472bbc9297
+== decoded pictures (frame 300)
+run1   size 240x160, boot counter 1, frame counter 294, keys 0x000, bar x 62..69
+run2   size 240x160, boot counter 2, frame counter 294, keys 0x000, bar x 62..69
+press  size 240x160, boot counter 1, frame counter 294, keys 0x001, bar x 62..69
+path   size 240x160, boot counter 1, frame counter 294, keys 0x000, bar x 62..69
+== tone
+frames 20-300: 439.9 Hz, mean -1, amplitude 4034, 164118 frames in total
+frames 20-95: 439.6 Hz, mean -2, amplitude 4035, 164118 frames in total
+frames 110-300: 879.7 Hz, mean -0, amplitude 3981, 164118 frames in total
+== SRAM files
+run1: 32768 bytes, 00000000: 4152 4346 0104 ffff                      ARCF....
+run2: 32768 bytes, 00000000: 4152 4346 0204 ffff                      ARCF....
+run3: 32768 bytes, 00000000: 4152 4346 0304 ffff                      ARCF....
+== stderr (core log lines, first 5 of run1)
+core[1] GBA Memory: Detected SRAM savegame
+core[1] GBA Savedata: Savedata synced
+core[1] GBA Savedata: Savedata synced
+core[1] GBA Savedata: Savedata synced
+core[1] GBA Savedata: Savedata synced

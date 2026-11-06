@@ -10,7 +10,13 @@
   - der CI-Workflow,
   - ADR 0001: PSP über Vulkan mit MoltenVK, angenommen,
   - ADR 0002: PS2 mit JIT, Gerätetest ausstehend.
-- **Nächster Schritt:** M1 · GBA läuft (Plan, Abschnitt 10). Dazu gehören Emulations-Thread mit Takt, Metal-Bild, Ton, Touch und Controller, Import, Batteriespeicher, Debug-Overlay und der Bildschirm „Lizenzen“.
+
+  M1 · GBA läuft (Plan, Abschnitt 10) ist auf dem Branch `m1/gba` begonnen:
+  - ADR 0005 (Laufzeit für Software-Kerne) ist vorgeschlagen,
+  - die öffentlichen Schnittstellen von LibretroKit und Renderer stehen als Code, die Umsetzung fehlt noch (`fatalError("M1 track K")` bzw. `"M1 track A"`),
+  - das eigene Testprogramm `Tests/Fixtures/gba/selftest.gba` ist eingecheckt,
+  - dazu kommen die Targets `RendererTests` und `ArcfoldUITests`, Lizenztexte im App-Bundle und `App/Info.plist`.
+- **Nächster Schritt:** Spur K (Kern und Laufzeit, Branch `m1/kern-laufzeit`) und Spur A (Ausgabe und App, Branch `m1/ausgabe-app`) parallel umsetzen, dann in `m1/gba` zusammenführen und M1 abnehmen.
 - **Datum:** 6. November 2026
 
 ## Arbeitsregeln
@@ -42,7 +48,7 @@ Packages/       LibretroKit, FoldLayout, Renderer (lokale Swift-Pakete)
 Cores/          Kerne als Git-Submodule, auf Tags oder Commits fixiert; Build/ mit den xcframeworks (ignoriert)
 Scripts/        bootstrap.sh, build-core.sh, cores/ mit einem Rezept je Kern
 Spikes/         Spike-Code aus M0 (PSPGPU, PS2JIT) als Referenz, nicht Teil der App
-Tests/          ArcfoldTests (Unit-Tests mit der App als Host), Fixtures/ (Homebrew-ROMs, Lizenzen)
+Tests/          ArcfoldTests (Unit-Tests mit der App als Host), ArcfoldUITests, Fixtures/ (Homebrew-ROMs, Lizenzen)
 docs/           PLAN.md, adr/, wissen/
 .github/        workflows/ci.yml, die CI mit GitHub Actions
 ```
@@ -67,7 +73,8 @@ xcodebuild build -project Arcfold.xcodeproj -scheme Store -destination 'generic/
 xcodebuild build -project Arcfold.xcodeproj -scheme JIT -destination 'generic/platform=iOS Simulator' -derivedDataPath build/DerivedData
 xcodebuild build -project Arcfold.xcodeproj -scheme Store -destination 'generic/platform=iOS' -derivedDataPath build/DerivedData CODE_SIGNING_ALLOWED=NO
 
-# Testen (ArcfoldTests und LibretroKitTests) auf dem Duo-Simulator mit iOS 27.1, ebenso mit -scheme JIT
+# Testen (ArcfoldTests, LibretroKitTests, RendererTests; ArcfoldUITests nur mit Store) auf dem
+# Duo-Simulator mit iOS 27.1, ebenso mit -scheme JIT
 xcodebuild test -project Arcfold.xcodeproj -scheme Store -destination 'platform=iOS Simulator,name=iPhone Duo,OS=27.1' -derivedDataPath build/DerivedData
 
 # Alternative: iPhone 18 Pro mit iOS 27.2

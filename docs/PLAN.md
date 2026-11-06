@@ -91,7 +91,7 @@ Technische Leitplanken:
 3. **Callbacks ohne Kontext.** Die Libretro-Callbacks haben keinen User-Data-Zeiger. Es gibt daher genau einen aktiven Kern, und statische Trampolin-Funktionen leiten an die aktive Host-Instanz weiter.
 4. **Eigener Emulations-Thread.** Der Kern läuft nie auf dem Main Thread. Der Takt kommt aus `retro_get_system_av_info` und ist unabhängig von den 120 Hz des Displays.
 5. **Bild.** Software-Kerne liefern einen Pixelpuffer (RGB565 oder XRGB8888), den der Renderer als Metal-Textur in ganzen Vielfachen skaliert. GPU-Kerne (PSP, PS2) brauchen einen HW-Render-Kontext über `RETRO_ENVIRONMENT_SET_HW_RENDER`. PSP: Vulkan über MoltenVK, das Bild kommt als `MTLTexture` in den Renderer, der Software-Renderer bleibt als Ausweg (ADR 0001). Für PSP bekommt LibretroKit keinen OpenGL-ES-Code (ADR 0001). PS2: Play!s libretro-Kern kann nur OpenGL ES 3. Wo der OpenGL-ES-3-Kontext für Play! entsteht (LibretroKit, `App/JIT` oder ein eigenes Paket), wird vor der PS2-Spur entschieden (ADR 0002).
-6. **Ton.** Samples landen in einem lock-freien Ringpuffer, den ein `AVAudioSourceNode` abspielt. Leichtes dynamisches Resampling gleicht Taktunterschiede aus.
+6. **Ton.** Samples landen in einem lock-freien Ringpuffer, den ein `AVAudioSourceNode` mit einem Echtzeit-Render-Block in C abspielt. Taktunterschiede gleicht kein Resampling aus: Die Emulation folgt der Tonuhr, indem der Füllstand des Puffers die Bildperiode um höchstens ±0,5 % trimmt (ADR 0005, vorgeschlagen).
 7. **Eingabe.** Touch-Overlay und GameController-Framework schreiben in einen gemeinsamen Eingabezustand, den der Kern über `input_state` abfragt.
 8. **Spielstände.** Batteriespeicher über `retro_get_memory_data(RETRO_MEMORY_SAVE_RAM)`, Save States über `retro_serialize`, jeweils mit Vorschaubild.
 9. **FoldLayout.** Liest `onHingeChange` und `reservedRegions(kind: .division)` und berechnet pro System die Rechtecke. Wechsel sind animiert, die Emulation läuft weiter.
@@ -149,7 +149,7 @@ Ausgeschlossen: snes9x (nur nicht-kommerziell), Genesis Plus GX (keine kommerzie
 ├── Cores/               Kerne als Git-Submodule, auf Tags oder Commits fixiert; Build/ mit den xcframeworks (ignoriert)
 ├── Scripts/             bootstrap.sh, build-core.sh, cores/ mit einem Rezept je Kern
 ├── Spikes/              Spike-Code aus M0 als Referenz, nicht Teil der App
-├── Tests/               ArcfoldTests (Unit-Tests mit der App als Host), Fixtures/ (Homebrew-ROMs, Lizenzen)
+├── Tests/               ArcfoldTests (Unit-Tests mit der App als Host), ArcfoldUITests, Fixtures/ (Homebrew-ROMs, Lizenzen)
 ├── docs/
 │   ├── PLAN.md          dieser Plan
 │   ├── adr/             Architektur-Entscheidungen
@@ -164,7 +164,7 @@ Ausgeschlossen: snes9x (nur nicht-kommerziell), Genesis Plus GX (keine kommerzie
 - Das Xcode-Projekt entsteht per XcodeGen aus `project.yml` (ADR 0004), damit es textbasiert und im Review lesbar bleibt. `Scripts/bootstrap.sh` baut vorher die eingebetteten Kerne.
 - Gearbeitet wird in Branches `m<Nummer>/<thema>` mit Pull Requests, die Fatih am iPhone prüfen kann.
 - Commit-Messages im Stil von Conventional Commits.
-- Tests: Emulation ist deterministisch. Unit-Tests prüfen deshalb die Bild-Prüfsumme nach einer festen Zahl Frames. Bei PSP geht das nur auf dem Vulkan- oder Software-Weg, OpenGL ES ist im Simulator nicht bitgenau (ADR 0001). Auch PS2 ist im Simulator nur mit Toleranz vergleichbar, weil Play! nur über OpenGL ES rendert (ADR 0002).
+- Tests: Emulation ist deterministisch. Unit-Tests prüfen deshalb die Bild-Prüfsumme nach einer festen Zahl Frames. Für GBA dient das eigene Testprogramm `Tests/Fixtures/gba/selftest.gba` (Bild, Ton, Eingabe, Batteriespeicher); die Kern-Tests laufen kopflos ohne Echtzeittakt, UI-Tests in `ArcfoldUITests` (ADR 0005). Bei PSP geht das nur auf dem Vulkan- oder Software-Weg, OpenGL ES ist im Simulator nicht bitgenau (ADR 0001). Auch PS2 ist im Simulator nur mit Toleranz vergleichbar, weil Play! nur über OpenGL ES rendert (ADR 0002).
 - CI: GitHub Actions baut für den Simulator und führt die Tests aus. Das Vorschau-Image `xcode-27` hat inzwischen Xcode 27.1 und den Duo-Simulator mit iOS 27.1 (Image vom 26. Oktober 2026), darauf läuft der Workflow. Fehlt Xcode 27.1 auf dem Runner, meldet der Job das und überspringt den Rest; dann baut der Mac mini lokal. Solange das Repo privat ist, zählt jede macOS-Minute zehnfach. Die CI läuft deshalb nur bei Pull Requests und auf manuellen Start.
 - Debug-Overlay mit Bildrate, Audio-Aussetzern und `ProcessInfo.thermalState`, damit Abnahmen auf Messwerten stehen.
 
@@ -189,7 +189,7 @@ Abgenommen am 6. November 2026. Schritte 1 bis 7 sind erledigt, Schritt 8 ist im
 
 ### M1 · GBA läuft
 
-Emulations-Thread mit Takt, Metal-Bild, Ton, Touch-Overlay, GameController, Import über `.fileImporter`, Batteriespeicher, Debug-Overlay. Dazu der Bildschirm „Lizenzen“ mit Arcfold (GPL-3.0), mGBA (MPL-2.0) und `libretro.h` (MIT): Die harte Regel verlangt die Lizenzhinweise in der App, und M1 ist der erste spielbare Build. M3 erweitert ihn um PPSSPP und MoltenVK.
+Emulations-Thread mit Takt, Metal-Bild, Ton, Touch-Overlay, GameController, Import über `.fileImporter`, Batteriespeicher, Debug-Overlay. Dazu der Bildschirm „Lizenzen“ mit Arcfold (GPL-3.0), mGBA (MPL-2.0), den in mGBA gebauten Teilen blip_buf (LGPL-2.1-or-later) und inih (BSD-3-Clause) sowie `libretro.h` (MIT): Die harte Regel verlangt die Lizenzhinweise in der App, und M1 ist der erste spielbare Build. M3 erweitert ihn um PPSSPP und MoltenVK. Entwurf und Schnittstellen: ADR 0005 (vorgeschlagen).
 
 **Abnahme:** Homebrew-ROM läuft stabil mit 60 fps, Ton ohne Knacken, Speicherstand überlebt einen Neustart.
 
@@ -273,7 +273,8 @@ Fork von `hrydgard/ppsspp`, Tabletop-Layout über `UIHingeInteraction`, Test auf
 - [x] ADR 0001 angenommen: Vulkan über MoltenVK für PSP (Fatih, mit der M0-Abnahme am 6. November 2026).
 - [ ] Store-Build: Darf PPSSPPs nie ausgeführter ARM64-JIT-Code im Kern bleiben (der Host meldet kein JIT, der Kern nutzt den IR-Interpreter), oder wird er herausgepatcht? Harte Regel JIT, ADR 0001 Folgen; vor M3 (Fatih).
 - [ ] Tests auf dem Duo schon ab M0 mit kostenloser Apple-ID? Davon hängt der Gerätetest aus ADR 0002 ab.
-- [ ] Lizenzvariante festlegen: GPL-3.0-only oder GPL-3.0-or-later. Die eigenen Testprogramme sind derzeit gemischt (`gu-test` or-later, `gs_sprites` only).
+- [ ] Lizenzvariante festlegen: GPL-3.0-only oder GPL-3.0-or-later. Die eigenen Testprogramme sind derzeit gemischt (`gu-test` or-later, `gs_sprites` und `selftest` only).
+- [ ] ADR 0005 (Laufzeit für Software-Kerne) annehmen. Darin offen: Controller-Belegung nach Position oder Beschriftung, 60 oder 120 Hz nach dem Gerätetest, Ton im Lautlos-Modus.
 - [ ] Libretro-Schnittstelle von Mesen 2 prüfen (M5).
 - [ ] Vor dem Öffentlichschalten die Quellen in Abschnitt 13 (Emulations-Ratgeber) auf ROM- und BIOS-Download-Links prüfen und notfalls durch Primärquellen ersetzen.
 
