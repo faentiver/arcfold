@@ -37,7 +37,7 @@ Eine offene SwiftUI-App, die mehrere Konsolen emuliert und jedes System für den
 - **Falz-Zustand:** `onHingeChange` (SwiftUI) und `UIHingeInteraction` (UIKit) liefern den Zustand (zu, teilweise offen als `.partiallyOpen`, offen) und den Winkel live. `context.hinge` ist `nil` auf Geräten ohne Scharnier. Apple sieht diese API für Interaktionen und Effekte vor.
 - **Falz-Layout (iOS 27.1):** `reservedRegions(kind: .division)` liefert den Falz als Rechteck und ist nur aktiv, wenn das Gerät geknickt ist. `ArrangementView` verteilt zwei Views um den Falz, als Split oder Overlay.
 - **Posen:** zugeklappt, halb geklappt wie ein Buch, Tabletop (oben ansehen, unten bedienen), flach.
-- **Simulator:** Xcode 27.1 simuliert das Duo mit Öffnen, Schließen, Drehen und Falten.
+- **Simulator:** Xcode 27.1 simuliert das Duo mit Öffnen, Schließen, Drehen und Falten. Der Duo-Simulator braucht die Runtime iOS 27.1; die Runtime iOS 27.2 (24B8117) schließt das Duo aus (Stand 6. November 2026, `docs/wissen/umgebung.md`).
 - **Apples Rat für Spiele:** lieber das Seitenverhältnis anpassen als Balken zeigen.
 - **PPSSPP:** Duo-Support für Ränder und Touch-Steuerung am 26. Oktober gemergt, Meilenstein 1.21, nur im Simulator getestet. Posen-Layouts sind nicht bekannt.
 - **Delta 2.0:** seit 22. Oktober DS-Modus mit Falz. Kein PSP.
@@ -147,7 +147,7 @@ Ausgeschlossen: snes9x (nur nicht-kommerziell), Genesis Plus GX (keine kommerzie
 │   └── Renderer/        Metal für das Bild, Audio-Ausgabe
 ├── Cores/               Kerne als Git-Submodule, auf Tags oder Commits fixiert
 ├── Scripts/             build-core.sh und weitere Build-Skripte
-├── Tests/               Homebrew-ROMs, Referenz-Prüfsummen
+├── Tests/               ArcfoldTests (Unit-Tests mit der App als Host), Fixtures (Homebrew-ROMs, Referenz-Prüfsummen)
 ├── docs/
 │   ├── PLAN.md          dieser Plan
 │   └── adr/             Architektur-Entscheidungen
@@ -155,11 +155,11 @@ Ausgeschlossen: snes9x (nur nicht-kommerziell), Genesis Plus GX (keine kommerzie
 └── LICENSE              GPL-3.0
 ```
 
-- Das Xcode-Projekt entsteht per XcodeGen aus `project.yml` (Vorschlag), damit es textbasiert und im Review lesbar bleibt.
+- Das Xcode-Projekt entsteht per XcodeGen aus `project.yml` (ADR 0004), damit es textbasiert und im Review lesbar bleibt. `Scripts/bootstrap.sh` baut vorher die eingebetteten Kerne.
 - Gearbeitet wird in Branches `m<Nummer>/<thema>` mit Pull Requests, die Fatih am iPhone prüfen kann.
 - Commit-Messages im Stil von Conventional Commits.
 - Tests: Emulation ist deterministisch. Unit-Tests prüfen deshalb die Bild-Prüfsumme nach einer festen Zahl Frames.
-- CI: GitHub Actions baut für den Simulator und führt die Tests aus, sobald Xcode 27.1 auf den gehosteten Runnern verfügbar ist. Bis dahin baut der Mac mini lokal.
+- CI: GitHub Actions baut für den Simulator und führt die Tests aus. Das Vorschau-Image `xcode-27` hat inzwischen Xcode 27.1 und den Duo-Simulator mit iOS 27.1 (Image vom 26. Oktober 2026), darauf läuft der Workflow. Fehlt Xcode 27.1 auf dem Runner, meldet der Job das und überspringt den Rest; dann baut der Mac mini lokal.
 - Debug-Overlay mit Bildrate, Audio-Aussetzern und `ProcessInfo.thermalState`, damit Abnahmen auf Messwerten stehen.
 
 ## 10. Meilensteine
