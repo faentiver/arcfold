@@ -1,3 +1,6 @@
 [submodule "Cores/mgba"]
 	path = Cores/mgba
 	url = https://github.com/mgba-emu/mgba.git
+[submodule "Cores/play"]
+	path = Cores/play
+	url = https://github.com/jpd002/Play-.git
