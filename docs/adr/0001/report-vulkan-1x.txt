@@ -1,16 +1,17 @@
-backend vulkan, 600 frames, render scale 1, content gu-test.elf
-dlopen /Frameworks/ppsspp_libretro.framework/ppsspp_libretro in 3.2 ms
+backend vulkan, 600 frames, render scale 1, content ~/Documents/content/gu-test.elf
+dlopen /Frameworks/ppsspp_libretro.framework/ppsspp_libretro in 2.8 ms
 core options ppsspp_backend, ppsspp_cpu_core, ppsspp_inflight_frames, ppsspp_internal_resolution
 core PPSSPP v1.20.4, extensions elf|iso|cso|prx|pbp|chd, need_fullpath 1
 retro_load_game in 0.2 ms; hardware context requests: VULKAN v4194322.0 (depth 1, stencil 0, bottom_left_origin 0, cache_context 1, debug 0) -> accepted; negotiation interface type 0 v2
 av info 480x270 (max 480x272), 59.940 fps, 44100 Hz audio
 Vulkan: instance API 1.4.357 (core asked: PPSSPP, API 1.0.0), instance extensions: VK_KHR_surface, VK_EXT_metal_surface, VK_KHR_get_physical_device_properties2, VK_EXT_swapchain_colorspace; device Apple iOS simulator GPU, API 1.4.357, driver 0x28a2, 114 device extensions; device created by the core through negotiation interface v2 (create_instance not set, create_device2 not set), queue family 0
-context_reset in 45.5 ms
+context_reset in 42.7 ms
 capture frame 60: vulkan-frame-0060.png 480x270, drawn 33.2 %, sha256 caaf8cc33e882cf84783ed7953bb91d7f31fc1a58498daa5ed83b50183428fa4
 capture frame 300: vulkan-frame-0300.png 480x270, drawn 35.7 %, sha256 fb58dfafc51d5d9fce5a748d05ad98827c316a7d0226f096bf76ec18252272c4
 capture frame 600: vulkan-frame-0600.png 480x270, drawn 34.1 %, sha256 88fe249e7c1da386de5d2e20836b89f2890bff5d53f773d80efd5873b63d22cb
-600 retro_run calls, first emulated frame at call 1; 600 emulated frames in 0.71 s (849.7 frames/s)
-frame time of retro_run, frames 61-600: mean 1.09 ms, median 0.99 ms, p95 2.03 ms, max 4.05 ms (simulator on the Mac's chip, not meaningful for the device)
+600 retro_run calls, first emulated frame at call 1; 600 emulated frames in 0.72 s (833.7 frames/s)
+frame time of retro_run, frames 61-600: mean 1.01 ms, median 0.98 ms, p95 1.23 ms, max 2.03 ms (simulator on the Mac's chip, not meaningful for the device)
+threads after retro_deinit that were not there before dlopen: (unnamed) x7, Main x1
 video callbacks 600 (hardware 600, software 0, duplicate 0), last size 480x270
 Vulkan images received 600, frames copied 600
 Vulkan interop: core image copied into an exportable host VkImage (vkCmdCopyImage), exported as MTLTexture with VK_EXT_metal_objects, read back with a Metal blit
@@ -18,4 +19,5 @@ Vulkan exported texture: 480x272, pixel format 80, storage mode 2, usage 0x5, on
 audio frames 441408 (10.01 s)
 core log: 7 warnings, 77 errors (core.log)
 environment calls: GET_SYSTEM_DIRECTORY x1, SET_PIXEL_FORMAT x1, SET_INPUT_DESCRIPTORS x1, SET_HW_RENDER x1, GET_VARIABLE x85, SET_VARIABLES x1, GET_VARIABLE_UPDATE x600, GET_LOG_INTERFACE x1, GET_SAVE_DIRECTORY x1, SET_CONTROLLER_INFO x1, GET_USERNAME x1, GET_LANGUAGE x1, GET_CORE_OPTIONS_VERSION x1, SET_CORE_OPTIONS_DISPLAY x3, GET_PREFERRED_HW_RENDER x1, SET_CORE_OPTIONS_UPDATE_DISPLAY_CALLBACK x1, GET_JIT_CAPABLE x5, GET_HW_RENDER_INTERFACE x1, SET_HW_RENDER_CONTEXT_NEGOTIATION_INTERFACE x1, GET_VFS_INTERFACE x1, GET_INPUT_BITMASKS x1
+system directory <app>/Frameworks/ppsspp_libretro.framework/system: 18 files before the run, 18 after, unchanged
 result OK
