@@ -29,6 +29,16 @@ Stand 6. November 2026, Xcode 27.2, XcodeGen 2.45.4. Die Entscheidungen dahinter
 - **Debug-Builds** haben dank Previews die Binärdateien `Arcfold` (Stub), `Arcfold.debug.dylib` und `__preview.dylib`. Wer prüfen will, was gelinkt ist, schaut mit `otool -L` auch auf `Arcfold.debug.dylib`, oder auf einen Release-Build.
 - **Build-Log-Zeile** „appintentsmetadataprocessor … warning: Metadata extraction skipped, no AppIntents.framework dependency found“ kommt von Xcodes Werkzeug selbst und betrifft jedes Target ohne App Intents. Sie ist keine Compiler-Warnung.
 
+## Erweiterungen in `project.yml` für M1
+
+Stand 6. November 2026, belegt mit den Builds Store und JIT für den Simulator, Store für ein Gerät und den Tests beider Schemes auf dem Duo-Simulator mit iOS 27.1.
+
+- **Partielle Info.plist:** `INFOPLIST_FILE: App/Info.plist` zusammen mit `GENERATE_INFOPLIST_FILE = YES`. Xcode führt die Datei mit den `INFOPLIST_KEY_*`-Einstellungen zusammen. Dort stehen Schlüssel ohne eigene Build-Einstellung (`CADisableMinimumFrameDurationOnPhone`, `LSSupportsGameMode`, `UTImportedTypeDeclarations`). **Anwenden:** Die Datei steht unter `excludes` der App-Quellen, sonst landet sie als Ressource im Bundle.
+- **Lizenztexte:** je Komponente eine Quelle mit `buildPhase: copyFiles`, `destination: resources` und `subpath: Licenses/<Komponente>`. XcodeGen legt pro Unterordner eine eigene Phase „Copy Files“ an, die Dateien landen in `Arcfold.app/Licenses/<Komponente>/`. Gleichnamige Dateien wie `LICENSE` kollidieren so nicht, und im Repo gibt es keine Kopien. **Warum das zählt:** Die Texte aus `Cores/` brauchen das ausgecheckte Submodul, das `Scripts/bootstrap.sh` sicherstellt.
+- **Test-Ressourcen:** `path: Tests/Fixtures/gba` mit `includes: ["*.gba"]` und `buildPhase: resources`, in `ArcfoldTests` und `ArcfoldUITests`. Nur die ROMs kommen mit, flach in die Wurzel des Test-Bundles; Generatoren und Lizenzdateien bleiben draußen. Tests finden sie mit `Bundle(for:)` (`Tests/ArcfoldTests/Support/Fixture.swift`). `BundleContentTests` prüft, dass keine ROM im App-Bundle außerhalb von `PlugIns` liegt.
+- **UI-Tests:** `ArcfoldUITests` ist ein `bundle.ui-testing` mit der App als Abhängigkeit; XcodeGen setzt `TEST_TARGET_NAME = Arcfold` selbst. Nur das Scheme Store führt die UI-Tests aus, weil die Oberfläche in beiden Builds gleich ist.
+- **Paket hängt von Paket ab:** Renderer bindet LibretroKit mit `.package(path: "../LibretroKit")` ein. Xcode führt das mit dem lokalen Paket des Projekts zusammen, ohne Warnung. Die Paket-Tests `RendererTests` stehen in beiden Schemes.
+
 ## CI (GitHub Actions)
 
 - Workflow `.github/workflows/ci.yml`, ein Job auf `runs-on: xcode-27`. Das ist ein Vorschau-Image (seit 16. Juli 2026, Issue actions/runner-images#14404) mit macOS 27, Xcode 27.0, 27.1 (Standard) und 27.2 RC, Simulatoren iOS 27.0 (iPhones) und iOS 27.1 (nur iPhone Duo), CMake 4.4.4, Ninja 1.13.2, xcbeautify, jq. XcodeGen fehlt und kommt per Homebrew. `macos-26` und `macos-latest` haben nur Xcode 26. Quelle: `images/macos/xcode-27-arm64-Readme.md` im Repo actions/runner-images, Image-Version 20261026.0314.1.
