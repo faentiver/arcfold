@@ -9,3 +9,4 @@ Tests/Fixtures/**/*.pbp filter=lfs diff=lfs merge=lfs -text
 Tests/Fixtures/**/*.PBP filter=lfs diff=lfs merge=lfs -text
 Tests/Fixtures/**/*.elf filter=lfs diff=lfs merge=lfs -text
 Tests/Fixtures/**/*.iso filter=lfs diff=lfs merge=lfs -text
+Tests/Fixtures/** !text !filter !merge !diff
