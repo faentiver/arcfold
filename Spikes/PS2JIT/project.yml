@@ -1,0 +1,51 @@
+# Spike for ADR 0002 (PS2 with JIT). Generate with `xcodegen generate` in this
+# folder; Scripts/build-core.sh play has to run first.
+name: JITSpike
+options:
+  bundleIdPrefix: com.faentiver.arcfold.spike
+  deploymentTarget:
+    iOS: "27.0"
+  createIntermediateGroups: true
+settings:
+  base:
+    SWIFT_VERSION: "6.0"
+    SWIFT_STRICT_CONCURRENCY: complete
+    SWIFT_TREAT_WARNINGS_AS_ERRORS: YES
+    GCC_TREAT_WARNINGS_AS_ERRORS: YES
+targets:
+  JITSpike:
+    type: application
+    platform: iOS
+    scheme: {}
+    sources:
+      - path: Sources
+      - path: ../../Tests/Fixtures/ps2/alu.elf
+        buildPhase: resources
+      - path: ../../Tests/Fixtures/ps2/alu.expected
+        buildPhase: resources
+      - path: ../../Tests/Fixtures/ps2/gs_sprites.elf
+        buildPhase: resources
+    dependencies:
+      # Loaded at runtime with dlopen, so it is embedded but not linked.
+      - framework: ../../Cores/Build/play_libretro.xcframework
+        embed: true
+        link: false
+    settings:
+      base:
+        PRODUCT_NAME: JITSpike
+        PRODUCT_BUNDLE_IDENTIFIER: com.faentiver.arcfold.spike.jit
+        GENERATE_INFOPLIST_FILE: YES
+        INFOPLIST_KEY_CFBundleDisplayName: JIT-Spike
+        INFOPLIST_KEY_UILaunchScreen_Generation: YES
+        INFOPLIST_KEY_UISupportedInterfaceOrientations: UIInterfaceOrientationPortrait
+        # Lets Fatih copy Documents/SpikeResults from the device with Finder or the Files app.
+        INFOPLIST_KEY_UIFileSharingEnabled: YES
+        INFOPLIST_KEY_LSSupportsOpeningDocumentsInPlace: YES
+        TARGETED_DEVICE_FAMILY: "1"
+        SWIFT_OBJC_BRIDGING_HEADER: Sources/Host/JITSpike-Bridging-Header.h
+        HEADER_SEARCH_PATHS: $(SRCROOT)/../../Cores/play/Source/ui_libretro/ext
+        # Play!'s libretro core renders with OpenGL ES 3, which Apple deprecated.
+        GCC_PREPROCESSOR_DEFINITIONS: $(inherited) GLES_SILENCE_DEPRECATION=1
+        CLANG_ENABLE_OBJC_ARC: YES
+        CODE_SIGN_STYLE: Automatic
+        ENABLE_USER_SCRIPT_SANDBOXING: YES
