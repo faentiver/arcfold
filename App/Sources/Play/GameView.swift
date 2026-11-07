@@ -82,7 +82,7 @@ struct GameView: View {
 
     @ViewBuilder
     private func controls(isLandscape: Bool) -> some View {
-        if session.phase == .running, session.controllers?.isControllerConnected != true {
+        if session.phase == .running, session.controllers?.isControllerInUse != true {
             TouchControls(isLandscape: isLandscape) { buttons in
                 session.setTouchButtons(buttons)
             }

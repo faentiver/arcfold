@@ -2,6 +2,7 @@ import Foundation
 import GameController
 import LibretroKit
 import Observation
+import os
 import Synchronization
 
 /// Game controllers and a hardware keyboard as input sources (ADR 0005,
@@ -10,14 +11,19 @@ import Synchronization
 /// does not delay them.
 @Observable
 final class ControllerInput {
-    /// True while at least one game controller is connected; the touch
-    /// controls hide then. A keyboard does not count.
-    private(set) var isControllerConnected = false
+    /// True once a connected game controller pressed a button; the touch
+    /// controls hide then and come back when it disconnects. Being connected
+    /// is not enough: the Simulator always reports a controller ('MFi' /
+    /// 'Gamepad') without any hardware, and a paired controller lying aside
+    /// should not take the touch controls away. A keyboard does not count.
+    private(set) var isControllerInUse = false
 
     @ObservationIgnored private let router: InputRouter
     @ObservationIgnored private var observers: [any NSObjectProtocol] = []
     @ObservationIgnored private var keyboardTokens: [NotificationCenter.ObservationToken] = []
     @ObservationIgnored private var isRunning = false
+
+    private static let logger = Logger(subsystem: "com.faentiver.arcfold", category: "input")
 
     init(input: InputState) {
         router = InputRouter(input: input)
@@ -43,6 +49,13 @@ final class ControllerInput {
             self?.router.detach(message.keyboard)
         })
 
+        // Runs on the input queue, once per controller.
+        router.setFirstUseHandler { [weak self] in
+            Task { @MainActor [weak self] in
+                self?.syncControllers()
+            }
+        }
+
         syncControllers()
         if let keyboard = GCKeyboard.coalesced {
             router.attach(keyboard)
@@ -65,17 +78,25 @@ final class ControllerInput {
         for controller in GCController.controllers() {
             controller.input.inputStateAvailableHandler = nil
         }
+        router.setFirstUseHandler(nil)
         router.sync(with: [])
         if let keyboard = GCKeyboard.coalesced {
             router.detach(keyboard)
         }
-        isControllerConnected = false
+        isControllerInUse = false
     }
 
     private func syncControllers() {
+        guard isRunning else { return }
         let controllers = GCController.controllers()
         router.sync(with: controllers)
-        isControllerConnected = !controllers.isEmpty
+        let isInUse = router.hasUsedController(among: controllers)
+        if isInUse != isControllerInUse {
+            isControllerInUse = isInUse
+            Self.logger.info("Game controller in use: \(isInUse), touch controls \(isInUse ? "hidden" : "shown", privacy: .public)")
+        }
+        let names = controllers.map { "\($0.vendorName ?? "unnamed") (\($0.productCategory))" }
+        Self.logger.info("Game controllers: \(names.isEmpty ? "none" : names.joined(separator: ", "), privacy: .public)")
     }
 }
 
@@ -88,9 +109,23 @@ nonisolated final class InputRouter: Sendable {
     private let controllerMasks = Mutex<[ObjectIdentifier: JoypadButtons]>([:])
     /// The controllers with a handler; changed on the main actor only.
     private let attached = Mutex<Set<ObjectIdentifier>>([])
+    /// The attached controllers that pressed a button since they were attached.
+    private let usedControllers = Mutex<Set<ObjectIdentifier>>([])
+    /// Called on `queue` when an attached controller presses its first button.
+    private let firstUseHandler = Mutex<(@Sendable () -> Void)?>(nil)
 
     init(input: InputState) {
         self.input = input
+    }
+
+    func setFirstUseHandler(_ handler: (@Sendable () -> Void)?) {
+        firstUseHandler.withLock { $0 = handler }
+    }
+
+    /// Whether one of `controllers` pressed a button since it was attached.
+    func hasUsedController(among controllers: [GCController]) -> Bool {
+        let used = usedControllers.withLock { $0 }
+        return controllers.contains { used.contains(ObjectIdentifier($0)) }
     }
 
     // MARK: Game controllers
@@ -132,13 +167,20 @@ nonisolated final class InputRouter: Sendable {
         }
     }
 
-    /// Runs on `queue` only.
+    /// Runs on `queue` only. `nil` buttons: the controller is gone.
     private func setController(_ id: ObjectIdentifier, buttons: JoypadButtons?) {
         let union = controllerMasks.withLock { masks in
             masks[id] = buttons
             return masks.values.reduce(into: JoypadButtons()) { $0.formUnion($1) }
         }
         input.set(union, from: .controller)
+        guard let buttons else {
+            usedControllers.withLock { _ = $0.remove(id) }
+            return
+        }
+        if !buttons.isEmpty, usedControllers.withLock({ $0.insert(id).inserted }) {
+            firstUseHandler.withLock { $0 }?()
+        }
     }
 
     /// RetroPad by position (ADR 0005): the right face button is A, the lower
