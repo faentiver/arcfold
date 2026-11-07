@@ -36,6 +36,8 @@ Messquellen
    Display-Link 47 bis 54 Hz ohne Simulator-Fenster; gezeigt 909 -> 27 688,
    übersprungen 290 -> 9530 (rund 25 % der Bilder, weil die Anzeige langsamer läuft
    als 59,73 Hz), späte Auswahl 0, GPU belegt 0, überschrieben 11 (alle beim Start)
+   Ursache offen: Das Testmuster lief im selben Simulator ohne Fenster mit 60 Hz
+   (Prüfung vom 7. November 2026). Gemessen wird auf dem Duo.
 
 5. Hintergrund und zurück (Einstellungen 10 s im Vordergrund, dann Arcfold)
    Bildzähler 38536 -> 39505 in 26,47 s Uhrzeit: 969 Bilder = 16,2 s Emulation,

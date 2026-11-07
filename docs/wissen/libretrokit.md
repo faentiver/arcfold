@@ -19,7 +19,7 @@ Stand 7. November 2026 (M1, nach der Integration von Spur K und Spur A). Paket u
 | `CallbackSlot`, `CallbackContext` | Ein globales `Atomic<UInt>` mit den `Unmanaged`-Bits des Kontexts und sechs `@convention(c)`-Trampoline als `static let`. Der Kontext beantwortet Environment, Bild, Ton und Eingabe. |
 | `FrameClock` | Werttyp mit eingespeister Zeit: Fristplan und PI-Regler. |
 | `BatterySaveFile`, `BatterySaveWriter`, `BatterySaveMonitor` | Dateilogik, Schreiber auf der `.utility`-Queue, Vergleich auf dem Emulations-Thread. |
-| `CoreOptions`, `CoreLog`, `InputState`, `SessionStats`, `HostTime` | Kernoptionen, Log-Senke mit Ratenbegrenzung, Eingabe, Messwerte, Mach-Zeit. |
+| `CoreOptions`, `CoreLog`, `InputState`, `SessionStats`, `HostTime` | Kernoptionen, Log-Senke mit Ratenbegrenzung, Eingabe, Messwerte, Mach-Zeit. `InputState` zählt außerdem jeden Tastendruck (`pressCount`) und hält den letzten fest (`lastPressedButtons`), für das Debug-Overlay und den UI-Test der Touch-Tasten. |
 
 ## Lebenszyklus einer Sitzung
 

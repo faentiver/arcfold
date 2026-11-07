@@ -9,8 +9,9 @@
   - LibretroKit: Emulations-Thread mit Takt, der der Tonuhr folgt, Callbacks, Environment, Eingabe, Batteriespeicher, Messwerte,
   - Renderer: Bild über Metal mit `CAMetalDisplayLink`, Ton über einen Ring in C und `AVAudioEngine`,
   - App: Bibliothek mit Import über `.fileImporter`, Spielansicht mit Touch-Tasten, Controller und Tastatur, Debug-Overlay, Bildschirm „Lizenzen“,
-  - Builds Store und JIT ohne Warnung, Tests grün (Store 132, JIT 127),
+  - Builds Store und JIT ohne Warnung, Tests grün (Store 136, JIT 130),
   - im Simulator: `selftest.gba` zehn Minuten mit 59,73 Bildern/s, ohne Aussetzer und Neusynchronisation, Spielstand übersteht `simctl terminate`,
+  - eine unabhängige Prüfung fand keine Fehler, von ihren acht kleineren Befunden sind sieben behoben (ADR 0005, „Nachbesserungen nach der Prüfung“), einer wartet auf das Gerät,
   - ADR 0005 (Laufzeit für Software-Kerne) ist mit den Belegen nachgezogen und weiter vorgeschlagen.
 - **Nächster Schritt:** M1-Abnahme durch Fatih und Pull Request von `m1/gba`. Offen sind der Gerätetest auf dem Duo (Bildrate, Wärme, Ton, Mehrfachberührung, Controller) und die Annahme von ADR 0005.
 - **Datum:** 7. November 2026

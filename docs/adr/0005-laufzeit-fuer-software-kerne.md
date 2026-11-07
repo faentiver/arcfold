@@ -53,7 +53,7 @@ App ──► Renderer ──► LibretroKit ──► CLibretro (libretro.h, Lo
 
 ### 2. Öffentliche Schnittstellen
 
-Der Code steht in `Packages/LibretroKit/Sources/LibretroKit/` (`Media.swift`, `Sinks.swift`, `Input.swift`, `EmulationSession.swift`, `SessionStats.swift`) und `Packages/Renderer/Sources/Renderer/`. Fehlende Umsetzungen enthalten nur `fatalError("M1 track K")` bzw. `fatalError("M1 track A")`.
+Der Code steht in `Packages/LibretroKit/Sources/LibretroKit/` (`Media.swift`, `Sinks.swift`, `Input.swift`, `EmulationSession.swift`, `SessionStats.swift`) und `Packages/Renderer/Sources/Renderer/`. Seit der Integration ist alles umgesetzt; die Platzhalter `fatalError("M1 track K")` und `fatalError("M1 track A")` aus dem Entwurf gibt es nicht mehr.
 
 | Typ | Rolle |
 | --- | --- |
@@ -92,7 +92,7 @@ Der Code steht in `Packages/LibretroKit/Sources/LibretroKit/` (`Media.swift`, `S
 - **Trampoline:** sechs `@convention(c)`-Funktionen als `static let`. Sie leiten an den aktiven Kontext weiter, der als `Unmanaged`-Zeiger in einem globalen `Atomic<UInt>` steht (0 heißt kein Kern). Belegung per `compareExchange` vor `retro_set_environment`, weil mGBA dort schon das Environment ruft. Freigabe nach `retro_deinit`. Ein zweites `load()` endet mit `.anotherSessionActive`. Zugriff mit `takeUnretainedValue()`, ohne unterstrichene API.
 - Gegen Entwurf „Nativ“ (`Atomic<Bool>` plus `nonisolated(unsafe)`): Belegung und Zeiger stecken in einem einzigen Atomic, ein unsicherer globaler Zustand entfällt. Belegt im Prototyp: kompiliert unter Swift 6.4.2 mit den Features des Projekts.
 - **Log:** `retro_log_printf_t` ist variadisch, Swift sieht ihn nur als `OpaquePointer?`. Ein C-Shim in `CLibretro` (`arcfold_log.c`) prüft zuerst eine atomare Mindeststufe (darunter wird nur gezählt), formatiert sonst mit `vsnprintf` in einen Stack-Puffer und ruft eine nicht-variadische Senke. Die Senke schreibt mit Ratenbegrenzung über `os.Logger`. `CLibretro` hat dafür den Umbrella-Header `include/CLibretro.h`: Ohne ihn baut SwiftPM die Module-Map über das Verzeichnis, und ein neuer Header fehlte im schon gebauten Modul für das Gerät.
-- **Spiel übergeben:** mGBA hat `need_fullpath = false`. Der Host liest die Datei mit `Data(contentsOf:options: .alwaysMapped)` und übergibt `data`, `size` und `path`. Die Daten bleiben bis `retro_unload_game` gültig. Pfad und Daten ergeben dieselben Bilder (belegt).
+- **Spiel übergeben:** mGBA hat `need_fullpath = false`. Der Host liest die Datei mit `NSData(contentsOf:options: .alwaysMapped)` und übergibt `data`, `size` und `path`. `NSData` statt `Data`, weil `bytes` dokumentiert so lange gilt wie das Objekt (`docs/wissen/libretrokit.md`). Die Daten bleiben bis `retro_unload_game` gültig. Pfad und Daten ergeben dieselben Bilder (belegt).
 - **Environment in M1:**
 
 | Befehl | Antwort |
@@ -136,7 +136,7 @@ Gegen Optionen v2 aus Entwurf „Echtzeit“: Eine Oberfläche für Kernoptionen
 ### 6. Ton
 
 - **`AudioRing`:** lock-freier SPSC-Ring in C (`CRendererAudio`, C11-Atomics mit Acquire und Release). Er fasst 8 192 Stereo-Frames Int16 (250 ms bei 32 768 Hz), ein Frame als `uint32_t`, sodass nie ein halbes Stereopaar entsteht. Der Erzeuger schreibt höchstens den freien Platz, der Rest wird verworfen und gezählt. Belegt im Prototyp: 3,17 Mrd. Frames unter Volllast ohne Sprung.
-- **Render-Funktion** `CA_REALTIME_API` mit den Zuständen Auffüllen (Stille, bis der Sollwert erreicht ist), Spielen und Ausgesetzt (Stille ohne Zählung). Läuft der Ring beim Spielen leer, füllt sie den Rest mit Nullen und blendet über 64 Frames vom letzten Wert aus. Dann zählt sie einen Aussetzer und füllt neu auf.
+- **Render-Funktion** `CA_REALTIME_API` mit den Zuständen Auffüllen (Stille, bis der Sollwert erreicht ist), Spielen und Ausgesetzt (Stille ohne Zählung). Nach dem Auffüllen blendet sie über 64 Frames ein, damit das Signal nicht von Stille auf seinen Wert springt. Läuft der Ring beim Spielen leer, füllt sie den Rest mit Nullen und blendet über 64 Frames vom letzten Wert aus. Dann zählt sie einen Aussetzer und füllt neu auf.
 - **Compilerprüfung:** In der Umsetzungsdatei steht `#pragma clang diagnostic error "-Wfunction-effects"`. Belegt im Prototyp: `malloc`, `free`, `NSLog` oder eine Objective-C-Nachricht im Block brechen den Build ab, `memcpy` und Atomics nicht. Die Warnung ist sonst aus, auch mit `-Wall`. In M1 ist auch der Erzeuger `ARCAudioRingWrite` `CA_REALTIME_API` und damit geprüft; die Gegenprobe von Spur A (Allokation und Lock eingebaut, Build bricht ab) steht in `docs/wissen/renderer.md`.
 - **`isConsuming`** heißt: Zustand Spielen, und der Render-Block lief in den letzten 100 ms. Gemessen am Zähler der Render-Aufrufe aus Sicht des Erzeugers, nicht an `mHostTime`.
 - **Knoten:** Eine Objective-C-Fabrik erzeugt `AVAudioSourceNode` mit `initWithFormat:realtimeSafeRenderBlock:`. Das Blockformat ist das Kernformat, Int16 verschachtelt mit 32 768 Hz, die Render-Funktion kopiert also nur. Verbunden wird mit `connectNode(_:to:format:)` und dem Format `standardFormatWithSampleRate: <Hardware-Rate>, channels: 2`. Damit wandelt nur der Quellknoten, und das einmal; laut Header kann er Abtastrate, Bittiefe und Verschachtelung wandeln. Belegt im Prototyp: Ohne Format stand der Knoten auf 44,1 kHz, und der Mischer wandelte ein zweites Mal.
@@ -175,10 +175,11 @@ Gegen Optionen v2 aus Entwurf „Echtzeit“: Eine Oberfläche für Kernoptionen
   - `System/`: leer.
   - Das Dateisystem ist die einzige Quelle, SwiftData wäre für eine Handvoll Dateien zu viel. Die ID aus der Prüfsumme macht doppelte Importe zu einem Eintrag, und eine umbenannte Datei behält ihren Spielstand.
   - Gegen die Ordnernamen beider Entwürfe: Der Container hat schon einen Ordner `Library`, deshalb heißt der Ordner `Games`.
-- **Import** über `.fileImporter` mit Mehrfachauswahl und dem Typ `com.faentiver.arcfold.gba-rom`, deklariert in `App/Info.plist` (Endung `gba`, konform zu `public.data`). Pro Datei in einer `@concurrent`-Funktion:
+- **Import** über `.fileImporter` mit Mehrfachauswahl und dem Typ `com.faentiver.arcfold.gba-rom`, deklariert in `App/Info.plist` (Endung `gba`, konform zu `public.data`). Dazu kommt der Typ, den das System der Endung gerade zuordnet (`GameSystem.importTypes`): Arcfold importiert seinen Typ nur, exportiert eine andere installierte App einen eigenen für `.gba`, bevorzugt das System diesen, und ohne ihn grauten die Spiele in der Auswahl aus. Pro Datei in einer `@concurrent`-Funktion:
   1. `startAccessingSecurityScopedResource()`.
-  2. Prüfen: 192 Byte bis 32 MiB, Byte 3 ist 0xEA und Byte 0xB2 ist 0x96, wie in mGBAs `GBAIsROM`.
-  3. SHA-256 mit CryptoKit, dann atomar kopieren.
+  2. Lesen über `NSFileCoordinator`, damit iCloud Drive und andere Anbieter die Datei vorher laden; ohne Mapping, die Kopie ändert sich danach nicht mehr.
+  3. Prüfen: 192 Byte bis 32 MiB, Byte 3 ist 0xEA und Byte 0xB2 ist 0x96, wie in mGBAs `GBAIsROM`.
+  4. SHA-256 mit CryptoKit, dann atomar kopieren.
 - **Systemtabelle** `GameSystem.gba`: Kern `mgba_libretro`, Endung `gba`, Typ wie oben, Kernoptionen `mgba_use_bios = OFF`.
 - **`PlaySession`** (`@MainActor @Observable`) besitzt `EmulationSession`, `FrameMailbox`, `AudioRing`, `AudioOutput` und `PresentationStats`.
 
@@ -186,7 +187,7 @@ Gegen Optionen v2 aus Entwurf „Echtzeit“: Eine Oberfläche für Kernoptionen
 | --- | --- |
 | Spiel öffnen | `load()`, `connect`, `AudioOutput.start()`, `resume()` |
 | `scenePhase` → `.inactive` | `AudioOutput.suspend()`, dann `pause()` |
-| → `.background` | wie `.inactive`, dazu `saveBatteryNow()` in `beginBackgroundTask` und `AudioOutput.stop()` |
+| → `.background` | zuerst `beginBackgroundTask`, darin wie `.inactive`, dazu `saveBatteryNow()` und `AudioOutput.stop()` |
 | → `.active` | nach dem Hintergrund zuerst `AudioOutput.start()`; dann `AudioOutput.resume()` und `resume()`, sofern nicht von Hand pausiert |
 | `interrupted` | pausieren |
 | `outputDeviceLost`, `resumptionRecommended(false)` | Pause von Hand, Fortsetzen über das Menü |
@@ -202,6 +203,7 @@ Gegen Optionen v2 aus Entwurf „Echtzeit“: Eine Oberfläche für Kernoptionen
   - Emulation: Bildrate, Laufzeit, `trim`, späte Bilder, Neusynchronisationen.
   - Anzeige: Rate des Display-Links, gezeigte, wiederholte und übersprungene Bilder, späte Auswahl, GPU belegt.
   - Ton: Füllstand in ms, Sollwert, Aussetzer, verworfene Frames, Auffüllen, IO-Puffer.
+  - Eingabe: gehaltene Tasten, letzter Tastendruck und Zahl der Tastendrücke aus `InputState`. Der Zähler hält fest, was eine kurze Berührung bewirkt hat; der UI-Test der Touch-Tasten liest ihn.
   - Dazu `ProcessInfo.thermalState` und `isLowPowerModeEnabled`.
   - Alle 10 s schreibt die App eine Zeile über `Logger(subsystem: "com.faentiver.arcfold", category: "stats")` als Beleg für Abnahmeläufe. Im Debug-Build ist das Overlay an.
 - **Lizenzen:** Liste und Textansicht für Arcfold (GPL-3.0, `LICENSE`), mGBA 0.10.5 (MPL-2.0, mit dem Hinweis auf den Quelltext: github.com/mgba-emu/mgba, Tag 0.10.5), blip_buf 1.1.0 (LGPL-2.1-or-later), inih (BSD-3-Clause) und `libretro.h` (MIT, der Kopfkommentar der Datei). blip_buf und inih stecken im gebauten Kern (belegt in `build.ninja`). Die Texte kopiert `project.yml` aus den Originalen nach `Arcfold.app/Licenses/<Komponente>/`, im Repo gibt es keine Doppel. M3 ergänzt PPSSPP und MoltenVK.
@@ -222,7 +224,7 @@ Gegen Optionen v2 aus Entwurf „Echtzeit“: Eine Oberfläche für Kernoptionen
   - Environment: `SessionSummary.unhandledEnvironmentCommands` enthält bei mGBA genau `SET_MEMORY_MAPS` und `SET_SUPPORT_ACHIEVEMENTS`.
   - Kurzer Lauf mit echtem Takt: laden, 120 Bilder, Pause, zweite Pause (die Bildrate bleibt stehen), Fortsetzen, Stopp, Spielstand geschrieben; die Bildrate nur als Plausibilitätswert.
 - **App-Tests** (`Tests/ArcfoldTests/App`): Import im temporären Ordner (Duplikat, zu klein, falscher Kopf), Bibliothek, Inhalt des App-Bundles.
-- **UI-Tests** (`ArcfoldUITests`, nur im Scheme Store): Start, Spiel per Debug-Start mit Bildrate im Overlay, Bildschirm „Lizenzen“, dazu aus Spur A der Debug-Import und das Testmuster ohne Kern.
+- **UI-Tests** (`ArcfoldUITests`, nur im Scheme Store): Start, Spiel per Debug-Start mit Bildrate im Overlay, Bildschirm „Lizenzen“, dazu aus Spur A der Debug-Import und das Testmuster ohne Kern, nach der Prüfung die Touch-Tasten (A halten, von A nach B gleiten, Tastenzähler im Overlay).
 - **Abnahme im Simulator:** eigenes Gerät „iPhone Duo“ mit iOS 27.1. Zehn Minuten `selftest.gba`: Bildrate etwa 59,7, keine Aussetzer nach dem Auffüllen, keine Neusynchronisation. Neustart per `simctl terminate` und erneutem Start: Boot-Zähler plus 1. Wechsel in den Hintergrund und zurück. Leistungszahlen gelten dort nur als Plausibilitätswerte. Ergebnis im Abschnitt „Umsetzung in M1“.
 - **Abnahme auf dem Duo** (offen, bis das Gerät eingerichtet ist): zehn Minuten `selftest.gba` und zehn Minuten eines Homebrews mit DirectSound-Ton. Erwartet: 59,73 ± 0,05 Bilder/s, keine Aussetzer, `thermalState` höchstens `.fair`.
 
@@ -276,20 +278,32 @@ Stand 7. November 2026, Branch `m1/gba`: Spur K (`m1/kern-laufzeit`) und Spur A 
 - Messwerte: Ein Intervall ohne Bilder, etwa eine zweite Pause, behält die Bildrate. Vorher zeigte das Overlay nach dem Hintergrund bis zur nächsten Messung 0 Bilder/s.
 - Der UI-Test „Spiel läuft“ läuft ohne Überspringen; die CI lädt die Metal-Toolchain, wenn sie fehlt.
 
+**Nachbesserungen nach der Prüfung**
+
+Die Prüfung von `m1/gba` fand keine Fehler, aber acht kleinere Befunde. Sieben davon sind behoben, einer wartet auf das Gerät:
+
+- Ton: Nach dem Auffüllen blendet die Render-Funktion über 64 Frames ein (Abschnitt 6). Vorher sprang das Signal beim Start, beim Fortsetzen und nach einem Aussetzer von Stille auf seinen Wert, was knacken kann.
+- Hintergrund: Die Hintergrundaufgabe beginnt vor der Pause und endet nach dem Sichern und dem Anhalten des Tons (Abschnitt 10). Vorher lief die Pause mit ihrer Sicherung ungeschützt, wenn `.inactive` fehlte.
+- Debug-Overlay: Seine Zeilen brechen vor der Pausentaste um, auf dem Außendisplay lief der Text sonst durch das Pausensymbol.
+- Import: Lesen über `NSFileCoordinator` und zusätzlich der Typ, den das System `.gba` zuordnet (Abschnitt 9).
+- Touch: fester UI-Test über den neuen Tastenzähler im Overlay (`InputState.pressCount`, `lastPressedButtons`). Der Testmuster-Test schlägt fehl, statt zu überspringen, wenn sich das Bildschirmfoto nicht lesen lässt. Den Import über die Dateiauswahl prüft weiterhin kein fester Test: Die Auswahl folgt Sprache und Layout des Simulators, ein solcher Test wäre brüchig.
+- Doku: Die Ursache der niedrigen Anzeigerate im Simulator ist eine offene Frage, keine Erklärung (Zeile „Anzeige“ unten).
+- Offen bis zum Gerätetest: Sicherungen ohne Mindestabstand. Ändert ein Spiel seinen Spielstand laufend, schreibt die App etwa jede Sekunde 32 KiB mit `fsync`. selftest.gba tut das mit Absicht (Herzschlag). Was das auf dem Duo an Strom und Flash kostet, wird dort gemessen; bei Bedarf kommt ein Mindestabstand von 5 bis 10 s für periodische Sicherungen dazu, das sofortige Sichern bei Pause, Hintergrund und Ende bleibt.
+
 **Belege**
 
 | Prüfung | Ergebnis |
 | --- | --- |
 | Builds | Store und JIT für den Simulator, Store für `generic/platform=iOS` mit `CODE_SIGNING_ALLOWED=NO`, auch in einem frischen Build-Ordner: ohne Warnung im eigenen Code; die einzige Warnzeile stammt von `appintentsmetadataprocessor` (`docs/wissen/bauen-und-ci.md`) |
-| Tests | Store 132 grün (ArcfoldTests 41, LibretroKitTests 53, RendererTests 33, ArcfoldUITests 5, keiner übersprungen), JIT 127 grün |
+| Tests | Store 136 grün (ArcfoldTests 42, LibretroKitTests 54, RendererTests 34, ArcfoldUITests 6, keiner übersprungen), JIT 130 grün; Stand nach den Nachbesserungen auf einem frischen Gerät „Arcfold M1 Nachbesserung“, vorher 132 und 127 |
 | Bildrate, zehn Minuten `selftest.gba` | Bildzähler des Programms: 36 370 Bilder in 608,85 s, also 59,735 Bilder/s (Soll 59,7275, Unsicherheit etwa ±0,05). Messzeilen alle 10 s: Mittel 59,72, 59,59 bis 59,89; `trim` −0,08 bis +0,03 %; 0 Neusynchronisationen |
 | Ton im selben Zeitraum | 0 Aussetzer, 0 verworfene Frames, einmal aufgefüllt; Füllstand 31 bis 57 ms bei 35 ms Reserve, IO-Puffer 2,7 ms bei 48 kHz |
 | Wärme | `thermalState` durchgehend `nominal`, Stromsparmodus aus; im Simulator ohne Aussagekraft |
-| Anzeige | Display-Link 47 bis 54 Hz ohne Simulator-Fenster, deshalb rund 25 % übersprungene Bilder; 0 späte Auswahlen, 0 „GPU belegt“, 11 überschriebene Bilder beim Start |
+| Anzeige | Display-Link 47 bis 54 Hz, deshalb rund 25 % übersprungene Bilder; 0 späte Auswahlen, 0 „GPU belegt“, 11 überschriebene Bilder beim Start. Die Ursache ist offen: Das Testmuster lief im selben Simulator ohne Fenster mit 60 Hz, der Rückgang kommt also erst mit dem Spiel (ein Present pro Bild, Kern, Ton oder Overlay), nicht schon durch das fehlende Fenster. Auf dem Duo messen; bleibt die Anzeige dort unter der Bildrate, `preferredFrameLatency` 2 statt 1 und die Zahl der Drawables prüfen |
 | Späte Bilder | rund 58 % mehr als 2 ms nach der Frist; `mach_wait_until` wacht im Simulator spät auf (`docs/wissen/libretrokit.md`) |
 | Hintergrund und zurück | 10 s Einstellungen im Vordergrund: Das Spiel pausierte (in 26,5 s Uhrzeit liefen 16,2 s Emulation), danach 59,7 Bilder/s, 0 Aussetzer, 0 Neusynchronisationen, ein weiteres Auffüllen |
 | Speicherstand über einen Neustart | `battery.sav` vor `simctl terminate`: 32 768 Byte, „ARCF“, Boot-Zähler 1. Nach dem Neustart zeigt das Spiel Boot-Zähler 2, die Datei beginnt mit „ARCF“ und 0x02, `battery.sav.bak` hält die vorige Fassung |
-| Touch | Halten von A setzt im Spiel Bit 0 der Tastenzeile, Gleiten von A nach B wechselt auf Bit 1, Loslassen löscht beide; vorübergehender UI-Test mit Bildschirmfotos, nur Einzelberührung |
+| Touch | Halten von A setzt im Spiel Bit 0 der Tastenzeile, Gleiten von A nach B wechselt auf Bit 1, Loslassen löscht beide; vorübergehender UI-Test mit Bildschirmfotos, nur Einzelberührung. Seit der Nachbesserung prüft der feste UI-Test `testTouchButtonsReachTheSession` denselben Weg bis in die Sitzung über den Tastenzähler im Overlay |
 | Import über `.fileImporter` | Dateiauswahl, Durchsuchen, „Auf meinem iPhone“, `selftest.gba`, Öffnen: Das Spiel steht in der Bibliothek (vorübergehender UI-Test) |
 | Lizenzen | UI-Test: fünf Einträge (Arcfold GPL-3.0, mGBA 0.10.5 MPL-2.0 mit Quelltext-Hinweis, blip_buf 1.1.0 LGPL-2.1-or-later, inih BSD-3-Clause, libretro.h MIT) mit ihren Texten |
 
@@ -297,4 +311,4 @@ Ein erster Lauf derselben Art vor der Korrektur der Messwerte ergab 59,728 Bilde
 
 Bildschirmfotos: `0005/m1-selftest-simulator.png` (laufendes Spiel mit Debug-Overlay und Touch-Tasten, zugeklappt, Faktor 4) und `0005/m1-lizenzen.png`.
 
-**Offen, braucht das Duo:** 59,73 ± 0,05 Bilder/s, Wärme, Tonlatenz, 60 oder 120 Hz, Mehrfachberührung, echter Controller und Tastatur, ein Homebrew mit DirectSound-Ton (160p Test Suite), der Import aus der Dateien-App auf dem Gerät.
+**Offen, braucht das Duo:** 59,73 ± 0,05 Bilder/s, Wärme, Tonlatenz, 60 oder 120 Hz, Mehrfachberührung, echter Controller und Tastatur, ein Homebrew mit DirectSound-Ton (160p Test Suite), der Import aus der Dateien-App auf dem Gerät, auch aus iCloud Drive und mit einem zweiten installierten Emulator, die Anzeigerate mit den übersprungenen Bildern, Strom und Flash bei Sicherungen im Sekundentakt.
