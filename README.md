@@ -2,7 +2,7 @@
 
 A multi-system emulator front end for iPhone, written in SwiftUI and designed around the fold of the iPhone Duo.
 
-> **Status:** early development, milestone M0 (foundation). Nothing to play yet.
+> **Status:** early development, milestone M1. Game Boy Advance homebrew runs in the Simulator, with picture, sound, touch and controller input and battery saves. Not yet tested on a device.
 
 ## Idea
 
@@ -20,9 +20,10 @@ Planned compatibility, in this order: Game Boy Advance (mGBA), Nintendo DS (melo
 
 ## Building
 
-You need a Mac with Apple silicon, Xcode 27.1 or later and three tools from Homebrew:
+You need a Mac with Apple silicon, Xcode 27.1 or later with its Metal toolchain, and three tools from Homebrew:
 
 ```sh
+xcodebuild -downloadComponent metaltoolchain   # once per Xcode, if it is missing
 brew install xcodegen cmake ninja
 ```
 

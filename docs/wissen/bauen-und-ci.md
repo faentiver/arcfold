@@ -5,7 +5,7 @@ description: Wie Kerne, Xcode-Projekt und CI zusammenspielen (bootstrap.sh, Stem
 
 # Bauen und CI
 
-Stand 6. November 2026, Xcode 27.2, XcodeGen 2.45.4. Die Entscheidungen dahinter stehen in ADR 0003 (Kerne) und ADR 0004 (XcodeGen).
+Stand 7. November 2026, Xcode 27.2, XcodeGen 2.45.4. Die Entscheidungen dahinter stehen in ADR 0003 (Kerne) und ADR 0004 (XcodeGen).
 
 ## Ablauf
 
@@ -18,6 +18,8 @@ Stand 6. November 2026, Xcode 27.2, XcodeGen 2.45.4. Die Entscheidungen dahinter
 **Anwenden:** Nach jedem Pull `Scripts/bootstrap.sh`. Einen neuen Kern trägt man in `project.yml` ein (plus Rezept), bootstrap und die Prüfung ziehen nach. Außerdem braucht er in `.github/workflows/ci.yml` den Submodul-Schritt („Fetch core sources“) und den Cache-Schlüssel („Compute core cache key“), bis die CI die Liste selbst aus `project.yml` liest (geplant für M3 zusammen mit dem Rezept-Haken für Unter-Submodule).
 
 ## Eigenheiten von Xcode und XcodeGen
+
+- **Metal-Toolchain:** Seit M1 übersetzt der Build den Shader `Packages/Renderer/Sources/Renderer/Shaders/Picture.metal` zu `default.metallib` im Bundle `Renderer_Renderer.bundle`. Xcode 27 liefert den Metal-Compiler als eigene Komponente; ohne sie bricht der Build mit „cannot execute tool 'metal' due to missing Metal Toolchain“ ab. **Anwenden:** einmal pro Xcode `xcodebuild -downloadComponent metaltoolchain` (rund 840 MB, ohne sudo), prüfen mit `xcodebuild -showComponent metaltoolchain`. Die CI lädt sie im Schritt „Install the Metal toolchain if missing“ nur, wenn der Status nicht `installed` ist.
 
 - **Fehlendes xcframework:** Xcode bricht schon in „CreateBuildDescription“ ab („There is no XCFramework found at …“), bevor irgendeine Build-Phase läuft. **Warum das zählt:** Ein Run-Script mit eigenem Hinweis kommt nie zum Zug. Den Hinweis gibt deshalb die Prüfung beim Generieren.
 - **`embed: true` und `link: false`** auf einer `framework:`-Abhängigkeit erzeugen nur einen Eintrag in „Embed Frameworks“ (mit `CodeSignOnCopy`). Xcode verarbeitet das xcframework trotzdem und kopiert die passende Scheibe. Nebenwirkung: XcodeGen ergänzt `FRAMEWORK_SEARCH_PATHS = Cores/Build`.
@@ -44,6 +46,8 @@ Stand 6. November 2026, belegt mit den Builds Store und JIT für den Simulator, 
 - Workflow `.github/workflows/ci.yml`, ein Job auf `runs-on: xcode-27`. Das ist ein Vorschau-Image (seit 16. Juli 2026, Issue actions/runner-images#14404) mit macOS 27, Xcode 27.0, 27.1 (Standard) und 27.2 RC, Simulatoren iOS 27.0 (iPhones) und iOS 27.1 (nur iPhone Duo), CMake 4.4.4, Ninja 1.13.2, xcbeautify, jq. XcodeGen fehlt und kommt per Homebrew. `macos-26` und `macos-latest` haben nur Xcode 26. Quelle: `images/macos/xcode-27-arm64-Readme.md` im Repo actions/runner-images, Image-Version 20261026.0314.1.
 - Actions: `actions/checkout@v7`, `actions/cache/restore@v6` und `actions/cache/save@v6` (aktuelle Major-Versionen am 6. November 2026).
 - Gewählt wird das Standard-Xcode des Images, wenn es mindestens 27.1 ist, sonst das neueste installierte. Ohne Xcode 27.1 gibt der Job eine `::notice::` aus, überspringt den Rest und bleibt grün.
+- Die Metal-Toolchain prüft der Schritt „Install the Metal toolchain if missing“ mit `xcodebuild -showComponent metaltoolchain -json` und lädt sie nur, wenn sie fehlt. Ob das Image `xcode-27` sie mitbringt, ist offen, bis der Workflow einmal läuft; das Laden kostet etwa 840 MB Download.
+- `RendererTests/AudioOutputTests` starten eine echte `AVAudioEngine`; der Simulator gibt den Ton über das Audiogerät des Macs aus. Ob die Runner eines haben, zeigt erst der erste Lauf (offen).
 - Die Kerne werden gecacht, Schlüssel aus Xcode-Build, Submodul-Commit (`git rev-parse HEAD:Cores/mgba`), Rezept und `build-core.sh`. Gespeichert wird gleich nach dem Bauen, damit ein roter Test den Cache nicht verwirft.
 - **Kosten:** Das Repo ist privat. macOS-Minuten zählen zehnfach gegen das Gratis-Kontingent. Die wichtigste Sparmaßnahme: Der Workflow läuft nur bei `pull_request` und auf manuellen Start (`workflow_dispatch`), nicht bei jedem Push. Dazu kommen ein einziger Job, der Cache und `cancel-in-progress`.
 - **Flacher Submodul-Klon:** Ohne Tags setzt build-core.sh die Framework-Version (`CFBundleShortVersionString`) auf 0.0.0. mGBA meldet trotzdem „0.10.5“, weil es im abgelösten HEAD auf seine CMake-Version zurückfällt. Für die CI reicht das.
