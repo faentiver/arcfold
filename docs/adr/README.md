@@ -8,7 +8,7 @@ Jede größere technische Entscheidung bekommt eine Datei `NNNN-kurzer-titel.md`
 | [0002](0002-ps2-jit.md) | PS2 mit JIT | Vorgeschlagen, Gerätetest ausstehend |
 | [0003](0003-kerne-als-eingebettete-frameworks.md) | Kerne als eingebettete, nicht gelinkte Frameworks | Angenommen |
 | [0004](0004-xcode-projekt-per-xcodegen.md) | Xcode-Projekt per XcodeGen | Angenommen |
-| [0005](0005-laufzeit-fuer-software-kerne.md) | Laufzeit für Software-Kerne: Takt, Callbacks, Bild, Ton, Eingabe, Spielstände | Vorgeschlagen |
+| [0005](0005-laufzeit-fuer-software-kerne.md) | Laufzeit für Software-Kerne: Takt, Callbacks, Bild, Ton, Eingabe, Spielstände | Vorgeschlagen, in M1 umgesetzt, Abnahme ausstehend |
 
 Aufbau jeder Datei:
 

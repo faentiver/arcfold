@@ -1,6 +1,6 @@
 # Projektplan: Multi-System-Emulator fürs iPhone Duo
 
-Stand: 6. November 2026 · Owner: Fatih (GitHub: `faentiver`) · Arbeitsgrundlage für Claude Code
+Stand: 7. November 2026 · Owner: Fatih (GitHub: `faentiver`) · Arbeitsgrundlage für Claude Code
 
 ---
 
@@ -193,6 +193,8 @@ Emulations-Thread mit Takt, Metal-Bild, Ton, Touch-Overlay, GameController, Impo
 
 **Abnahme:** Homebrew-ROM läuft stabil mit 60 fps, Ton ohne Knacken, Speicherstand überlebt einen Neustart.
 
+Stand 7. November 2026: umgesetzt auf `m1/gba` und im Duo-Simulator belegt (ADR 0005, Abschnitt „Umsetzung in M1“). Die Abnahme durch Fatih und der Gerätetest auf dem Duo stehen aus.
+
 ### M2 · DS am Falz
 
 melonDS-Kern. Der Kern liefert beide Bildschirme in einem Puffer, der Renderer teilt ihn in zwei Texturen. Touch-Abbildung auf den unteren Bildschirm, FoldLayout mit `onHingeChange` und `reservedRegions`, Layouts für alle Posen, Pause beim Zuklappen.
@@ -261,7 +263,7 @@ Fork von `hrydgard/ppsspp`, Tabletop-Layout über `UIHingeInteraction`, Test auf
 | StikDebug muss während des Spielens verbunden bleiben | Umständliche Bedienung im JIT-Build | Klärt Gerätetest A (ADR 0002) |
 | GPL und App Store | Keine Store-Veröffentlichung | Erst eigene Geräte, vor einer Einreichung die Kern-Entwickler fragen |
 | Neue Duo-APIs, lückenhafte Doku | Verhalten weicht ab | Hinter `#available(iOS 27.1, *)` kapseln, früh auf dem Duo testen |
-| Knacken im Ton, unruhiger Takt bei 120 Hz | Spielgefühl leidet | Eigener Takt je Kern, Resampling, Messwerte im Debug-Overlay |
+| Knacken im Ton, unruhiger Takt bei 120 Hz | Spielgefühl leidet | Eigener Takt je Kern, der der Tonuhr folgt statt Resampling (ADR 0005), Messwerte im Debug-Overlay |
 | Wärme und Akku | Lange Sessions brechen ein | Messung in jedem Meilenstein, Bildraten-Begrenzer |
 | Markenrecht | Abmahnung oder Ablehnung | Neutraler Name, eigene Skins, keine Logos |
 | Der Umfang wächst | Nichts wird fertig | Abnahme pro Meilenstein, das nächste System erst danach |
@@ -275,6 +277,7 @@ Fork von `hrydgard/ppsspp`, Tabletop-Layout über `UIHingeInteraction`, Test auf
 - [ ] Tests auf dem Duo schon ab M0 mit kostenloser Apple-ID? Davon hängt der Gerätetest aus ADR 0002 ab.
 - [ ] Lizenzvariante festlegen: GPL-3.0-only oder GPL-3.0-or-later. Die eigenen Testprogramme sind derzeit gemischt (`gu-test` or-later, `gs_sprites` und `selftest` only).
 - [ ] ADR 0005 (Laufzeit für Software-Kerne) annehmen. Darin offen: Controller-Belegung nach Position oder Beschriftung, 60 oder 120 Hz nach dem Gerätetest, Ton im Lautlos-Modus.
+- [ ] Vor M2 auf dem Gerät prüfen: Der Duo-Simulator meldet das Innendisplay mit 2007 × 2853 px statt 1878 × 2670 (Abschnitt 3), und zugeklappt nimmt eine Systemspalte von 84 pt den rechten Rand ein. Davon hängen die Platzierung (ADR 0005) und die Falz-Layouts ab.
 - [ ] Libretro-Schnittstelle von Mesen 2 prüfen (M5).
 - [ ] Vor dem Öffentlichschalten die Quellen in Abschnitt 13 (Emulations-Ratgeber) auf ROM- und BIOS-Download-Links prüfen und notfalls durch Primärquellen ersetzen.
 

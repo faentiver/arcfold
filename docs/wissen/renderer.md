@@ -5,7 +5,7 @@ description: Aufbau des Renderer-Pakets in M1 (Bildpostfach, Metal-Ansicht, Tonr
 
 # Renderer
 
-Stand 7. November 2026 (M1, Spur A). Paket unter `Packages/Renderer`, swift-tools-version 6.4, iOS 27, Swift 6. Die Entscheidungen dahinter stehen in ADR 0005, Abschnitte 5 und 6.
+Stand 7. November 2026 (M1, nach der Integration von Spur A und Spur K). Paket unter `Packages/Renderer`, swift-tools-version 6.4, iOS 27, Swift 6. Die Entscheidungen dahinter stehen in ADR 0005, Abschnitte 5 und 6.
 
 ## Aufbau
 
@@ -28,7 +28,7 @@ Stand 7. November 2026 (M1, Spur A). Paket unter `Packages/Renderer`, swift-tool
   - `ARCAudioRingRender` mit den Zuständen Auffüllen, Spielen und Ausgesetzt. Bei Unterlauf eine Rampe über 64 Frames vom letzten Wert, auch über Aufrufgrenzen hinweg; dann Auffüllen. Eine Flush-Anforderung verwirft beim nächsten Aufruf alles Gepufferte.
   - `ARCAudioRingWrite` (Erzeuger) ist ebenfalls `CA_REALTIME_API` und damit compilergeprüft. Die Zeit (`mach_absolute_time()`) kommt als Parameter aus Swift.
   - `ARCAudioMakeSourceNode`: `initWithFormat:realtimeSafeRenderBlock:`, Blockformat Int16 verschachtelt mit der Kern-Rate, die Render-Funktion kopiert nur.
-- **`AudioRing`** (`AudioSink`): Swift-Hülle. `isConsuming` heißt: Zustand Spielen, und der Render-Block lief in den letzten 100 ms. Gemessen wird das am Zähler der Render-Aufrufe aus Sicht des Erzeugers, nicht an `mHostTime`.
+- **`AudioRing`** (`AudioSink`): Swift-Hülle. `isConsuming` heißt: Zustand Spielen, und der Render-Block lief in den letzten 100 ms. Gemessen wird das am Zähler der Render-Aufrufe aus Sicht des Erzeugers, nicht an `mHostTime`. `targetFrames` im `AudioBufferStatus` ist der Füllstand zum Auffüllen, also die Reserve vor neuem Ton; der Takt in LibretroKit zieht die Frames des Bildes selbst ab (ADR 0005, Abschnitte 3 und 6).
 - **`AudioOutput`** (`@MainActor`):
   - `.ambient`, `setPreferredIOBufferDuration(0.005)`, asynchrones `activate(options:)`.
   - Engine mit `connectNode(_:to:format:)` und `standardFormatWithSampleRate: <Hardware-Rate>, channels: 2`; Sollfüllstand `max(35 ms, IO-Puffer + 20 ms)`.
@@ -45,9 +45,12 @@ Simulator „iPhone Duo“ mit iOS 27.1, Xcode 27.2, 7. November 2026:
 - `AudioOutput` startet im Simulator, der Render-Block läuft, `isConsuming` wird wahr; Aussetzen und Fortsetzen zählen keine Aussetzer.
 - Gegenprobe der Compilerprüfung: `malloc` und `free` in `ARCAudioRingRender`, `pthread_mutex_lock` in `ARCAudioRingWrite` und eine Objective-C-Nachricht im Render-Block brechen den Build mit `-Wfunction-effects` als Fehler ab, etwa „function with 'nonblocking' attribute must not call non-'nonblocking' function 'malloc'“ und „block with 'nonblocking' attribute must not access ObjC methods or properties“. Danach entfernt.
 - Stresstests mit zwei Threads: Postfach ohne zerrissene oder vertauschte Bilder, auch während der Erzeuger überschreibt; Ring ohne Sprung, Rampen werden an ihrer Formel erkannt.
+- In der App mit mGBA (Abnahme nach der Integration, zehn Minuten `selftest.gba`, Werte in ADR 0005): 0 Aussetzer, 0 verworfene Frames, einmal aufgefüllt; Füllstand zwischen 31 und 57 ms bei 35 ms Reserve und 2,7 ms IO-Puffer (48 kHz im Simulator). Postfach: 11 überschriebene Bilder, alle beim Start, 0 späte Auswahlen, 0 „GPU belegt“.
 - Maschinencode des Release-Builds für das Gerät (`otool -tV`, alle Sprünge mit Rückkehr): `FrameMailbox.submit` ruft nur zweimal `memmove` (Zeilenkopie) und die Platzsuche, die selbst nichts aufruft; `AudioRing.write` ruft `mach_absolute_time`, `ARCAudioRingWrite` und den Stub der Stack-Prüfung; `ARCAudioRingWrite` nur `memcpy`, `ARCAudioRingRender` nur `memcpy` und `bzero`. Kein `malloc`, kein Lock, kein `swift_retain` oder `swift_release`, keine Objective-C-Nachricht.
 
 ## Stolperfallen
+
+- **Display-Link im Simulator ohne Fenster.** Bei der Abnahme lief der Duo-Simulator nur über `simctl`, ohne geöffnetes Fenster, und `CAMetalDisplayLink` meldete 46 bis 55 Hz statt 60. Bei 59,73 Bildern/s Inhalt blieben so rund 25 % der Bilder ungezeigt („skipped“), die Emulation läuft trotzdem mit 59,7 Bildern/s. **Warum:** Die Anzeige des Simulators ist kein Maßstab für das Gerät. **Anwenden:** Bildrate und übersprungene Bilder der Anzeige nur auf dem Duo bewerten; im Simulator zählt die Bildrate der Emulation.
 
 - **Metal-Toolchain fehlt.** Xcode 27 liefert den Metal-Compiler als eigene Komponente; ohne sie bricht der Build mit „cannot execute tool 'metal' due to missing Metal Toolchain“ ab. **Warum:** Der Shader wird beim Bauen übersetzt, nicht zur Laufzeit. **Anwenden:** `xcodebuild -downloadComponent metaltoolchain` (838,9 MB, ohne sudo, Version 27B47), entfernen mit `xcodebuild -deleteComponent metaltoolchain`; die CI braucht denselben Schritt, falls ihr Image die Komponente nicht hat.
 - **`any MTLTexture` ist nicht `Sendable`.** **Warum:** Der Completion-Handler läuft auf einem Thread von Metal, Swift 6 verbietet dort das Fangen der Textur. **Anwenden:** Der Zähler „in Arbeit“ steckt in einer eigenen `Sendable`-Klasse, die Textur bleibt auf dem Main Thread.

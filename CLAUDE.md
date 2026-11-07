@@ -3,21 +3,17 @@
 ## Status
 
 - **Ziel:** Eine offene SwiftUI-App, die mehrere Konsolen emuliert und jedes System für den Falz des iPhone Duo auslegt.
-- **Stand:** M0 (Fundament) ist abgenommen. Fertig sind:
-  - das Xcode-Projekt per XcodeGen mit den Schemes Store und JIT,
-  - die Pakete LibretroKit, FoldLayout und Renderer,
-  - mGBA 0.10.5 als eingebettetes, nicht gelinktes Framework, der mGBA-Test ist grün,
-  - der CI-Workflow,
-  - ADR 0001: PSP über Vulkan mit MoltenVK, angenommen,
-  - ADR 0002: PS2 mit JIT, Gerätetest ausstehend.
+- **Stand:** M0 (Fundament) ist abgenommen: XcodeGen-Projekt mit den Schemes Store und JIT, die Pakete LibretroKit, FoldLayout und Renderer, mGBA 0.10.5 als eingebettetes, nicht gelinktes Framework, der CI-Workflow, ADR 0001 angenommen, ADR 0002 mit ausstehendem Gerätetest.
 
-  M1 · GBA läuft (Plan, Abschnitt 10) ist auf dem Branch `m1/gba` begonnen:
-  - ADR 0005 (Laufzeit für Software-Kerne) ist vorgeschlagen,
-  - die öffentlichen Schnittstellen von LibretroKit und Renderer stehen als Code, die Umsetzung fehlt noch (`fatalError("M1 track K")` bzw. `"M1 track A"`),
-  - das eigene Testprogramm `Tests/Fixtures/gba/selftest.gba` ist eingecheckt,
-  - dazu kommen die Targets `RendererTests` und `ArcfoldUITests`, Lizenztexte im App-Bundle und `App/Info.plist`.
-- **Nächster Schritt:** Spur K (Kern und Laufzeit, Branch `m1/kern-laufzeit`) und Spur A (Ausgabe und App, Branch `m1/ausgabe-app`) parallel umsetzen, dann in `m1/gba` zusammenführen und M1 abnehmen.
-- **Datum:** 6. November 2026
+  M1 · GBA läuft (Plan, Abschnitt 10) ist auf dem Branch `m1/gba` umgesetzt und im Duo-Simulator belegt; die Abnahme durch Fatih steht aus:
+  - LibretroKit: Emulations-Thread mit Takt, der der Tonuhr folgt, Callbacks, Environment, Eingabe, Batteriespeicher, Messwerte,
+  - Renderer: Bild über Metal mit `CAMetalDisplayLink`, Ton über einen Ring in C und `AVAudioEngine`,
+  - App: Bibliothek mit Import über `.fileImporter`, Spielansicht mit Touch-Tasten, Controller und Tastatur, Debug-Overlay, Bildschirm „Lizenzen“,
+  - Builds Store und JIT ohne Warnung, Tests grün (Store 132, JIT 127),
+  - im Simulator: `selftest.gba` zehn Minuten mit 59,73 Bildern/s, ohne Aussetzer und Neusynchronisation, Spielstand übersteht `simctl terminate`,
+  - ADR 0005 (Laufzeit für Software-Kerne) ist mit den Belegen nachgezogen und weiter vorgeschlagen.
+- **Nächster Schritt:** M1-Abnahme durch Fatih und Pull Request von `m1/gba`. Offen sind der Gerätetest auf dem Duo (Bildrate, Wärme, Ton, Mehrfachberührung, Controller) und die Annahme von ADR 0005.
+- **Datum:** 7. November 2026
 
 ## Arbeitsregeln
 
@@ -55,7 +51,7 @@ docs/           PLAN.md, adr/, wissen/
 
 ## Bauen und Testen
 
-Voraussetzungen: Xcode 27.1 oder neuer, dazu `brew install xcodegen cmake ninja`. Optional für die Prüfung des CI-Workflows: `brew install actionlint`. Die Test-ROMs sind klein und liegen als normale Dateien im Repo, ohne Git LFS (`docs/wissen/umgebung.md`).
+Voraussetzungen: Xcode 27.1 oder neuer mit Metal-Toolchain (`xcodebuild -downloadComponent metaltoolchain`, einmal pro Xcode), dazu `brew install xcodegen cmake ninja`. Optional für die Prüfung des CI-Workflows: `brew install actionlint`. Die Test-ROMs sind klein und liegen als normale Dateien im Repo, ohne Git LFS (`docs/wissen/umgebung.md`).
 
 ```bash
 # Nach dem Klonen und nach jedem Pull: Submodule der Kerne, fehlende oder
@@ -80,6 +76,12 @@ xcodebuild test -project Arcfold.xcodeproj -scheme Store -destination 'platform=
 # Alternative: iPhone 18 Pro mit iOS 27.2
 xcodebuild test -project Arcfold.xcodeproj -scheme Store -destination 'platform=iOS Simulator,name=iPhone 18 Pro,OS=27.2' -derivedDataPath build/DerivedData
 
+# Ein Spiel im Simulator starten (nur Debug-Build, nur Simulator): importiert wie der
+# Datei-Import und startet; die Messzeilen des Debug-Overlays kommen alle 10 s ins Log
+xcrun simctl launch <UDID> com.faentiver.arcfold -ArcfoldAutorun "$PWD/Tests/Fixtures/gba/selftest.gba"
+xcrun simctl spawn <UDID> log stream --predicate 'subsystem == "com.faentiver.arcfold" AND category == "stats"'
+xcrun simctl io <UDID> screenshot --display=1 shot.png   # Duo: 1 außen, 3 innen
+
 # CI-Workflow prüfen (optional, braucht actionlint)
 actionlint -ignore 'label "xcode-27" is unknown' .github/workflows/ci.yml
 ```
@@ -96,7 +98,9 @@ actionlint -ignore 'label "xcode-27" is unknown' .github/workflows/ci.yml
 - `docs/adr/`: Architektur-Entscheidungen
 - `docs/wissen/umgebung.md`: Werkzeuge, Versionen, Stolperfallen und wie man alles wieder entfernt
 - `docs/wissen/bauen-und-ci.md`: bootstrap.sh, Stempel, XcodeGen, Eigenheiten von Xcode 27.2, GitHub Actions
-- `docs/wissen/libretrokit.md`: Aufbau und Entscheidungen in LibretroKit, Stolperfallen
+- `docs/wissen/libretrokit.md`: Aufbau und Entscheidungen in LibretroKit, Takt, Environment, Batteriespeicher, Stolperfallen
+- `docs/wissen/renderer.md`: Bildpostfach, Metal-Ansicht, Tonring in C, Audioausgabe, Stolperfallen
+- `docs/wissen/app.md`: Bibliothek, Import, Spielansicht, Lebenszyklus, Eingabe, Debug-Overlay, Lizenzen, Stolperfallen
 - `docs/wissen/psp-grafik.md`: PPSSPP als libretro-Kern bauen und hosten, Grafikwege, Stolperfallen (zu ADR 0001)
 - `docs/wissen/ps2-jit.md`: PS2 mit JIT, StikDebug und TXM, Einbau in den JIT-Build, Anleitung für den Gerätetest (zu ADR 0002)
 - `Spikes/`: Spike-Code aus M0 als Referenz, nicht Teil der App

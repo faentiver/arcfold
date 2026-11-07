@@ -5,7 +5,7 @@ description: Aufbau von LibretroKit (Laden per dlopen, Emulations-Thread, Takt, 
 
 # LibretroKit
 
-Stand 7. November 2026 (M1, Spur K). Paket unter `Packages/LibretroKit`, swift-tools-version 6.4, iOS 27, Swift 6 mit Strict Concurrency. Entscheidungen: ADR 0003 (Kerne als Frameworks) und ADR 0005 (Laufzeit für Software-Kerne).
+Stand 7. November 2026 (M1, nach der Integration von Spur K und Spur A). Paket unter `Packages/LibretroKit`, swift-tools-version 6.4, iOS 27, Swift 6 mit Strict Concurrency. Entscheidungen: ADR 0003 (Kerne als Frameworks) und ADR 0005 (Laufzeit für Software-Kerne).
 
 ## Aufbau
 
@@ -38,7 +38,9 @@ Fehler beim Laden enden in `.failed`; alles bis dahin Geladene wird zurückgebau
 - Absolute Fristen in Mach-Ticks, der Bruchteil eines Ticks wird mitgeführt: Nach 10⁶ Bildern liegt die Frist höchstens einen Tick neben `start + 10⁶ · P` (Test).
 - Verspätung bis drei Perioden holt der Plan ohne Wartezeit auf, die Fristen bleiben im Raster. Darüber beginnt der Plan bei „jetzt“, `resyncs` zählt, Signpost „resync“.
 - PI-Regler nach ADR 0005 nur bei `isConsuming`, sonst `trim · 0,95` pro Bild. `.unthrottled` wartet nie, `FrameStamp.nominalTime` ist dann die Startzeit.
-- Simulation in den Tests (10 min, Gerät mit 256 Frames bei 48 kHz, Laufzeiten 1,5 bis 3,5 ms plus seltene Spitzen bis 15,5 ms, Sollwert 35 ms): bei −500, −100, +100 und +500 ppm Drift 0 Aussetzer, 0 Neusynchronisationen, mittlerer `trim` in der zweiten Hälfte +500,5, +100,3, −99,8 und −499,5 ppm, kleinster Füllstand beim Spielen 18,6 ms.
+- Geregelt wird der Füllstand vor dem Ton des Bildes: `bufferedFrames` nach dem letzten Schreiben minus alle Frames, die das Bild geschrieben hat (`CallbackContext.audioFramesWritten`, Batch und Einzelsamples), gegen `targetFrames`, die Reserve der Senke. `AudioRing` meldet als `targetFrames` den Füllstand zum Auffüllen (35 ms).
+- Simulation in den Tests (10 min, Gerät mit 256 Frames bei 48 kHz, Laufzeiten 1,5 bis 3,5 ms plus seltene Spitzen bis 15,5 ms, Reserve 35 ms): bei −500, −100, +100 und +500 ppm Drift 0 Aussetzer, 0 Neusynchronisationen, mittlerer `trim` in der zweiten Hälfte +500,6, +100,3, −99,7 und −499,5 ppm, kleinster Füllstand beim Spielen 20,6, 20,6, 18,6 und 18,6 ms. Der Test verlangt mehr als 10 ms.
+- Gegenprobe mit derselben Simulation, aber der Reserve als Sollwert für den Pegel direkt nach dem Schreiben (so wirkten der erste Vertrag in `Sinks.swift` und `AudioRing` vor der Integration zusammen): kleinster Füllstand 2,1 bis 3,3 ms, bei +500 ppm 2 Aussetzer (einmaliger Lauf bei der Integration, nicht als Test im Repo). **Warum:** Zwischen zwei Bildern verbraucht die Ausgabe ein Bild Ton (rund 17 ms), die Reserve muss davor liegen. **Anwenden:** Eine neue Senke meldet als `targetFrames` die Reserve, die sie vor neuem Ton braucht, nicht den Pegel nach dem Schreiben.
 
 ## Environment
 
@@ -75,7 +77,7 @@ Gezählt wird jeder Aufruf in `SessionSummary.environmentCalls`; `unhandledEnvir
 
 ## Messwerte und Signposts
 
-- `SessionStats`: relaxed Atomics, ein Schreiber. Veröffentlicht etwa einmal pro Sekunde und bei jedem Zustandswechsel. Kürzere Intervalle als 0,25 s behalten Bildrate und Maxima des letzten vollen Intervalls.
+- `SessionStats`: relaxed Atomics, ein Schreiber. Veröffentlicht etwa einmal pro Sekunde und bei jedem Zustandswechsel. Kürzere Intervalle als 0,25 s und Intervalle ohne Bilder behalten Bildrate und Maxima des letzten vollen Intervalls. **Warum:** Die App pausiert auf dem Weg in den Hintergrund zweimal (inaktiv, dann Hintergrund); vor der Korrektur bei der Integration veröffentlichte die zweite Pause 0 Bilder/s, und das Overlay zeigte das nach dem Fortsetzen bis zur nächsten Messung. **Anwenden:** Neue Messwerte, die über ein Intervall gemittelt werden, nur aus Intervallen mit Bildern bilden.
 - Späte Bilder: Start mehr als 2 ms nach der Frist.
 - Signposts (Subsystem `com.faentiver.arcfold`, Kategorie `emulation`): Intervall „retro_run“ und Ereignis „resync“, aus C über `os_signpost_interval_begin/end`.
 - Log der Kerne: Kategorie `core`, Mindeststufe WARN im C-Shim, darüber höchstens 20 Zeilen pro Sekunde, danach eine Zeile mit der Zahl der verworfenen.
@@ -120,4 +122,4 @@ Gezählt wird jeder Aufruf in `SessionSummary.environmentCalls`; `unhandledEnvir
 - Die Sitzung eines nie geladenen Kerns hat keinen Thread, der `events` beendet: Das erledigt `stop()` selbst, sonst hängt `for await`.
 - Swift Testing: `#expect(menge == [ … ])` mit einem `Set` links verglich in einem Fall mit einem Array-Literal und schlug trotz gleicher Elemente fehl. Erwartete Mengen als `let erwartet: Set<UInt32> = [ … ]` anlegen.
 - `#expect` nimmt keine `~Copyable`-Werte; Testhilfen als Klasse schreiben.
-- Weckzeiten im Simulator: `mach_wait_until` wacht dort bis etwa 2 ms zu spät auf (Timer-Coalescing des Mac). Im Echtzeit-Test lagen 0 von 182 Bildern mehr als 2,5 ms nach ihrer Frist, aber ein Viertel über der Grenze von 2 ms für „späte Bilder“. Die Zahl ist im Simulator deshalb kein Maßstab; die Bildrate stimmte (59,7). Auf dem Gerät offen.
+- Weckzeiten im Simulator: `mach_wait_until` wacht dort bis etwa 2 ms zu spät auf (Timer-Coalescing des Mac). Im Echtzeit-Test lagen 0 von 182 Bildern mehr als 2,5 ms nach ihrer Frist, aber ein Viertel über der Grenze von 2 ms für „späte Bilder“. Die Zahl ist im Simulator deshalb kein Maßstab; die Bildrate stimmte (59,7). In der zehnminütigen Abnahme der App lagen rund 58 % der Bilder über 2 ms, die Bildrate betrug trotzdem 59,73 Bilder/s, ohne Neusynchronisation. Auf dem Gerät offen.
