@@ -194,9 +194,14 @@ final class PlaySession {
             isScenePaused = true
             await applyPause()
         case .background:
+            // iOS may suspend the app soon after this phase begins, so the
+            // background task comes first and covers the pause, which already
+            // saves, the save and stopping the sound.
+            let task = BackgroundTask(name: "Pause and save the game")
+            defer { task.end() }
             isScenePaused = true
             await applyPause()
-            await saveInBackground()
+            await saveBatteryNow()
             if phase == .running, let audioOutput, !isAudioStopped {
                 audioOutput.stop()
                 isAudioStopped = true
@@ -220,11 +225,10 @@ final class PlaySession {
         }
     }
 
-    /// The battery save must reach the disk before the app may be suspended.
-    private func saveInBackground() async {
+    /// The battery save must reach the disk before the app may be suspended;
+    /// the caller holds a background task.
+    private func saveBatteryNow() async {
         guard phase == .running, let session else { return }
-        let task = BackgroundTask(name: "Save the battery save")
-        defer { task.end() }
         do throws(SessionError) {
             try await session.saveBatteryNow()
         } catch {
