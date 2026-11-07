@@ -7,7 +7,7 @@ import Testing
 struct LicenseCatalogTests {
     @Test func listsTheFiveComponentsOfM1() {
         #expect(LicenseCatalog.components.map(\.name) == ["Arcfold", "mGBA", "blip_buf", "inih", "libretro.h"])
-        #expect(LicenseCatalog.components.map(\.license) == ["GPL-3.0", "MPL-2.0", "LGPL-2.1-or-later", "BSD-3-Clause", "MIT"])
+        #expect(LicenseCatalog.components.map(\.license) == ["GPL-3.0-or-later", "MPL-2.0", "LGPL-2.1-or-later", "BSD-3-Clause", "MIT"])
     }
 
     @Test(arguments: LicenseCatalog.components)

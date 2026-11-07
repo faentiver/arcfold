@@ -58,7 +58,7 @@ nonisolated enum LicenseCatalog {
     /// libretro API header. M3 adds PPSSPP and MoltenVK.
     static let components: [LicenseComponent] = [
         LicenseComponent(
-            folder: "Arcfold", file: "LICENSE", name: "Arcfold", version: nil, license: "GPL-3.0",
+            folder: "Arcfold", file: "LICENSE", name: "Arcfold", version: nil, license: "GPL-3.0-or-later",
             note: nil, showsLeadingCommentOnly: false),
         // The version follows the submodule Cores/mgba; EmbeddedCoreTests checks it.
         LicenseComponent(

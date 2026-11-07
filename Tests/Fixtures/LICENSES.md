@@ -10,7 +10,7 @@ Jeder Eintrag nennt Datei, Herkunft (URL und Commit oder Version), Autor, Lizenz
 
 - **Herkunft:** eigenes Testprogramm in diesem Repo, erzeugt mit `python3 -I Tests/Fixtures/gba/selftest/make_gba_selftest.py Tests/Fixtures/gba/selftest.gba` (ohne SDK, ohne BIOS, Logo-Bereich leer). Zwei Läufe ergaben dieselbe Prüfsumme. Erstellt am 6. November 2026 für ADR 0005.
 - **Autor:** Fatih (faentiver).
-- **Lizenz:** GPL-3.0-only (SPDX-Angabe im Generator), wie `gs_sprites`. Die Variante folgt dem offenen Punkt im Plan (Abschnitt 12).
+- **Lizenz:** GPL-3.0-or-later (SPDX-Angabe im Generator), wie alle eigenen Testprogramme (Plan, Abschnitt 12, festgelegt am 7. November 2026).
 - **Inhalt:** Modus 3 mit einem Balken, der pro Bild um ein Pixel wandert, dazu Boot-, Bild- und Tastenzähler als 8 × 8-Blöcke. Rechteckton auf PSG-Kanal 2 mit 439,8 Hz, bei gedrückter Taste A 879,7 Hz. SRAM mit der Kennung „ARCF“, dem Boot-Zähler in Byte 4 und einem Herzschlag alle 64 Bilder in Byte 5. Positionen und Farben stehen im Generator. Startet in mGBA 0.10.5 ohne BIOS (Beleg: `docs/adr/0005/selftest-mgba-macos.txt`).
 - **SHA-256:** `7df143129e713b1188ec40b3d91bd84ccb95188dd1f6264f2bb75fba4544f9fd` (864 Bytes)
 
@@ -34,7 +34,7 @@ Noch keine.
 | --- | --- | --- | --- | --- |
 | `ps2/alu.elf` | [ps2autotests](https://github.com/unknownbrackets/ps2autotests), `tests/cpu/ee/alu.elf`, Commit `97469ffbed8631277b94e28d01dabd702aa97ef3` (16.11.2019), Datei unverändert seit `e9bfc371` (07.04.2015) | ps2autotests project contributors (Unknown W. Brackets, Jean-Philip Desjardins) | ISC, Lizenztext mit Copyright-Vermerk in `ps2/LICENSE-ps2autotests.txt` (Kopie von `LICENSE.md` am selben Commit). Statisch gelinkte Laufzeit siehe unten. Das ELF läuft nur im Emulator und wird nicht mit der App gelinkt. | `b4e9bc2478a10b74d984b748cf4ae183798af1222c8ac5cfa61d2a76aff04dd6` |
 | `ps2/alu.expected` | wie oben, `tests/cpu/ee/alu.expected` | wie oben | ISC, siehe `ps2/LICENSE-ps2autotests.txt` | `ca8e2f3e76df48f98b2ebc89b4d1181dd5b407e76e6bae642cfec5a933223c76` |
-| `ps2/gs_sprites.elf` | eigenes Testprogramm, erzeugt mit `python3 -I Tests/Fixtures/ps2/gs_sprites/make_gs_sprites.py Tests/Fixtures/ps2/gs_sprites.elf` (ohne SDK, ohne BIOS) | Fatih (faentiver) | GPL-3.0-only (SPDX-Angabe im Generator) | `a6099a01a25af0a0e9b916c2404ac223b19ec6afc97bf839e80b69195c14c122` |
+| `ps2/gs_sprites.elf` | eigenes Testprogramm, erzeugt mit `python3 -I Tests/Fixtures/ps2/gs_sprites/make_gs_sprites.py Tests/Fixtures/ps2/gs_sprites.elf` (ohne SDK, ohne BIOS) | Fatih (faentiver) | GPL-3.0-or-later (SPDX-Angabe im Generator) | `a6099a01a25af0a0e9b916c2404ac223b19ec6afc97bf839e80b69195c14c122` |
 
 Laufzeit in `alu.elf`: Das ELF ist ohne Symbole gelinkt. Übersetzt ist es mit GCC 3.2.2 (Abschnitt `.comment`), die Gerätepräfixe der Dateifunktionen („cdrom0:“, „host0:“, „mass0:“) deuten auf die libc von ps2sdk (AFL-2.0). Ob auch Teile von newlib darin stecken, lässt sich am ELF nicht feststellen. AFL-2.0 verlangt Hinweise nur im Quellcode abgeleiteter Werke (Abschnitt 6), nicht bei der Weitergabe eines übersetzten Programms (eigene Lesart des Lizenztexts). ps2autotests selbst verteilt `alu.elf` nur mit seiner ISC-Lizenz.
 
