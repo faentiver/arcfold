@@ -52,6 +52,10 @@ public final class InputState: Sendable {
     private let keyboard = Atomic<UInt32>(0)
     /// Buttons pressed since the last poll, kept even if released again.
     private let latch = Atomic<UInt32>(0)
+    /// Every button that went down, counted once per press and source.
+    private let presses = Atomic<UInt64>(0)
+    /// The buttons of the latest press.
+    private let lastPress = Atomic<UInt32>(0)
 
     public init() {}
 
@@ -66,6 +70,8 @@ public final class InputState: Sendable {
         let pressed = buttons.rawValue & ~previous
         if pressed != 0 {
             latch.bitwiseOr(pressed, ordering: .relaxed)
+            presses.wrappingAdd(UInt64(pressed.nonzeroBitCount), ordering: .relaxed)
+            lastPress.store(pressed, ordering: .relaxed)
         }
     }
 
@@ -73,6 +79,19 @@ public final class InputState: Sendable {
     /// overlay and tests; the core reads its own snapshot once per frame.
     public var heldButtons: JoypadButtons {
         JoypadButtons(rawValue: held)
+    }
+
+    /// Every button that went down since the state was made, counted once per
+    /// press and source. For the debug overlay: it keeps what a short touch
+    /// did, which a UI test cannot watch while it presses.
+    public var pressCount: UInt64 {
+        presses.load(ordering: .relaxed)
+    }
+
+    /// The buttons of the latest press, kept after their release. For the
+    /// debug overlay and tests.
+    public var lastPressedButtons: JoypadButtons {
+        JoypadButtons(rawValue: lastPress.load(ordering: .relaxed))
     }
 
     /// The snapshot for one frame (`retro_input_poll`): every button held now,

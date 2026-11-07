@@ -52,6 +52,26 @@ struct InputStateTests {
         #expect(input.poll() == 0)
     }
 
+    @Test func countsEveryPressAndKeepsTheLatest() {
+        let input = InputState()
+        #expect(input.pressCount == 0)
+        #expect(input.lastPressedButtons.isEmpty)
+
+        input.set(.a, from: .touch)
+        // Sliding from A to B: B goes down while A is still held, then A goes up.
+        input.set([.a, .b], from: .touch)
+        input.set(.b, from: .touch)
+        input.set([], from: .touch)
+        #expect(input.pressCount == 2)
+        #expect(input.lastPressedButtons == .b, "The latest press stays after the release")
+
+        // Two buttons at once count twice; each source counts on its own.
+        input.set([.up, .start], from: .controller)
+        input.set(.start, from: .keyboard)
+        #expect(input.pressCount == 5)
+        #expect(input.lastPressedButtons == .start)
+    }
+
     @Test func writersOnSeveralThreadsNeverLoseAButton() async {
         let input = InputState()
         await withTaskGroup { group in
