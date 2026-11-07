@@ -3,17 +3,17 @@
 ## Status
 
 - **Ziel:** Eine offene SwiftUI-App, die mehrere Konsolen emuliert und jedes System für den Falz des iPhone Duo auslegt.
-- **Stand:** M0 (Fundament) ist abgenommen: XcodeGen-Projekt mit den Schemes Store und JIT, die Pakete LibretroKit, FoldLayout und Renderer, mGBA 0.10.5 als eingebettetes, nicht gelinktes Framework, der CI-Workflow, ADR 0001 angenommen, ADR 0002 mit ausstehendem Gerätetest.
+- **Stand:** M0 (Fundament) ist abgenommen: XcodeGen-Projekt mit den Schemes Store und JIT, die Pakete LibretroKit, FoldLayout und Renderer, mGBA 0.10.5 als eingebettetes, nicht gelinktes Framework, der CI-Workflow (vorerst nur auf manuellen Start), ADR 0001 angenommen, ADR 0002 mit ausstehendem Gerätetest.
 
-  M1 · GBA läuft (Plan, Abschnitt 10) ist auf dem Branch `m1/gba` umgesetzt und im Duo-Simulator belegt; die Abnahme durch Fatih steht aus:
+  M1 · GBA läuft (Plan, Abschnitt 10) ist abgenommen (7. November 2026, im Duo-Simulator) und gemergt:
   - LibretroKit: Emulations-Thread mit Takt, der der Tonuhr folgt, Callbacks, Environment, Eingabe, Batteriespeicher, Messwerte,
   - Renderer: Bild über Metal mit `CAMetalDisplayLink`, Ton über einen Ring in C und `AVAudioEngine`,
   - App: Bibliothek mit Import über `.fileImporter`, Spielansicht mit Touch-Tasten, Controller und Tastatur, Debug-Overlay, Bildschirm „Lizenzen“,
   - Builds Store und JIT ohne Warnung, Tests grün (Store 136, JIT 130),
   - im Simulator: `selftest.gba` zehn Minuten mit 59,73 Bildern/s, ohne Aussetzer und Neusynchronisation, Spielstand übersteht `simctl terminate`,
-  - eine unabhängige Prüfung fand keine Fehler, von ihren acht kleineren Befunden sind sieben behoben (ADR 0005, „Nachbesserungen nach der Prüfung“), einer wartet auf das Gerät,
-  - ADR 0005 (Laufzeit für Software-Kerne) ist mit den Belegen nachgezogen und weiter vorgeschlagen.
-- **Nächster Schritt:** M1-Abnahme durch Fatih und Pull Request von `m1/gba`. Offen sind der Gerätetest auf dem Duo (Bildrate, Wärme, Ton, Mehrfachberührung, Controller) und die Annahme von ADR 0005.
+  - eine unabhängige Prüfung fand keine Fehler, von ihren acht kleineren Befunden sind sieben behoben (ADR 0005, „Nachbesserungen nach der Prüfung“), der achte ist entschieden (kein Mindestabstand für Sicherungen),
+  - ADR 0005 (Laufzeit für Software-Kerne) ist angenommen, mit den Entscheidungen zu Belegung, Bildrate und Lautlos-Modus; die Lizenz ist GPL-3.0-or-later.
+- **Nächster Schritt:** M2 · DS am Falz (Plan, Abschnitt 10). Offen bleibt der Gerätetest auf dem Duo für M1 und ADR 0002 (Anleitung `docs/wissen/geraetetest.md`). Die CI läuft vorerst nur auf manuellen Start (`docs/wissen/bauen-und-ci.md`).
 - **Datum:** 7. November 2026
 
 ## Arbeitsregeln
@@ -30,7 +30,7 @@
 
 - **Keine Spiele und kein BIOS.** Niemals ROMs, ISOs, BIOS-Dateien, Firmware oder Schlüssel ins Repo oder in die App, auch keine Download-Links. Tests nur mit frei lizenzierten Homebrew-ROMs, deren Lizenzen in `Tests/Fixtures/LICENSES.md` stehen.
 - **Kein nachgeladener Code.** Alle Kerne stecken fest im App-Bundle (Richtlinie 2.5.2).
-- **Lizenzen.** Die ganze App steht unter GPL-3.0. Nur Kerne mit GPL-3.0-kompatibler Lizenz. Die Lizenzhinweise aller Kerne erscheinen in der App unter „Lizenzen“.
+- **Lizenzen.** Die ganze App steht unter GPL-3.0-or-later. Nur Kerne mit GPL-3.0-kompatibler Lizenz. Die Lizenzhinweise aller Kerne erscheinen in der App unter „Lizenzen“.
 - **JIT nur im JIT-Build.** Der Store-Build darf keinen JIT-Code-Pfad enthalten.
 - **Marken.** Kein Nintendo, PlayStation, PSP oder Duo im App-Namen oder Icon. Controller-Skins sind eigene Entwürfe ohne Original-Logos oder geschützte Tastensymbole. Kompatibilität darf sachlich im README stehen.
 - **Keine Cover-Bilder** mitliefern oder automatisch laden. Nutzer können eigene Bilder setzen.
@@ -91,7 +91,7 @@ actionlint -ignore 'label "xcode-27" is unknown' .github/workflows/ci.yml
 - Ein neuer Kern braucht ein Rezept in `Scripts/cores/` und einen Eintrag unter den Abhängigkeiten in `project.yml`; bootstrap baut ihn dann mit. Außerdem braucht er in `.github/workflows/ci.yml` den Submodul-Schritt („Fetch core sources“) und den Cache-Schlüssel („Compute core cache key“), bis die CI die Liste selbst aus `project.yml` liest (geplant für M3 zusammen mit dem Rezept-Haken für Unter-Submodule).
 - Meldet Xcode „There is no XCFramework found at …/Cores/Build/…“, fehlt ein Kern: `Scripts/bootstrap.sh` ausführen.
 - Der Duo-Simulator braucht die Runtime iOS 27.1; sie ist lokal installiert. Die Runtime iOS 27.2 schließt das Duo aus, für Tests mit iOS 27.2 dient deshalb das iPhone 18 Pro (siehe `docs/wissen/umgebung.md`).
-- CI: `.github/workflows/ci.yml` auf dem Image `xcode-27`. Details und Kosten in `docs/wissen/bauen-und-ci.md`.
+- CI: `.github/workflows/ci.yml` auf dem Image `xcode-27`, derzeit nur auf manuellen Start, weil GitHub jeden Lauf des Repos vor dem Start abbricht. Details, Kosten und Ursache in `docs/wissen/bauen-und-ci.md`.
 
 ## Wissen
 
@@ -103,5 +103,6 @@ actionlint -ignore 'label "xcode-27" is unknown' .github/workflows/ci.yml
 - `docs/wissen/renderer.md`: Bildpostfach, Metal-Ansicht, Tonring in C, Audioausgabe, Stolperfallen
 - `docs/wissen/app.md`: Bibliothek, Import, Spielansicht, Lebenszyklus, Eingabe, Debug-Overlay, Lizenzen, Stolperfallen
 - `docs/wissen/psp-grafik.md`: PPSSPP als libretro-Kern bauen und hosten, Grafikwege, Stolperfallen (zu ADR 0001)
+- `docs/wissen/geraetetest.md`: Anleitung für alle ausstehenden Gerätetests auf dem Duo (M1, ADR 0002), mit Kriterien
 - `docs/wissen/ps2-jit.md`: PS2 mit JIT, StikDebug und TXM, Einbau in den JIT-Build, Anleitung für den Gerätetest (zu ADR 0002)
 - `Spikes/`: Spike-Code aus M0 als Referenz, nicht Teil der App

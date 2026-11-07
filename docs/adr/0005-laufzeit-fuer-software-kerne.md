@@ -1,6 +1,6 @@
 # 0005 · Laufzeit für Software-Kerne
 
-Status: Vorgeschlagen · 6. November 2026 · umgesetzt auf `m1/gba` am 7. November 2026, Belege im Abschnitt „Umsetzung in M1“
+Status: Angenommen · 7. November 2026 (vorgeschlagen am 6. November 2026, umgesetzt in M1, Belege im Abschnitt „Umsetzung in M1“, Entscheidungen im Abschnitt „Entscheidungen bei der Annahme“)
 
 ## Kontext
 
@@ -257,7 +257,7 @@ Gegen Optionen v2 aus Entwurf „Echtzeit“: Eine Oberfläche für Kernoptionen
   - `SpatialEventGesture` liefert Mehrfachberührung zuverlässig: offen. Im Simulator ist nur die einzelne Berührung prüfbar (Abschnitt „Umsetzung in M1“), Mehrfachberührung braucht das Gerät.
   - `GCControllerLiveInput` und `GCKeyboard` funktionieren im Simulator: offen. Der Simulator meldet einen Controller („MFi“/„Gamepad“) und eine Tastatur („Generic Keyboard“), Eingaben darüber sind ungeprüft; ein echter Controller braucht das Gerät.
   - Das Verhalten von `CAMetalDisplayLink` beim Wechsel zwischen Innen- und Außendisplay gehört zu M2.
-- **Offen für Fatih:**
+- **Offen bei der Vorlage** (inzwischen entschieden, Abschnitt „Entscheidungen bei der Annahme“):
   - die Leistungszahlen auf dem Duo: Bildrate, Wärme, Tonlatenz, 60 oder 120 Hz;
   - die Controller-Belegung nach Position oder nach Beschriftung, solange der Controller unbekannt ist;
   - die Lizenzvariante des Generators (Plan, Abschnitt 12);
@@ -312,3 +312,20 @@ Ein erster Lauf derselben Art vor der Korrektur der Messwerte ergab 59,728 Bilde
 Bildschirmfotos: `0005/m1-selftest-simulator.png` (laufendes Spiel mit Debug-Overlay und Touch-Tasten, zugeklappt, Faktor 4) und `0005/m1-lizenzen.png`.
 
 **Offen, braucht das Duo:** 59,73 ± 0,05 Bilder/s, Wärme, Tonlatenz, 60 oder 120 Hz, Mehrfachberührung, echter Controller und Tastatur, ein Homebrew mit DirectSound-Ton (160p Test Suite), der Import aus der Dateien-App auf dem Gerät, auch aus iCloud Drive und mit einem zweiten installierten Emulator, die Anzeigerate mit den übersprungenen Bildern, Strom und Flash bei Sicherungen im Sekundentakt.
+
+## Entscheidungen bei der Annahme
+
+Angenommen am 7. November 2026 mit der Abnahme von M1.
+
+- **Takt folgt der Tonuhr** per Trimmung um höchstens ±0,5 % statt Resampling (Abschnitt 3). In der Abnahme blieb `trim` zwischen −0,08 und +0,03 %, ohne Aussetzer. Die Tonhöhe stimmt dabei genau, weil der Ton mit der Abtastrate des Kerns läuft; nur die Bildrate weicht um den Gangunterschied der Uhren ab.
+- **Controller nach Position:** Ost = A, Süd = B, West = Y, Nord = X, wie das RetroPad von libretro und RetroArch. Auf einem Xbox-Controller liegt GBA-A damit auf der Taste „B“, so wie die Tasten am GBA liegen. Eine eigene Belegung kommt mit den Einstellungen in M4.
+- **Bildrate der Anzeige:** bevorzugt 120 Hz, weil ein ausgelassenes oder doppeltes Bild dann 8,3 statt 16,7 ms dauert. Zeigt der Gerätetest bei 120 Hz deutlich mehr Wärme als bei 60 Hz (`thermalState` nach 30 Minuten über „nominal“, bei 60 Hz nicht), gilt 60 Hz.
+- **Ton im Lautlos-Modus:** `.ambient`, also stumm mit dem Lautlos-Schalter und gemischt mit anderer Wiedergabe, wie Apple es für Spiele vorsieht. Ein Schalter für `.playback` kommt mit den Einstellungen in M4.
+- **Touch-Tasten** verschwinden erst nach dem ersten Tastendruck eines Controllers (Abschnitt 7). Auf dem Gerät nimmt so auch ein gekoppelter, aber beiseitegelegter Controller die Touch-Tasten nicht weg.
+- **Außendisplay:** Das Bild bleibt im sicheren Bereich (Faktor 4), die Systemspalte bleibt frei. M2 bewertet das mit den Falz-Layouts neu.
+- **Sicherungen ohne Mindestabstand:** Geschrieben wird nur, was sich geändert hat und eine Prüfung lang gleich blieb. Spiele schreiben ihren Spielstand selten, im Sekundentakt schreibt nur selftest.gba mit Absicht. Selbst dann wären es rund 115 MB pro Stunde, ein kleiner Bruchteil dessen, was der Flash-Speicher über seine Lebensdauer verträgt. Ein Mindestabstand kommt nur, wenn ein echtes Spiel laufend schreibt und der Gerätetest das als Stromverbrauch zeigt.
+- **Späte Bilder:** Die Grenze bleibt 2 ms. Zählt der Gerätetest mehr als 10 % späte Bilder und ist das als Ruckeln oder im Ton spürbar, bekommt der Emulations-Thread eine Echtzeit-Policy (`THREAD_TIME_CONSTRAINT_POLICY`).
+- **Testprogramme:** selftest.gba bleibt die einzige automatische Fixture. Die 160p Test Suite (GPL-2.0-or-later) importiert Fatih für den Gerätetest selbst, sie kommt nicht ins Repo.
+- **Lizenz:** App und eigene Testprogramme stehen unter GPL-3.0-or-later (Plan, Abschnitt 12).
+
+Offen bleibt der Gerätetest auf dem Duo, Anleitung in `docs/wissen/geraetetest.md`.
