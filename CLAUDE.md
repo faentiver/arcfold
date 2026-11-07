@@ -3,15 +3,18 @@
 ## Status
 
 - **Ziel:** Eine offene SwiftUI-App, die mehrere Konsolen emuliert und jedes System für den Falz des iPhone Duo auslegt.
-- **Stand:** M0 (Fundament) ist abgenommen. Fertig sind:
-  - das Xcode-Projekt per XcodeGen mit den Schemes Store und JIT,
-  - die Pakete LibretroKit, FoldLayout und Renderer,
-  - mGBA 0.10.5 als eingebettetes, nicht gelinktes Framework, der mGBA-Test ist grün,
-  - der CI-Workflow,
-  - ADR 0001: PSP über Vulkan mit MoltenVK, angenommen,
-  - ADR 0002: PS2 mit JIT, Gerätetest ausstehend.
-- **Nächster Schritt:** M1 · GBA läuft (Plan, Abschnitt 10). Dazu gehören Emulations-Thread mit Takt, Metal-Bild, Ton, Touch und Controller, Import, Batteriespeicher, Debug-Overlay und der Bildschirm „Lizenzen“.
-- **Datum:** 6. November 2026
+- **Stand:** M0 (Fundament) ist abgenommen: XcodeGen-Projekt mit den Schemes Store und JIT, die Pakete LibretroKit, FoldLayout und Renderer, mGBA 0.10.5 als eingebettetes, nicht gelinktes Framework, der CI-Workflow (vorerst nur auf manuellen Start), ADR 0001 angenommen, ADR 0002 mit ausstehendem Gerätetest.
+
+  M1 · GBA läuft (Plan, Abschnitt 10) ist abgenommen (7. November 2026, im Duo-Simulator) und gemergt:
+  - LibretroKit: Emulations-Thread mit Takt, der der Tonuhr folgt, Callbacks, Environment, Eingabe, Batteriespeicher, Messwerte,
+  - Renderer: Bild über Metal mit `CAMetalDisplayLink`, Ton über einen Ring in C und `AVAudioEngine`,
+  - App: Bibliothek mit Import über `.fileImporter`, Spielansicht mit Touch-Tasten, Controller und Tastatur, Debug-Overlay, Bildschirm „Lizenzen“,
+  - Builds Store und JIT ohne Warnung, Tests grün (Store 136, JIT 130),
+  - im Simulator: `selftest.gba` zehn Minuten mit 59,73 Bildern/s, ohne Aussetzer und Neusynchronisation, Spielstand übersteht `simctl terminate`,
+  - eine unabhängige Prüfung fand keine Fehler, von ihren acht kleineren Befunden sind sieben behoben (ADR 0005, „Nachbesserungen nach der Prüfung“), der achte ist entschieden (kein Mindestabstand für Sicherungen),
+  - ADR 0005 (Laufzeit für Software-Kerne) ist angenommen, mit den Entscheidungen zu Belegung, Bildrate und Lautlos-Modus; die Lizenz ist GPL-3.0-or-later.
+- **Nächster Schritt:** M2 · DS am Falz (Plan, Abschnitt 10). Offen bleibt der Gerätetest auf dem Duo für M1 und ADR 0002 (Anleitung `docs/wissen/geraetetest.md`). Die CI läuft vorerst nur auf manuellen Start (`docs/wissen/bauen-und-ci.md`).
+- **Datum:** 7. November 2026
 
 ## Arbeitsregeln
 
@@ -27,7 +30,7 @@
 
 - **Keine Spiele und kein BIOS.** Niemals ROMs, ISOs, BIOS-Dateien, Firmware oder Schlüssel ins Repo oder in die App, auch keine Download-Links. Tests nur mit frei lizenzierten Homebrew-ROMs, deren Lizenzen in `Tests/Fixtures/LICENSES.md` stehen.
 - **Kein nachgeladener Code.** Alle Kerne stecken fest im App-Bundle (Richtlinie 2.5.2).
-- **Lizenzen.** Die ganze App steht unter GPL-3.0. Nur Kerne mit GPL-3.0-kompatibler Lizenz. Die Lizenzhinweise aller Kerne erscheinen in der App unter „Lizenzen“.
+- **Lizenzen.** Die ganze App steht unter GPL-3.0-or-later. Nur Kerne mit GPL-3.0-kompatibler Lizenz. Die Lizenzhinweise aller Kerne erscheinen in der App unter „Lizenzen“.
 - **JIT nur im JIT-Build.** Der Store-Build darf keinen JIT-Code-Pfad enthalten.
 - **Marken.** Kein Nintendo, PlayStation, PSP oder Duo im App-Namen oder Icon. Controller-Skins sind eigene Entwürfe ohne Original-Logos oder geschützte Tastensymbole. Kompatibilität darf sachlich im README stehen.
 - **Keine Cover-Bilder** mitliefern oder automatisch laden. Nutzer können eigene Bilder setzen.
@@ -42,14 +45,14 @@ Packages/       LibretroKit, FoldLayout, Renderer (lokale Swift-Pakete)
 Cores/          Kerne als Git-Submodule, auf Tags oder Commits fixiert; Build/ mit den xcframeworks (ignoriert)
 Scripts/        bootstrap.sh, build-core.sh, cores/ mit einem Rezept je Kern
 Spikes/         Spike-Code aus M0 (PSPGPU, PS2JIT) als Referenz, nicht Teil der App
-Tests/          ArcfoldTests (Unit-Tests mit der App als Host), Fixtures/ (Homebrew-ROMs, Lizenzen)
+Tests/          ArcfoldTests (Unit-Tests mit der App als Host), ArcfoldUITests, Fixtures/ (Homebrew-ROMs, Lizenzen)
 docs/           PLAN.md, adr/, wissen/
 .github/        workflows/ci.yml, die CI mit GitHub Actions
 ```
 
 ## Bauen und Testen
 
-Voraussetzungen: Xcode 27.1 oder neuer, dazu `brew install xcodegen cmake ninja`. Optional für die Prüfung des CI-Workflows: `brew install actionlint`. Die Test-ROMs sind klein und liegen als normale Dateien im Repo, ohne Git LFS (`docs/wissen/umgebung.md`).
+Voraussetzungen: Xcode 27.1 oder neuer mit Metal-Toolchain (`xcodebuild -downloadComponent metaltoolchain`, einmal pro Xcode), dazu `brew install xcodegen cmake ninja`. Optional für die Prüfung des CI-Workflows: `brew install actionlint`. Die Test-ROMs sind klein und liegen als normale Dateien im Repo, ohne Git LFS (`docs/wissen/umgebung.md`).
 
 ```bash
 # Nach dem Klonen und nach jedem Pull: Submodule der Kerne, fehlende oder
@@ -67,11 +70,18 @@ xcodebuild build -project Arcfold.xcodeproj -scheme Store -destination 'generic/
 xcodebuild build -project Arcfold.xcodeproj -scheme JIT -destination 'generic/platform=iOS Simulator' -derivedDataPath build/DerivedData
 xcodebuild build -project Arcfold.xcodeproj -scheme Store -destination 'generic/platform=iOS' -derivedDataPath build/DerivedData CODE_SIGNING_ALLOWED=NO
 
-# Testen (ArcfoldTests und LibretroKitTests) auf dem Duo-Simulator mit iOS 27.1, ebenso mit -scheme JIT
+# Testen (ArcfoldTests, LibretroKitTests, RendererTests; ArcfoldUITests nur mit Store) auf dem
+# Duo-Simulator mit iOS 27.1, ebenso mit -scheme JIT
 xcodebuild test -project Arcfold.xcodeproj -scheme Store -destination 'platform=iOS Simulator,name=iPhone Duo,OS=27.1' -derivedDataPath build/DerivedData
 
 # Alternative: iPhone 18 Pro mit iOS 27.2
 xcodebuild test -project Arcfold.xcodeproj -scheme Store -destination 'platform=iOS Simulator,name=iPhone 18 Pro,OS=27.2' -derivedDataPath build/DerivedData
+
+# Ein Spiel im Simulator starten (nur Debug-Build, nur Simulator): importiert wie der
+# Datei-Import und startet; die Messzeilen des Debug-Overlays kommen alle 10 s ins Log
+xcrun simctl launch <UDID> com.faentiver.arcfold -ArcfoldAutorun "$PWD/Tests/Fixtures/gba/selftest.gba"
+xcrun simctl spawn <UDID> log stream --predicate 'subsystem == "com.faentiver.arcfold" AND category == "stats"'
+xcrun simctl io <UDID> screenshot --display=1 shot.png   # Duo: 1 außen, 3 innen
 
 # CI-Workflow prüfen (optional, braucht actionlint)
 actionlint -ignore 'label "xcode-27" is unknown' .github/workflows/ci.yml
@@ -81,7 +91,7 @@ actionlint -ignore 'label "xcode-27" is unknown' .github/workflows/ci.yml
 - Ein neuer Kern braucht ein Rezept in `Scripts/cores/` und einen Eintrag unter den Abhängigkeiten in `project.yml`; bootstrap baut ihn dann mit. Außerdem braucht er in `.github/workflows/ci.yml` den Submodul-Schritt („Fetch core sources“) und den Cache-Schlüssel („Compute core cache key“), bis die CI die Liste selbst aus `project.yml` liest (geplant für M3 zusammen mit dem Rezept-Haken für Unter-Submodule).
 - Meldet Xcode „There is no XCFramework found at …/Cores/Build/…“, fehlt ein Kern: `Scripts/bootstrap.sh` ausführen.
 - Der Duo-Simulator braucht die Runtime iOS 27.1; sie ist lokal installiert. Die Runtime iOS 27.2 schließt das Duo aus, für Tests mit iOS 27.2 dient deshalb das iPhone 18 Pro (siehe `docs/wissen/umgebung.md`).
-- CI: `.github/workflows/ci.yml` auf dem Image `xcode-27`. Details und Kosten in `docs/wissen/bauen-und-ci.md`.
+- CI: `.github/workflows/ci.yml` auf dem Image `xcode-27`, derzeit nur auf manuellen Start, weil GitHub jeden Lauf des Repos vor dem Start abbricht. Details, Kosten und Ursache in `docs/wissen/bauen-und-ci.md`.
 
 ## Wissen
 
@@ -89,7 +99,10 @@ actionlint -ignore 'label "xcode-27" is unknown' .github/workflows/ci.yml
 - `docs/adr/`: Architektur-Entscheidungen
 - `docs/wissen/umgebung.md`: Werkzeuge, Versionen, Stolperfallen und wie man alles wieder entfernt
 - `docs/wissen/bauen-und-ci.md`: bootstrap.sh, Stempel, XcodeGen, Eigenheiten von Xcode 27.2, GitHub Actions
-- `docs/wissen/libretrokit.md`: Aufbau und Entscheidungen in LibretroKit, Stolperfallen
+- `docs/wissen/libretrokit.md`: Aufbau und Entscheidungen in LibretroKit, Takt, Environment, Batteriespeicher, Stolperfallen
+- `docs/wissen/renderer.md`: Bildpostfach, Metal-Ansicht, Tonring in C, Audioausgabe, Stolperfallen
+- `docs/wissen/app.md`: Bibliothek, Import, Spielansicht, Lebenszyklus, Eingabe, Debug-Overlay, Lizenzen, Stolperfallen
 - `docs/wissen/psp-grafik.md`: PPSSPP als libretro-Kern bauen und hosten, Grafikwege, Stolperfallen (zu ADR 0001)
+- `docs/wissen/geraetetest.md`: Anleitung für alle ausstehenden Gerätetests auf dem Duo (M1, ADR 0002), mit Kriterien
 - `docs/wissen/ps2-jit.md`: PS2 mit JIT, StikDebug und TXM, Einbau in den JIT-Build, Anleitung für den Gerätetest (zu ADR 0002)
 - `Spikes/`: Spike-Code aus M0 als Referenz, nicht Teil der App

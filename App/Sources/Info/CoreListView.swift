@@ -1,19 +1,17 @@
 import LibretroKit
 import SwiftUI
 
-/// The cores embedded in this build, loaded through LibretroKit. Proof of the
-/// loading path for M0, not the app's interface.
+/// The cores embedded in this build, loaded through LibretroKit. Reached from
+/// the info menu of the library.
 struct CoreListView: View {
     @State private var state = CoreCatalog.State.loading
 
     var body: some View {
-        NavigationStack {
-            content
-                .navigationTitle("Cores")
-        }
-        .task {
-            state = await CoreCatalog.load()
-        }
+        content
+            .navigationTitle(Text("Cores", comment: "Navigation title of the list of libretro cores embedded in the app."))
+            .task {
+                state = await CoreCatalog.load()
+            }
     }
 
     @ViewBuilder
@@ -42,5 +40,7 @@ struct CoreListView: View {
 }
 
 #Preview {
-    CoreListView()
+    NavigationStack {
+        CoreListView()
+    }
 }

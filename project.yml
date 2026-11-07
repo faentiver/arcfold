@@ -50,6 +50,37 @@ targets:
     platform: iOS
     sources:
       - path: App
+        excludes:
+          # Merged into the generated Info.plist (INFOPLIST_FILE), not a resource
+          - Info.plist
+      # License texts for the Licenses screen (plan, hard rules; ADR 0005),
+      # copied from their originals into Arcfold.app/Licenses/<component>/.
+      # A core added later brings its texts here as well.
+      - path: LICENSE
+        buildPhase:
+          copyFiles:
+            destination: resources
+            subpath: Licenses/Arcfold
+      - path: Cores/mgba/LICENSE
+        buildPhase:
+          copyFiles:
+            destination: resources
+            subpath: Licenses/mGBA
+      - path: Cores/mgba/src/third-party/blip_buf/license.txt
+        buildPhase:
+          copyFiles:
+            destination: resources
+            subpath: Licenses/blip_buf
+      - path: Cores/mgba/src/third-party/inih/LICENSE.txt
+        buildPhase:
+          copyFiles:
+            destination: resources
+            subpath: Licenses/inih
+      - path: Packages/LibretroKit/Sources/CLibretro/include/libretro.h
+        buildPhase:
+          copyFiles:
+            destination: resources
+            subpath: Licenses/libretro.h
     dependencies:
       - package: LibretroKit
       - package: FoldLayout
@@ -75,6 +106,10 @@ targets:
         MARKETING_VERSION: "0.1"
         CURRENT_PROJECT_VERSION: "1"
         GENERATE_INFOPLIST_FILE: YES
+        # Keys without a build setting: frame rates above 60 Hz, Game Mode and
+        # the imported file type for GBA games (ADR 0005)
+        INFOPLIST_FILE: App/Info.plist
+        INFOPLIST_KEY_LSApplicationCategoryType: public.app-category.games
         INFOPLIST_KEY_UILaunchScreen_Generation: YES
         INFOPLIST_KEY_UIApplicationSceneManifest_Generation: YES
         INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents: YES
@@ -98,17 +133,45 @@ targets:
           GCC_PREPROCESSOR_DEFINITIONS: $(inherited) JIT_BUILD=1
         Release-JIT: *jit
 
+  # Unit tests with the app as host. Core/ holds the tests with a real core,
+  # App/ the tests of the app, Support/ what both share (ADR 0005).
   ArcfoldTests:
     type: bundle.unit-test
     platform: iOS
     sources:
       - path: Tests/ArcfoldTests
+      # Test programs go into the test bundles only, never into the app
+      # (Tests/Fixtures/LICENSES.md). Generators and license files stay out.
+      - path: Tests/Fixtures/gba
+        includes:
+          - "*.gba"
+        buildPhase: resources
     dependencies:
       - target: Arcfold
       - package: LibretroKit
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.faentiver.arcfold.tests
+        TARGETED_DEVICE_FAMILY: "1"
+        GENERATE_INFOPLIST_FILE: YES
+        SWIFT_EMIT_LOC_STRINGS: NO
+        STRING_CATALOG_GENERATE_SYMBOLS: NO
+
+  # UI tests that drive the app like a person: library, game screen, Licenses.
+  ArcfoldUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    sources:
+      - path: Tests/ArcfoldUITests
+      - path: Tests/Fixtures/gba
+        includes:
+          - "*.gba"
+        buildPhase: resources
+    dependencies:
+      - target: Arcfold
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.faentiver.arcfold.uitests
         TARGETED_DEVICE_FAMILY: "1"
         GENERATE_INFOPLIST_FILE: YES
         SWIFT_EMIT_LOC_STRINGS: NO
@@ -126,6 +189,9 @@ schemes:
       targets:
         - ArcfoldTests
         - package: LibretroKit/LibretroKitTests
+        - package: Renderer/RendererTests
+        # The UI is the same in both builds, so only Store runs the UI tests.
+        - ArcfoldUITests
     profile:
       config: Release
     analyze:
@@ -144,6 +210,7 @@ schemes:
       targets:
         - ArcfoldTests
         - package: LibretroKit/LibretroKitTests
+        - package: Renderer/RendererTests
     profile:
       config: Release-JIT
     analyze:

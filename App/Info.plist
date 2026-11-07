@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  Keys that have no INFOPLIST_KEY_ build setting. Xcode merges this file with
+  the generated Info.plist (GENERATE_INFOPLIST_FILE in project.yml).
+  - CADisableMinimumFrameDurationOnPhone: lets the game screen ask ProMotion
+    displays for more than 60 Hz (ADR 0005).
+  - LSSupportsGameMode: makes Game Mode available while Arcfold runs.
+  - UTImportedTypeDeclarations: the file type .fileImporter offers for GBA games.
+-->
+<plist version="1.0">
+<dict>
+	<key>CADisableMinimumFrameDurationOnPhone</key>
+	<true/>
+	<key>LSSupportsGameMode</key>
+	<true/>
+	<key>UTImportedTypeDeclarations</key>
+	<array>
+		<dict>
+			<key>UTTypeIdentifier</key>
+			<string>com.faentiver.arcfold.gba-rom</string>
+			<key>UTTypeDescription</key>
+			<string>GBA ROM</string>
+			<key>UTTypeConformsTo</key>
+			<array>
+				<string>public.data</string>
+			</array>
+			<key>UTTypeTagSpecification</key>
+			<dict>
+				<key>public.filename-extension</key>
+				<array>
+					<string>gba</string>
+				</array>
+			</dict>
+		</dict>
+	</array>
+</dict>
+</plist>

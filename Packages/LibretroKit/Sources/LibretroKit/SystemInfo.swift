@@ -16,6 +16,18 @@ public struct SystemInfo: Hashable, Sendable {
 
     /// The frontend must pass archives to the core without extracting them.
     public let blocksExtract: Bool
+
+    /// For previews and tests; a running core reports its own values.
+    public init(
+        libraryName: String, libraryVersion: String, validExtensions: [String],
+        needsFullPath: Bool, blocksExtract: Bool
+    ) {
+        self.libraryName = libraryName
+        self.libraryVersion = libraryVersion
+        self.validExtensions = validExtensions
+        self.needsFullPath = needsFullPath
+        self.blocksExtract = blocksExtract
+    }
 }
 
 extension SystemInfo {

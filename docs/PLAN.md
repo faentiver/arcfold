@@ -1,6 +1,6 @@
 # Projektplan: Multi-System-Emulator fürs iPhone Duo
 
-Stand: 6. November 2026 · Owner: Fatih (GitHub: `faentiver`) · Arbeitsgrundlage für Claude Code
+Stand: 7. November 2026 · Owner: Fatih (GitHub: `faentiver`) · Arbeitsgrundlage für Claude Code
 
 ---
 
@@ -23,12 +23,12 @@ Eine offene SwiftUI-App, die mehrere Konsolen emuliert und jedes System für den
 | --- | --- |
 | Projekt | Weiter wie geplant, obwohl PPSSPP und Delta 2.0 das Duo inzwischen unterstützen |
 | Name | Arcfold, gewählt am 6. November 2026 aus Arcfold, Foldplay, Twofold, Crease und Gatefold. Nur Arcfold ist im App Store (DE, US) und auf GitHub frei, „Foldplay“ ist schon eine Spiele-App. Jederzeit änderbar |
-| Repo | `github.com/faentiver/arcfold`, GPL-3.0, privat. Öffentlich wird es erst, wenn die App an andere geht, denn erst dann verlangt die GPL den Quellcode für die Empfänger (Fatih, 6. November 2026) |
+| Repo | `github.com/faentiver/arcfold`, GPL-3.0-or-later (festgelegt am 7. November 2026), privat. Öffentlich wird es erst, wenn die App an andere geht, denn erst dann verlangt die GPL den Quellcode für die Empfänger (Fatih, 6. November 2026) |
 | Apple-Account | Vorerst kostenlose Apple-ID. Das Developer Program kommt später für TestFlight und Store |
 | Ziel | Lernen und Portfolio, später App Store mit einem Store-Build ohne PS2 |
 | Reihenfolge | GBA, DS, PSP, danach PS2 als JIT-Build, dann GB/GBC, NES, SNES, PS1 |
 | Bauen und Testen | Claude Code auf dem Mac mini, zuerst im Duo-Simulator von Xcode 27.1 oder neuer. Installiert ist Xcode 27.2 mit iOS-SDK 27.2 |
-| Tests auf dem Duo | Noch offen. Empfehlung: ab M0 mit kostenloser Apple-ID, weil der Simulator nichts über Bildrate, Wärme und JIT aussagt |
+| Tests auf dem Duo | Mit kostenloser Apple-ID, sobald das Duo eingerichtet ist, weil der Simulator nichts über Bildrate, Wärme und JIT aussagt. Anleitung in `docs/wissen/geraetetest.md` (entschieden am 7. November 2026) |
 | Controller | Vorhanden |
 
 ## 3. Ausgangslage (Recherche, Anfang November 2026)
@@ -91,7 +91,7 @@ Technische Leitplanken:
 3. **Callbacks ohne Kontext.** Die Libretro-Callbacks haben keinen User-Data-Zeiger. Es gibt daher genau einen aktiven Kern, und statische Trampolin-Funktionen leiten an die aktive Host-Instanz weiter.
 4. **Eigener Emulations-Thread.** Der Kern läuft nie auf dem Main Thread. Der Takt kommt aus `retro_get_system_av_info` und ist unabhängig von den 120 Hz des Displays.
 5. **Bild.** Software-Kerne liefern einen Pixelpuffer (RGB565 oder XRGB8888), den der Renderer als Metal-Textur in ganzen Vielfachen skaliert. GPU-Kerne (PSP, PS2) brauchen einen HW-Render-Kontext über `RETRO_ENVIRONMENT_SET_HW_RENDER`. PSP: Vulkan über MoltenVK, das Bild kommt als `MTLTexture` in den Renderer, der Software-Renderer bleibt als Ausweg (ADR 0001). Für PSP bekommt LibretroKit keinen OpenGL-ES-Code (ADR 0001). PS2: Play!s libretro-Kern kann nur OpenGL ES 3. Wo der OpenGL-ES-3-Kontext für Play! entsteht (LibretroKit, `App/JIT` oder ein eigenes Paket), wird vor der PS2-Spur entschieden (ADR 0002).
-6. **Ton.** Samples landen in einem lock-freien Ringpuffer, den ein `AVAudioSourceNode` abspielt. Leichtes dynamisches Resampling gleicht Taktunterschiede aus.
+6. **Ton.** Samples landen in einem lock-freien Ringpuffer, den ein `AVAudioSourceNode` mit einem Echtzeit-Render-Block in C abspielt. Taktunterschiede gleicht kein Resampling aus: Die Emulation folgt der Tonuhr, indem der Füllstand des Puffers die Bildperiode um höchstens ±0,5 % trimmt (ADR 0005, vorgeschlagen).
 7. **Eingabe.** Touch-Overlay und GameController-Framework schreiben in einen gemeinsamen Eingabezustand, den der Kern über `input_state` abfragt.
 8. **Spielstände.** Batteriespeicher über `retro_get_memory_data(RETRO_MEMORY_SAVE_RAM)`, Save States über `retro_serialize`, jeweils mit Vorschaubild.
 9. **FoldLayout.** Liest `onHingeChange` und `reservedRegions(kind: .division)` und berechnet pro System die Rechtecke. Wechsel sind animiert, die Emulation läuft weiter.
@@ -130,7 +130,7 @@ Ausgeschlossen: snes9x (nur nicht-kommerziell), Genesis Plus GX (keine kommerzie
 
 - **Keine Spiele und kein BIOS.** Niemals ROMs, ISOs, BIOS-Dateien, Firmware oder Schlüssel ins Repo oder in die App, auch keine Download-Links. Tests nur mit frei lizenzierten Homebrew-ROMs, deren Lizenzen in `Tests/Fixtures/LICENSES.md` stehen.
 - **Kein nachgeladener Code.** Alle Kerne stecken fest im App-Bundle (Richtlinie 2.5.2).
-- **Lizenzen.** Die ganze App steht unter GPL-3.0. Nur Kerne mit GPL-3.0-kompatibler Lizenz. Die Lizenzhinweise aller Kerne erscheinen in der App unter „Lizenzen“.
+- **Lizenzen.** Die ganze App steht unter GPL-3.0-or-later. Nur Kerne mit GPL-3.0-kompatibler Lizenz. Die Lizenzhinweise aller Kerne erscheinen in der App unter „Lizenzen“.
 - **JIT nur im JIT-Build.** Der Store-Build darf keinen JIT-Code-Pfad enthalten.
 - **Marken.** Kein Nintendo, PlayStation, PSP oder Duo im App-Namen oder Icon. Controller-Skins sind eigene Entwürfe ohne Original-Logos oder geschützte Tastensymbole. Kompatibilität darf sachlich im README stehen.
 - **Keine Cover-Bilder** mitliefern oder automatisch laden. Nutzer können eigene Bilder setzen.
@@ -149,7 +149,7 @@ Ausgeschlossen: snes9x (nur nicht-kommerziell), Genesis Plus GX (keine kommerzie
 ├── Cores/               Kerne als Git-Submodule, auf Tags oder Commits fixiert; Build/ mit den xcframeworks (ignoriert)
 ├── Scripts/             bootstrap.sh, build-core.sh, cores/ mit einem Rezept je Kern
 ├── Spikes/              Spike-Code aus M0 als Referenz, nicht Teil der App
-├── Tests/               ArcfoldTests (Unit-Tests mit der App als Host), Fixtures/ (Homebrew-ROMs, Lizenzen)
+├── Tests/               ArcfoldTests (Unit-Tests mit der App als Host), ArcfoldUITests, Fixtures/ (Homebrew-ROMs, Lizenzen)
 ├── docs/
 │   ├── PLAN.md          dieser Plan
 │   ├── adr/             Architektur-Entscheidungen
@@ -164,8 +164,8 @@ Ausgeschlossen: snes9x (nur nicht-kommerziell), Genesis Plus GX (keine kommerzie
 - Das Xcode-Projekt entsteht per XcodeGen aus `project.yml` (ADR 0004), damit es textbasiert und im Review lesbar bleibt. `Scripts/bootstrap.sh` baut vorher die eingebetteten Kerne.
 - Gearbeitet wird in Branches `m<Nummer>/<thema>` mit Pull Requests, die Fatih am iPhone prüfen kann.
 - Commit-Messages im Stil von Conventional Commits.
-- Tests: Emulation ist deterministisch. Unit-Tests prüfen deshalb die Bild-Prüfsumme nach einer festen Zahl Frames. Bei PSP geht das nur auf dem Vulkan- oder Software-Weg, OpenGL ES ist im Simulator nicht bitgenau (ADR 0001). Auch PS2 ist im Simulator nur mit Toleranz vergleichbar, weil Play! nur über OpenGL ES rendert (ADR 0002).
-- CI: GitHub Actions baut für den Simulator und führt die Tests aus. Das Vorschau-Image `xcode-27` hat inzwischen Xcode 27.1 und den Duo-Simulator mit iOS 27.1 (Image vom 26. Oktober 2026), darauf läuft der Workflow. Fehlt Xcode 27.1 auf dem Runner, meldet der Job das und überspringt den Rest; dann baut der Mac mini lokal. Solange das Repo privat ist, zählt jede macOS-Minute zehnfach. Die CI läuft deshalb nur bei Pull Requests und auf manuellen Start.
+- Tests: Emulation ist deterministisch. Unit-Tests prüfen deshalb die Bild-Prüfsumme nach einer festen Zahl Frames. Für GBA dient das eigene Testprogramm `Tests/Fixtures/gba/selftest.gba` (Bild, Ton, Eingabe, Batteriespeicher); die Kern-Tests laufen kopflos ohne Echtzeittakt, UI-Tests in `ArcfoldUITests` (ADR 0005). Bei PSP geht das nur auf dem Vulkan- oder Software-Weg, OpenGL ES ist im Simulator nicht bitgenau (ADR 0001). Auch PS2 ist im Simulator nur mit Toleranz vergleichbar, weil Play! nur über OpenGL ES rendert (ADR 0002).
+- CI: GitHub Actions baut für den Simulator und führt die Tests aus. Das Vorschau-Image `xcode-27` hat inzwischen Xcode 27.1 und den Duo-Simulator mit iOS 27.1 (Image vom 26. Oktober 2026), darauf läuft der Workflow. Fehlt Xcode 27.1 auf dem Runner, meldet der Job das und überspringt den Rest; dann baut der Mac mini lokal. Solange das Repo privat ist, zählt jede macOS-Minute zehnfach. Geplant war die CI deshalb nur bei Pull Requests und auf manuellen Start. Seit 7. November 2026 läuft sie vorerst nur auf manuellen Start (`workflow_dispatch`, `docs/wissen/bauen-und-ci.md`); geprüft wird lokal auf dem Mac mini.
 - Debug-Overlay mit Bildrate, Audio-Aussetzern und `ProcessInfo.thermalState`, damit Abnahmen auf Messwerten stehen.
 
 ## 10. Meilensteine
@@ -189,9 +189,11 @@ Abgenommen am 6. November 2026. Schritte 1 bis 7 sind erledigt, Schritt 8 ist im
 
 ### M1 · GBA läuft
 
-Emulations-Thread mit Takt, Metal-Bild, Ton, Touch-Overlay, GameController, Import über `.fileImporter`, Batteriespeicher, Debug-Overlay. Dazu der Bildschirm „Lizenzen“ mit Arcfold (GPL-3.0), mGBA (MPL-2.0) und `libretro.h` (MIT): Die harte Regel verlangt die Lizenzhinweise in der App, und M1 ist der erste spielbare Build. M3 erweitert ihn um PPSSPP und MoltenVK.
+Emulations-Thread mit Takt, Metal-Bild, Ton, Touch-Overlay, GameController, Import über `.fileImporter`, Batteriespeicher, Debug-Overlay. Dazu der Bildschirm „Lizenzen“ mit Arcfold (GPL-3.0), mGBA (MPL-2.0), den in mGBA gebauten Teilen blip_buf (LGPL-2.1-or-later) und inih (BSD-3-Clause) sowie `libretro.h` (MIT): Die harte Regel verlangt die Lizenzhinweise in der App, und M1 ist der erste spielbare Build. M3 erweitert ihn um PPSSPP und MoltenVK. Entwurf und Schnittstellen: ADR 0005 (angenommen).
 
 **Abnahme:** Homebrew-ROM läuft stabil mit 60 fps, Ton ohne Knacken, Speicherstand überlebt einen Neustart.
+
+Abgenommen am 7. November 2026 im Duo-Simulator (ADR 0005, Abschnitt „Umsetzung in M1“). Der Gerätetest auf dem Duo steht aus (`docs/wissen/geraetetest.md`).
 
 ### M2 · DS am Falz
 
@@ -261,7 +263,7 @@ Fork von `hrydgard/ppsspp`, Tabletop-Layout über `UIHingeInteraction`, Test auf
 | StikDebug muss während des Spielens verbunden bleiben | Umständliche Bedienung im JIT-Build | Klärt Gerätetest A (ADR 0002) |
 | GPL und App Store | Keine Store-Veröffentlichung | Erst eigene Geräte, vor einer Einreichung die Kern-Entwickler fragen |
 | Neue Duo-APIs, lückenhafte Doku | Verhalten weicht ab | Hinter `#available(iOS 27.1, *)` kapseln, früh auf dem Duo testen |
-| Knacken im Ton, unruhiger Takt bei 120 Hz | Spielgefühl leidet | Eigener Takt je Kern, Resampling, Messwerte im Debug-Overlay |
+| Knacken im Ton, unruhiger Takt bei 120 Hz | Spielgefühl leidet | Eigener Takt je Kern, der der Tonuhr folgt statt Resampling (ADR 0005), Messwerte im Debug-Overlay |
 | Wärme und Akku | Lange Sessions brechen ein | Messung in jedem Meilenstein, Bildraten-Begrenzer |
 | Markenrecht | Abmahnung oder Ablehnung | Neutraler Name, eigene Skins, keine Logos |
 | Der Umfang wächst | Nichts wird fertig | Abnahme pro Meilenstein, das nächste System erst danach |
@@ -271,9 +273,13 @@ Fork von `hrydgard/ppsspp`, Tabletop-Layout über `UIHingeInteraction`, Test auf
 - [x] Projektname festlegen (englisch), danach App Store und GitHub auf Konflikte prüfen. Ergebnis: Arcfold, geprüft am 6. November 2026.
 - [x] Sichtbarkeit des Repos: Es bleibt privat, bis die App an andere geht (Fatih, 6. November 2026).
 - [x] ADR 0001 angenommen: Vulkan über MoltenVK für PSP (Fatih, mit der M0-Abnahme am 6. November 2026).
-- [ ] Store-Build: Darf PPSSPPs nie ausgeführter ARM64-JIT-Code im Kern bleiben (der Host meldet kein JIT, der Kern nutzt den IR-Interpreter), oder wird er herausgepatcht? Harte Regel JIT, ADR 0001 Folgen; vor M3 (Fatih).
-- [ ] Tests auf dem Duo schon ab M0 mit kostenloser Apple-ID? Davon hängt der Gerätetest aus ADR 0002 ab.
-- [ ] Lizenzvariante festlegen: GPL-3.0-only oder GPL-3.0-or-later. Die eigenen Testprogramme sind derzeit gemischt (`gu-test` or-later, `gs_sprites` only).
+- [x] Store-Build: PPSSPPs ARM64-JIT-Code kommt aus dem Store-Kern heraus, per Build-Option oder Patch im Rezept; der Store-Kern nutzt nur den IR-Interpreter. Ein Test prüft das Store-Bundle auf JIT-Symbole (etwa `pthread_jit_write_protect_np`, `MAP_JIT`). Grund: Die harte Regel verbietet im Store-Build jeden JIT-Code-Pfad, auch einen nie ausgeführten, und App Review prüft Binärdateien statisch. Umsetzung in M3 (entschieden am 7. November 2026).
+- [x] Tests auf dem Duo mit kostenloser Apple-ID, sobald das Duo eingerichtet ist (7. November 2026).
+- [ ] Gerätetest auf dem Duo für M1 (ADR 0005) und PS2 mit JIT (ADR 0002), Anleitung in `docs/wissen/geraetetest.md` (Fatih, braucht das Gerät).
+- [x] Lizenzvariante: GPL-3.0-or-later für die App und alle eigenen Testprogramme. Grund: Die übliche Wahl lässt spätere GPL-Fassungen zu, und solange Fatih einziger Autor ist, kostet die Festlegung nichts; später bräuchte jede Änderung die Zustimmung aller Beitragenden (7. November 2026).
+- [x] ADR 0005 angenommen am 7. November 2026: Belegung nach Position, bevorzugt 120 Hz mit Rückfall auf 60 Hz nach dem Gerätetest, `.ambient` im Lautlos-Modus (ADR 0005, „Entscheidungen bei der Annahme“).
+- [x] Innendisplay und Systemspalte blockieren M2 nicht: Die Layouts rechnen mit dem Rahmen der Ansicht, nie mit festen Pixelmaßen, und zugeklappt bleibt das Bild im sicheren Bereich (Faktor 4). Der Duo-Simulator meldet das Innendisplay mit 2007 × 2853 px statt 1878 × 2670 (Abschnitt 3); die echten Maße misst der Gerätetest (7. November 2026).
+- [ ] CI wieder bei Pull Requests starten: Die CI läuft vorerst nur auf manuellen Start (`workflow_dispatch`, `docs/wissen/bauen-und-ci.md`, Fatih).
 - [ ] Libretro-Schnittstelle von Mesen 2 prüfen (M5).
 - [ ] Vor dem Öffentlichschalten die Quellen in Abschnitt 13 (Emulations-Ratgeber) auf ROM- und BIOS-Download-Links prüfen und notfalls durch Primärquellen ersetzen.
 

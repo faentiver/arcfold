@@ -1,0 +1,60 @@
+M1-Abnahme im Simulator nach der Integration, 7. November 2026
+================================================================
+
+Gerät: eigener Simulator „Arcfold M1 Integration“ (iPhone Duo, iOS 27.1, 24A94425),
+zugeklappt (Außendisplay 1398 x 2034 px), ohne Simulator-Fenster, nur über simctl.
+Xcode 27.2 (27B52), Mac mini M4 Pro, macOS 27.2. Debug-Build des Schemes Store,
+Stand der Commits bis ab258ff auf m1/gba. Leistungszahlen aus dem Simulator sind
+Plausibilitätswerte.
+
+Start: xcrun simctl launch <UDID> com.faentiver.arcfold -ArcfoldAutorun <Repo>/Tests/Fixtures/gba/selftest.gba
+(derselbe Import wie über .fileImporter, Bibliothek vorher leer)
+
+Messquellen
+- Bildzähler von selftest.gba (16 Bit, zählt jedes emulierte Bild), aus Bildschirmfotos
+  von Display 1 gelesen, mit der Host-Zeit vor und nach dem Foto.
+- Messzeile der App alle 10 s (Logger com.faentiver.arcfold, Kategorie stats), dieselben
+  Werte wie das Debug-Overlay.
+- battery.sav im Datencontainer der App (Library/Application Support/Games/<SHA-256>/).
+
+1. Bildrate über zehn Minuten (01:31:51 bis 01:42:00)
+   Bildzähler 859 -> 37229: 36 370 Bilder in 608,85 s = 59,735 Bilder/s
+   (Soll 59,7275; Unsicherheit durch die Dauer eines Fotos etwa +-0,05)
+   Messzeilen: 61, Bildrate im Mittel 59,722, kleinste 59,59, größte 59,89
+   retro_run im Mittel 0,70 ms, längster 1,99 ms
+   trim -0,084 bis +0,033 %, Neusynchronisationen 0 -> 0
+   späte Bilder (über 2 ms nach der Frist) 811 -> 22 019, also rund 58 %: Weckzeiten im Simulator
+
+2. Ton im selben Zeitraum
+   Aussetzer 0 -> 0, verworfene Frames 0 -> 0, Auffüllen 1 -> 1
+   Füllstand 31,0 bis 56,6 ms bei 35 ms Reserve, IO-Puffer 2,7 ms, 48 000 Hz
+
+3. Wärme
+   thermalState durchgehend nominal, Stromsparmodus aus (im Simulator ohne Aussagekraft)
+
+4. Anzeige
+   Display-Link 47 bis 54 Hz ohne Simulator-Fenster; gezeigt 909 -> 27 688,
+   übersprungen 290 -> 9530 (rund 25 % der Bilder, weil die Anzeige langsamer läuft
+   als 59,73 Hz), späte Auswahl 0, GPU belegt 0, überschrieben 11 (alle beim Start)
+   Ursache offen: Das Testmuster lief im selben Simulator ohne Fenster mit 60 Hz
+   (Prüfung vom 7. November 2026). Gemessen wird auf dem Duo.
+
+5. Hintergrund und zurück (Einstellungen 10 s im Vordergrund, dann Arcfold)
+   Bildzähler 38536 -> 39505 in 26,47 s Uhrzeit: 969 Bilder = 16,2 s Emulation,
+   also rund 10 s pausiert. Danach 59,68 bis 59,76 Bilder/s, Aussetzer 0,
+   Neusynchronisationen 0, Auffüllen 1 -> 2.
+
+6. Speicherstand über einen Neustart
+   vor simctl terminate:   battery.sav 32 768 Byte, beginnt mit 41 52 43 46 01 7b ("ARCF", Boot 1)
+   nach simctl terminate:  unverändert
+   nach erneutem Start:    Bild zeigt Boot-Zähler 2; battery.sav beginnt mit 41 52 43 46 02 0a
+                           ("ARCF", Boot 2, Herzschlag 10), battery.sav.bak hält die vorige
+                           Fassung (41 52 43 46 02 09)
+
+7. Erster Lauf derselben Art vor der Korrektur der Bildrate bei zweiter Pause
+   Bildzähler 8639 -> 44841: 36 202 Bilder in 606,11 s = 59,728 Bilder/s,
+   Messzeilen 59,61 bis 59,87, Aussetzer 0, Neusynchronisationen 0, thermalState nominal.
+   Nach dem Hintergrund zeigte eine Messzeile 0,00 Bilder/s; das behebt Commit dcbe64a.
+
+Bilder: m1-selftest-simulator.png (Ende des zehnminütigen Laufs, halbe Größe),
+m1-lizenzen.png (Bildschirm „Licenses“ aus dem UI-Test, halbe Größe).

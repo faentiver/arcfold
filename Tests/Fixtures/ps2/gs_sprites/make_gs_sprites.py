@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: GPL-3.0-only
+# SPDX-License-Identifier: GPL-3.0-or-later
 # Copyright 2026 Fatih (faentiver)
 """Writes gs_sprites.elf, a tiny PS2 test program for Arcfold.
 
