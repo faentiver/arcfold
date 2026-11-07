@@ -13,12 +13,15 @@ nonisolated struct DebugReadings: Sendable {
     /// The core's sample rate, to turn frames into milliseconds.
     var audioSampleRate: Double
     var route: AudioRoute?
+    /// The buttons as the session's `InputState` sees them; nil before the
+    /// session exists.
+    var input: InputReadings?
     var thermalState: ProcessInfo.ThermalState
     var isLowPowerModeEnabled: Bool
 
     /// The overlay's lines; also the line the app logs every 10 seconds.
     var lines: [String] {
-        [emulationLine, displayLine, audioLine, deviceLine]
+        [emulationLine, displayLine, audioLine, inputLine, deviceLine]
     }
 
     var emulationLine: String {
@@ -53,8 +56,28 @@ nonisolated struct DebugReadings: Sendable {
         return line
     }
 
+    /// Held now, the latest press and all presses so far. The press count keeps
+    /// what a short touch did; the UI test of the touch controls reads it.
+    var inputLine: String {
+        guard let input else { return "Input –" }
+        return "Input held \(Self.names(of: input.held)) · last \(Self.names(of: input.lastPressed))"
+            + " · presses \(input.presses)"
+    }
+
     var deviceLine: String {
         "Thermal \(Self.name(of: thermalState)) · Low Power \(isLowPowerModeEnabled ? "on" : "off")"
+    }
+
+    /// RetroPad names in the order of the mask's bits, joined by "+"; "–" for none.
+    static func names(of buttons: JoypadButtons) -> String {
+        let all: [(button: JoypadButtons, name: String)] = [
+            (.b, "B"), (.y, "Y"), (.select, "Select"), (.start, "Start"),
+            (.up, "Up"), (.down, "Down"), (.left, "Left"), (.right, "Right"),
+            (.a, "A"), (.x, "X"), (.l, "L"), (.r, "R"),
+            (.l2, "L2"), (.r2, "R2"), (.l3, "L3"), (.r3, "R3"),
+        ]
+        let names = all.filter { buttons.contains($0.button) }.map(\.name)
+        return names.isEmpty ? "–" : names.joined(separator: "+")
     }
 
     private static func number(_ value: Double, digits: Int) -> String {
@@ -74,6 +97,23 @@ nonisolated struct DebugReadings: Sendable {
         case .critical: "critical"
         @unknown default: "unknown"
         }
+    }
+}
+
+/// The input part of `DebugReadings`.
+nonisolated struct InputReadings: Sendable {
+    var held: JoypadButtons
+    var lastPressed: JoypadButtons
+    var presses: UInt64
+
+    init(held: JoypadButtons, lastPressed: JoypadButtons, presses: UInt64) {
+        self.held = held
+        self.lastPressed = lastPressed
+        self.presses = presses
+    }
+
+    init(_ input: InputState) {
+        self.init(held: input.heldButtons, lastPressed: input.lastPressedButtons, presses: input.pressCount)
     }
 }
 
@@ -127,6 +167,7 @@ struct DebugOverlay: View {
                 largestRequest: 164, bufferedFrames: 1130, targetFrames: 1147),
             audioSampleRate: 32768,
             route: AudioRoute(hardwareSampleRate: 48000, ioBufferDuration: 0.0053, outputLatency: 0.012),
+            input: InputReadings(held: [.a, .right], lastPressed: .a, presses: 12),
             thermalState: .nominal,
             isLowPowerModeEnabled: false
         )

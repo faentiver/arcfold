@@ -336,6 +336,7 @@ final class PlaySession {
             audio: audioRing.counters,
             audioSampleRate: info?.timing.sampleRate ?? 0,
             route: audioOutput?.route,
+            input: session.map { InputReadings($0.input) },
             thermalState: ProcessInfo.processInfo.thermalState,
             isLowPowerModeEnabled: ProcessInfo.processInfo.isLowPowerModeEnabled
         )

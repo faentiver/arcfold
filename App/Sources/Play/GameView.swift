@@ -13,6 +13,10 @@ struct GameView: View {
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.dismiss) private var dismiss
 
+    /// The pause button at the top trailing corner, and the margin around it.
+    private static let pauseButtonSize: CGFloat = 44
+    private static let margin: CGFloat = 8
+
     init(game: Game, library: GameLibrary) {
         _session = State(initialValue: PlaySession(
             game: game, files: library.files(for: game), location: library.location))
@@ -103,7 +107,9 @@ struct GameView: View {
                     .foregroundStyle(.yellow)
             }
         }
-        .padding(8)
+        .padding(Self.margin)
+        // The lines wrap before they reach the pause button.
+        .padding(.trailing, Self.pauseButtonSize + Self.margin)
 
         if session.phase == .running {
             Button {
@@ -111,13 +117,13 @@ struct GameView: View {
             } label: {
                 Image(systemName: "pause.fill")
                     .font(.title3)
-                    .frame(width: 44, height: 44)
+                    .frame(width: Self.pauseButtonSize, height: Self.pauseButtonSize)
             }
             .tint(.white)
             .accessibilityLabel(Text("Pause", comment: "Button that pauses the game and opens its menu."))
             .accessibilityIdentifier("pause")
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
-            .padding(8)
+            .padding(Self.margin)
         }
 
         if let notice = session.notice {
