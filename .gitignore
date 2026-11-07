@@ -46,3 +46,13 @@ scph*.bin
 firmware*.bin
 *.keys
 keys.txt
+# DS and DSi system files (melonDS) and other dumps: BIOS, firmware, NAND and SD card images
+*bios*.bin
+*firmware*.bin
+*nand*.bin
+*sd_card*.bin
+*.rom
+# Archives may contain games
+*.zip
+*.7z
+*.rar
