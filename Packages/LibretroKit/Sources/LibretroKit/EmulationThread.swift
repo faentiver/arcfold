@@ -347,7 +347,7 @@ final class EmulationThread {
         context.endFrame()
         let end = HostTime.now()
         if paced {
-            clock.endFrame(audio: context.lastAudioStatus)
+            clock.endFrame(audio: context.lastAudioStatus, writtenFrames: context.audioFramesWritten)
         }
         metrics.record(start: start, end: end, deadline: plan.deadline)
         if framesEmulated % BatterySaveMonitor.checkInterval == 0 {

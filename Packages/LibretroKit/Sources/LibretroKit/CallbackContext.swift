@@ -50,6 +50,9 @@ final class CallbackContext {
     private(set) var stamp = FrameStamp(sequence: 0, nominalTime: 0)
     /// The state the audio sink reported after the frame's last write.
     private(set) var lastAudioStatus: AudioBufferStatus?
+    /// Audio frames this frame wrote to the sink; with `lastAudioStatus` the
+    /// frame clock knows the level before the frame's sound arrived.
+    private(set) var audioFramesWritten = 0
     /// The buttons of this frame, taken in `inputPoll`.
     private var buttons: UInt32 = 0
     /// Single samples from `retro_audio_sample`, written at the end of the frame.
@@ -108,6 +111,7 @@ final class CallbackContext {
     func beginFrame(_ stamp: FrameStamp) {
         self.stamp = stamp
         lastAudioStatus = nil
+        audioFramesWritten = 0
     }
 
     /// After `retro_run`: writes the single samples the frame collected.
@@ -279,6 +283,7 @@ final class CallbackContext {
         flushSingleSamples()
         if let audioSink {
             lastAudioStatus = audioSink.write(UnsafeBufferPointer(start: data, count: 2 * frames).span)
+            audioFramesWritten += frames
         }
         return frames
     }
@@ -298,6 +303,7 @@ final class CallbackContext {
         if let audioSink {
             let samples = UnsafeBufferPointer(rebasing: singleSamples[..<singleSampleCount])
             lastAudioStatus = audioSink.write(samples.span)
+            audioFramesWritten += singleSampleCount / 2
         }
         singleSampleCount = 0
     }

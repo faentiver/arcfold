@@ -161,6 +161,31 @@ struct FrameClockTests {
         #expect(clock.trim >= 0)
     }
 
+    /// The target is the reserve before new sound arrives: a buffer that holds
+    /// it plus the frame's own writes is on target, the same level without
+    /// those writes is not.
+    @Test func theControllerSteersTheLevelBeforeTheFramesSound() {
+        var clock = Self.clock()
+        for _ in 0..<600 {
+            _ = clock.beginFrame(now: clock.deadline)
+            clock.endFrame(
+                audio: AudioBufferStatus(bufferedFrames: 1_147 + 549, targetFrames: 1_147, isConsuming: true),
+                writtenFrames: 549
+            )
+        }
+        #expect(clock.trim == 0)
+        #expect(clock.integral == 0)
+
+        // Read as the level after the writes, 549 frames (16.8 ms) are too much.
+        var misread = Self.clock()
+        _ = misread.beginFrame(now: misread.deadline)
+        misread.endFrame(
+            audio: AudioBufferStatus(bufferedFrames: 1_147 + 549, targetFrames: 1_147, isConsuming: true),
+            writtenFrames: 0
+        )
+        #expect(misread.trim > 0)
+    }
+
     /// The emulation follows an audio device whose clock runs `drift` faster
     /// than the host clock, for 10 simulated minutes, as in the simulation of
     /// the design "Echtzeit robust": no underrun, and the trim settles on the drift.
@@ -174,8 +199,11 @@ struct FrameClockTests {
         let expectedTrim = -driftPPM * 1e-6
         #expect(abs(result.meanTrimSecondHalf - expectedTrim) < 0.1 * abs(expectedTrim),
                 "mean trim \(result.meanTrimSecondHalf * 1e6) ppm for \(driftPPM) ppm drift")
-        // The fill level stays well clear of an underrun.
-        #expect(result.lowestFillWhilePlaying > 0)
+        // The fill level stays well clear of an underrun: about half of the
+        // 35 ms reserve is left after the longest spikes. Steering the level
+        // after the writes instead left 2 ms and 2 underruns at +500 ppm.
+        #expect(result.lowestFillWhilePlaying / Self.sampleRate > 0.010,
+                "lowest fill \(result.lowestFillWhilePlaying / Self.sampleRate * 1000) ms")
     }
 }
 
@@ -183,7 +211,8 @@ struct FrameClockTests {
 /// emulated frame into a buffer, and a device that pulls 256 frames at 48 kHz
 /// on a clock `driftPPM` off the host clock, without ever pausing. Run times
 /// vary between 1.5 and 3.5 ms with rare spikes up to 15.5 ms. The buffer fills
-/// to 35 ms before the device starts and again after an underrun (priming).
+/// to 35 ms before the device starts and again after an underrun (priming);
+/// the same 35 ms are the target the clock keeps before each frame's sound.
 struct AudioClockSimulation {
     struct Result {
         var underruns = 0
@@ -254,9 +283,11 @@ struct AudioClockSimulation {
             let amount = produced.rounded(.down)
             produced -= amount
             fill += amount
-            clock.endFrame(audio: AudioBufferStatus(
-                bufferedFrames: Int(fill), targetFrames: Int(target + perFrame), isConsuming: !priming
-            ))
+            // Like AudioRing: the target is the priming level, the reserve.
+            clock.endFrame(
+                audio: AudioBufferStatus(bufferedFrames: Int(fill), targetFrames: Int(target), isConsuming: !priming),
+                writtenFrames: Int(amount)
+            )
             result.largestTrim = max(result.largestTrim, abs(clock.trim))
             if Double(completion) > seconds / 2 * ticksPerSecond {
                 trimSum += clock.trim

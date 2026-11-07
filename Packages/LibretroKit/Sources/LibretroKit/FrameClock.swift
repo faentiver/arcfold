@@ -89,14 +89,23 @@ struct FrameClock {
         return Plan(deadline: deadline, shouldWait: false, lateness: lateness, resynchronized: false)
     }
 
-    /// Ends the frame: updates the trim from the state of the audio buffer
-    /// after the frame's last write, nil if nothing was written, and plans the
+    /// Ends the frame: updates the trim from the audio buffer and plans the
     /// next deadline.
-    mutating func endFrame(audio: AudioBufferStatus?) {
+    ///
+    /// - Parameters:
+    ///   - audio: The state the sink reported after the frame's last write,
+    ///     nil if the frame wrote nothing.
+    ///   - writtenFrames: Audio frames the frame wrote. The controller steers
+    ///     the level before them, the low point of the buffer just before new
+    ///     sound arrives, to `targetFrames`. Steering the level right after
+    ///     the writes instead would leave only the target minus one frame of
+    ///     sound as reserve (ADR 0005).
+    mutating func endFrame(audio: AudioBufferStatus?, writtenFrames: Int = 0) {
         guard pacing == .realTime else { return }
         if let audio, audio.isConsuming, sampleRate > 0 {
-            // Seconds of audio the buffer holds above its target level.
-            let error = Double(audio.bufferedFrames - audio.targetFrames) / sampleRate
+            // Seconds of audio the buffer held above its target level before
+            // this frame's sound arrived.
+            let error = Double(audio.bufferedFrames - writtenFrames - audio.targetFrames) / sampleRate
             integral = min(max(integral + error * period, -Self.integralLimit), Self.integralLimit)
             let correction = Self.proportionalGain * error + Self.integralGain * integral
             trim = min(max(correction, -Self.maximumTrim), Self.maximumTrim)

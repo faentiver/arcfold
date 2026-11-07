@@ -232,6 +232,7 @@ struct EnvironmentTests {
         #expect(consumed == 3)
         #expect(sink.writes == [batch])
         #expect(context.lastAudioStatus == status)
+        #expect(context.audioFramesWritten == 3)
 
         context.audioSample(10, -10)
         context.audioSample(11, -11)
@@ -242,9 +243,13 @@ struct EnvironmentTests {
         context.endFrame()
         #expect(sink.writes.last == [12, -12])
         #expect(sink.writes.count == 3)
+        // Batch and single samples alike: the clock needs all audio frames
+        // of the emulated frame to know the level before its sound.
+        #expect(context.audioFramesWritten == 6)
 
         context.beginFrame(FrameStamp(sequence: 2, nominalTime: 0))
         #expect(context.lastAudioStatus == nil)
+        #expect(context.audioFramesWritten == 0)
         context.endFrame()
         #expect(sink.writes.count == 3)
     }

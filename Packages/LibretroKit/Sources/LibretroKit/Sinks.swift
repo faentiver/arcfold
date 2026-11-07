@@ -46,7 +46,11 @@ public protocol VideoSink: AnyObject, Sendable {
 public struct AudioBufferStatus: Sendable, Hashable {
     /// Audio frames (one left and one right sample each) waiting to be played.
     public var bufferedFrames: Int
-    /// The level the buffer should have right after a write.
+    /// The level the buffer should still hold when new sound arrives: the
+    /// reserve the output needs against its IO buffer and late frames. The
+    /// frame clock steers the level before each frame's sound to it, so right
+    /// after a frame's writes the buffer holds about one frame of sound more
+    /// (ADR 0005).
     public var targetFrames: Int
     /// False while the output is not pulling (priming, suspended, no output).
     /// The clock then runs at the nominal rate instead of following the buffer.

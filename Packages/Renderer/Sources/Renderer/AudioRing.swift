@@ -130,7 +130,8 @@ public struct AudioCounters: Sendable, Hashable {
     public var largestRequest: Int
     /// Frames buffered right now.
     public var bufferedFrames: Int
-    /// The level the ring holds after a write.
+    /// The level priming waits for, and the reserve the frame clock keeps in
+    /// the ring before each frame's sound arrives (`AudioBufferStatus.targetFrames`).
     public var targetFrames: Int
 
     public init(
