@@ -153,10 +153,10 @@ final class LaunchTests: XCTestCase {
         }
     }
 
-    /// Needs the emulation session of track K; the integration removes the skip.
+    /// selftest.gba through the debug launch, the same import as the file
+    /// importer: mGBA runs, and the debug overlay shows a frame rate.
     @MainActor
     func testTheGameRunsAndTheOverlayShowsAFrameRate() throws {
-        try XCTSkipIf(true, "Requires the emulation session from track K")
         let app = XCUIApplication()
         app.launchArguments = ["-ArcfoldAutorun", try selftestPath()]
         app.launch()
@@ -172,6 +172,8 @@ final class LaunchTests: XCTestCase {
         }
         expectation(for: running, evaluatedWith: overlay)
         waitForExpectations(timeout: 30)
+        XCTAssertTrue(app.descendants(matching: .any)["game-screen"].exists)
+        keepScreenshot(of: app, named: "Game running")
     }
 }
 
