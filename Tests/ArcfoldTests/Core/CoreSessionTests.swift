@@ -286,6 +286,10 @@ extension CoreSessionTests {
             try await Task.sleep(for: .milliseconds(300))
             #expect(pictures.count == pausedAt)
             #expect(FileManager.default.fileExists(atPath: folder.batterySave.path(percentEncoded: false)))
+            // A second pause, as the app sends for inactive and then background,
+            // keeps the frame rate of the last interval with frames.
+            await session.pause()
+            #expect(session.stats.snapshot().framesPerSecond > 50)
 
             session.resume()
             try await waitUntil { pictures.count >= pausedAt + 60 }

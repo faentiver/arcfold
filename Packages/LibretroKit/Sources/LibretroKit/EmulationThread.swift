@@ -402,7 +402,8 @@ private struct FrameMetrics {
     /// About once per second.
     static let publishInterval = HostTime.ticks(fromSeconds: 1)
     /// Shorter intervals give no meaningful frame rate or maxima; a pause right
-    /// after a publication keeps the values of the previous interval.
+    /// after a publication keeps the values of the previous interval. So does
+    /// an interval without frames, for example a second `pause()` while paused.
     static let minimumInterval = HostTime.ticks(fromSeconds: 0.25)
     /// A frame that starts later than this after its deadline counts as late.
     static let lateThreshold = HostTime.ticks(fromSeconds: 0.002)
@@ -445,10 +446,13 @@ private struct FrameMetrics {
         now &- intervalStart >= Self.publishInterval
     }
 
-    /// Publishes the values; an interval of at least `minimumInterval` ends here.
+    /// Publishes the values; an interval of at least `minimumInterval` with
+    /// frames in it ends here.
     mutating func publish(to stats: SessionStats, at now: UInt64, frames: UInt64, clock: FrameClock) {
         let elapsed = now &- intervalStart
-        let isFullInterval = elapsed >= Self.minimumInterval
+        // The app pauses twice when it goes to the background (inactive, then
+        // background); the second pause must not publish 0 frames per second.
+        let isFullInterval = elapsed >= Self.minimumInterval && frames > framesAtIntervalStart
         if isFullInterval {
             framesPerSecond = Double(frames - framesAtIntervalStart) * HostTime.ticksPerSecond / Double(elapsed)
             publishedMaxRun = maxRun
