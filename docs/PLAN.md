@@ -23,7 +23,7 @@ Eine offene SwiftUI-App, die mehrere Konsolen emuliert und jedes System für den
 | --- | --- |
 | Projekt | Weiter wie geplant, obwohl PPSSPP und Delta 2.0 das Duo inzwischen unterstützen |
 | Name | Arcfold, gewählt am 6. November 2026 aus Arcfold, Foldplay, Twofold, Crease und Gatefold. Nur Arcfold ist im App Store (DE, US) und auf GitHub frei, „Foldplay“ ist schon eine Spiele-App. Jederzeit änderbar |
-| Repo | `github.com/faentiver/arcfold`, GPL-3.0-or-later (festgelegt am 7. November 2026), privat. Öffentlich wird es erst, wenn die App an andere geht, denn erst dann verlangt die GPL den Quellcode für die Empfänger (Fatih, 6. November 2026) |
+| Repo | `github.com/faentiver/arcfold`, GPL-3.0-or-later (festgelegt am 7. November 2026), öffentlich seit 7. November 2026, damit die CI auf den Standard-Runnern von GitHub kostenlos läuft (Fatih, 7. November 2026). Bis dahin war es privat (6. November 2026) |
 | Apple-Account | Vorerst kostenlose Apple-ID. Das Developer Program kommt später für TestFlight und Store |
 | Ziel | Lernen und Portfolio, später App Store mit einem Store-Build ohne PS2 |
 | Reihenfolge | GBA, DS, PSP, danach PS2 als JIT-Build, dann GB/GBC, NES, SNES, PS1 |
@@ -158,7 +158,7 @@ Ausgeschlossen: snes9x (nur nicht-kommerziell), Genesis Plus GX (keine kommerzie
 │   └── workflows/ci.yml CI mit GitHub Actions
 ├── CLAUDE.md
 ├── README.md
-└── LICENSE              GPL-3.0
+└── LICENSE              GPL-3.0-or-later
 ```
 
 - Das Xcode-Projekt entsteht per XcodeGen aus `project.yml` (ADR 0004), damit es textbasiert und im Review lesbar bleibt. `Scripts/bootstrap.sh` baut vorher die eingebetteten Kerne.
@@ -174,7 +174,7 @@ Jeder Meilenstein endet mit einer Abnahme durch Fatih. Bildrate und Wärme zähl
 
 ### M0 · Fundament
 
-1. Repo anlegen mit `gh repo create faentiver/arcfold --private`. Öffentlich wird es erst, wenn die App an andere geht. Dazu GPL-3.0-`LICENSE`, kurzes `README.md`, `.gitignore` für Swift und Xcode, `CLAUDE.md` mit den Regeln aus Abschnitt 0 und 8, dieser Plan als `docs/PLAN.md`.
+1. Repo anlegen mit `gh repo create faentiver/arcfold --private` (öffentlich seit 7. November 2026, siehe Abschnitt 1). Dazu GPL-3.0-`LICENSE`, kurzes `README.md`, `.gitignore` für Swift und Xcode, `CLAUDE.md` mit den Regeln aus Abschnitt 0 und 8, dieser Plan als `docs/PLAN.md`.
 2. `project.yml` für XcodeGen: App-Target, Deployment-Target iOS 27.0, Swift 6, Schemes `Store` und `JIT`.
 3. Lokale Pakete `LibretroKit` (mit C-Target für `libretro.h`), `FoldLayout` und `Renderer` anlegen.
 4. mGBA als Submodul unter `Cores/`. `Scripts/build-core.sh <kern>` baut ein `.xcframework` mit dynamischem Framework für Gerät und Simulator (arm64).
@@ -271,7 +271,7 @@ Fork von `hrydgard/ppsspp`, Tabletop-Layout über `UIHingeInteraction`, Test auf
 ## 12. Offene Punkte
 
 - [x] Projektname festlegen (englisch), danach App Store und GitHub auf Konflikte prüfen. Ergebnis: Arcfold, geprüft am 6. November 2026.
-- [x] Sichtbarkeit des Repos: Es bleibt privat, bis die App an andere geht (Fatih, 6. November 2026).
+- [x] Sichtbarkeit des Repos: öffentlich seit 7. November 2026, damit die CI kostenlos läuft (Fatih, 7. November 2026). Bis dahin war es privat (6. November 2026). Vor dem Umschalten wurde der ganze Verlauf geprüft: keine Zugangsdaten, keine Spiele, BIOS-Dateien oder Schlüssel; fehlende Lizenztexte für `psp/gu-test.elf` und die Play!-Patches liegen seitdem bei. Für die Veröffentlichung wurde das Repo neu angelegt, weil GitHub einen ersetzten Commit mit einer früheren Identität abrufbar hielt. Das erste Repo heißt jetzt `arcfold-alt`, ist privat und archiviert; seine Pull Requests #1 und #2 stehen als Issues #1 und #2 im neuen Repo.
 - [x] ADR 0001 angenommen: Vulkan über MoltenVK für PSP (Fatih, mit der M0-Abnahme am 6. November 2026).
 - [x] Store-Build: PPSSPPs ARM64-JIT-Code kommt aus dem Store-Kern heraus, per Build-Option oder Patch im Rezept; der Store-Kern nutzt nur den IR-Interpreter. Ein Test prüft das Store-Bundle auf JIT-Symbole (etwa `pthread_jit_write_protect_np`, `MAP_JIT`). Grund: Die harte Regel verbietet im Store-Build jeden JIT-Code-Pfad, auch einen nie ausgeführten, und App Review prüft Binärdateien statisch. Umsetzung in M3 (entschieden am 7. November 2026).
 - [x] Tests auf dem Duo mit kostenloser Apple-ID, sobald das Duo eingerichtet ist (7. November 2026).
@@ -281,7 +281,7 @@ Fork von `hrydgard/ppsspp`, Tabletop-Layout über `UIHingeInteraction`, Test auf
 - [x] Innendisplay und Systemspalte blockieren M2 nicht: Die Layouts rechnen mit dem Rahmen der Ansicht, nie mit festen Pixelmaßen, und zugeklappt bleibt das Bild im sicheren Bereich (Faktor 4). Der Duo-Simulator meldet das Innendisplay mit 2007 × 2853 px statt 1878 × 2670 (Abschnitt 3); die echten Maße misst der Gerätetest (7. November 2026).
 - [ ] CI wieder bei Pull Requests starten: Die CI läuft vorerst nur auf manuellen Start (`workflow_dispatch`, `docs/wissen/bauen-und-ci.md`, Fatih).
 - [ ] Libretro-Schnittstelle von Mesen 2 prüfen (M5).
-- [ ] Vor dem Öffentlichschalten die Quellen in Abschnitt 13 (Emulations-Ratgeber) auf ROM- und BIOS-Download-Links prüfen und notfalls durch Primärquellen ersetzen.
+- [x] Vor dem Öffentlichschalten die Quellen in Abschnitt 13 (Emulations-Ratgeber) auf ROM- und BIOS-Download-Links prüfen und notfalls durch Primärquellen ersetzen. Geprüft am 7. November 2026: Keine der Quellen verlinkt solche Downloads.
 
 ## 13. Quellen
 

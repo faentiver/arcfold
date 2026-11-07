@@ -14,6 +14,7 @@ Wegwerf-Prototyp für [ADR 0002](../../docs/adr/0002-ps2-jit.md). Die App lädt 
 | `try-codegen-pr34.sh` | Kern-Variante mit Play--CodeGen PR #34 und Begleitpatch aus einer Kopie des Submoduls bauen (Version `0.77-pr34`), ohne Netz |
 | `patches/codegen-pr34-23b29221.patch` | Diff von Play--CodeGen PR #34 am geprüften Head `23b29221`, mit Herkunft und Lizenz im Kopf |
 | `patches/play-basicblock-writable-alias.patch` | Begleitpatch: Block-Verknüpfungen über den beschreibbaren Alias der JIT-Arena schreiben |
+| `patches/LICENSE-Play--CodeGen.txt`, `patches/LICENSE-Play.txt` | Lizenztexte (BSD-2-Clause) von Play--CodeGen und Play!, für den Diff aus PR #34 und den Begleitpatch |
 
 Testprogramme kommen aus `Tests/Fixtures/ps2/`: `alu.elf` (CPU-Test, Ausgabe muss `alu.expected` entsprechen) und `gs_sprites.elf` (Bild und Bildrate).
 

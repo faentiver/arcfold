@@ -2,7 +2,7 @@
 
 A multi-system emulator front end for iPhone, written in SwiftUI and designed around the fold of the iPhone Duo.
 
-> **Status:** early development, milestone M1. Game Boy Advance homebrew runs in the Simulator, with picture, sound, touch and controller input and battery saves. Not yet tested on a device.
+> **Status:** early development. Milestone M1 is done: Game Boy Advance homebrew runs in the Simulator, with picture, sound, touch and controller input and battery saves. In progress: milestone M2, the Nintendo DS on the fold, and a Liquid Glass interface. Not yet tested on a device.
 
 ## Idea
 
@@ -60,6 +60,16 @@ xcodebuild test -project Arcfold.xcodeproj -scheme Store \
 - [Project plan](docs/PLAN.md) (German)
 - [Architecture decisions](docs/adr/)
 
+## Contributing
+
+Arcfold is a personal project in early development. Bug reports are welcome as issues; pull requests are not taken yet. Please never post games, BIOS files, firmware, keys or links to them, here or anywhere else in this project.
+
 ## License
 
 Arcfold is licensed under the GNU General Public License, version 3 or (at your option) any later version (GPL-3.0-or-later), see [LICENSE](LICENSE). The emulation cores keep their own licenses, all of them compatible with GPL-3.0.
+
+A few files in this repository come from other projects and keep their licenses:
+
+- `Packages/LibretroKit/Sources/CLibretro/include/libretro.h`, the libretro API header: MIT, see the comment at the top of the file.
+- The test programs in `Tests/Fixtures`, each listed with origin, author and license in [Tests/Fixtures/LICENSES.md](Tests/Fixtures/LICENSES.md). The runtime libraries linked into `psp/gu-test.elf` come with their license texts in `Tests/Fixtures/psp/licenses/`.
+- The patches for Play! and Play--CodeGen in `Spikes/PS2JIT/patches/`: BSD-2-Clause, with the license texts next to them.
