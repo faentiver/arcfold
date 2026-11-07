@@ -68,7 +68,7 @@ struct LibraryView: View {
         }
         .fileImporter(
             isPresented: $isImporting,
-            allowedContentTypes: GameSystem.all.map(\.contentType),
+            allowedContentTypes: GameSystem.all.flatMap(\.importTypes),
             allowsMultipleSelection: true
         ) { result in
             guard case let .success(urls) = result else { return }

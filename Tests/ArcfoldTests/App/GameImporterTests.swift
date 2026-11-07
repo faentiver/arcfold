@@ -2,6 +2,7 @@
 import CryptoKit
 import Foundation
 import Testing
+import UniformTypeIdentifiers
 
 /// Importing files into a library in a temporary folder (ADR 0005, section 9).
 struct GameImporterTests {
@@ -94,6 +95,16 @@ struct GameImporterTests {
         await #expect(throws: ImportError.notAGame(fileName: "image.gba")) {
             try await GameImporter.importGame(from: url, system: .gba, into: location)
         }
+    }
+
+    /// Arcfold's own type comes first; a type another app exports for `.gba`
+    /// may follow. Every offered type is data with the extension of the system.
+    @Test func thePickerOffersArcfoldsTypeAndTheSystemsTypeForTheExtension() {
+        let types = GameSystem.gba.importTypes
+        #expect(types.first == GameSystem.gba.contentType)
+        #expect((1...2).contains(types.count))
+        #expect(types.allSatisfy { $0.conforms(to: .data) })
+        #expect(types.allSatisfy { $0.tags[.filenameExtension]?.contains("gba") == true })
     }
 
     @Test func checksTheUpperSizeLimit() throws {

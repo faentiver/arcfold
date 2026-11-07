@@ -30,7 +30,7 @@ nonisolated enum GameImporter {
         }
         let data: Data
         do {
-            data = try Data(contentsOf: url, options: .mappedIfSafe)
+            data = try readCoordinated(url)
         } catch {
             throw .unreadable(fileName: fileName, reason: error.localizedDescription)
         }
@@ -67,6 +67,23 @@ nonisolated enum GameImporter {
             throw .writeFailed(fileName: fileName, reason: error.localizedDescription)
         }
         return ImportOutcome(game: record, wasAlreadyInLibrary: false)
+    }
+
+    /// Reads the whole file under a file coordinator, so that a file provider
+    /// such as iCloud Drive can download it first and nothing writes it while
+    /// it is read. Blocks the calling thread until then, which is why the
+    /// import runs off the main actor.
+    private static func readCoordinated(_ url: URL) throws -> Data {
+        var coordinationError: NSError?
+        var result: Result<Data, any Error> = .failure(CocoaError(.fileReadUnknown))
+        NSFileCoordinator().coordinate(readingItemAt: url, error: &coordinationError) { readableURL in
+            // Not mapped: the copy must not change once the coordination ends.
+            result = Result { try Data(contentsOf: readableURL) }
+        }
+        if let coordinationError {
+            throw coordinationError
+        }
+        return try result.get()
     }
 
     /// The checks of mGBA's GBAIsROM: byte 3 is 0xEA (the branch over the

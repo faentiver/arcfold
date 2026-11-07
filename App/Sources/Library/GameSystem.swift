@@ -11,7 +11,7 @@ nonisolated struct GameSystem: Sendable, Hashable, Identifiable {
     let coreName: String
     /// The extension of the copy in the game's folder.
     let fileExtension: String
-    /// The type `.fileImporter` offers, declared in App/Info.plist.
+    /// Arcfold's type for the system's games, declared in App/Info.plist.
     let contentType: UTType
     /// Replaces the core's defaults for `RETRO_ENVIRONMENT_GET_VARIABLE`.
     let coreOptions: [String: String]
@@ -28,6 +28,18 @@ nonisolated struct GameSystem: Sendable, Hashable, Identifiable {
     )
 
     static let all = [gba]
+
+    /// The types `.fileImporter` offers: Arcfold's own and the type the system
+    /// maps the extension to right now. Arcfold only imports its type; if
+    /// another installed app exports one for the same extension, the system
+    /// prefers that, and without it the picker would grey out the games. The
+    /// import checks the header either way.
+    var importTypes: [UTType] {
+        guard let preferred = UTType(filenameExtension: fileExtension, conformingTo: .data),
+              preferred != contentType
+        else { return [contentType] }
+        return [contentType, preferred]
+    }
 
     static func system(id: String) -> GameSystem? {
         all.first { $0.id == id }
