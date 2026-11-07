@@ -52,8 +52,9 @@ typedef struct ARCAudioCounters {
     ARCAudioRingState state;
 } ARCAudioCounters;
 
-/// Frames the render function fades over when the ring runs dry or the output
-/// is suspended while playing, so that the signal does not drop to zero at once.
+/// Frames the render function fades over: in when it starts playing after
+/// priming, out when the ring runs dry or the output is suspended while
+/// playing. The signal never jumps between silence and its value.
 #define ARC_AUDIO_RAMP_FRAMES 64u
 
 /// `capacityFrames` must be a power of two of at least 64. Returns NULL otherwise

@@ -35,10 +35,11 @@ struct ARCAudioRing {
     _Atomic(uint64_t) primes;
     _Atomic(uint64_t) renderCalls;
     _Atomic(uint32_t) largestRequest;
-    // Consumer only: the last frame played and the fade-out in progress.
+    // Consumer only: the last frame played and the fades in progress.
     uint32_t lastFrame;
     uint32_t rampFrame;
     uint32_t rampPosition;
+    uint32_t fadeInPosition;
 
     // Written by the owner (AudioOutput on the main thread).
     _Alignas(ARC_CACHE_LINE) _Atomic(uint32_t) targetFrames;
@@ -70,6 +71,7 @@ ARCAudioRing *ARCAudioRingCreate(uint32_t capacityFrames) {
     ring->capacity = capacityFrames;
     ring->mask = capacityFrames - 1;
     ring->rampPosition = ARC_AUDIO_RAMP_FRAMES;
+    ring->fadeInPosition = ARC_AUDIO_RAMP_FRAMES;
 
     mach_timebase_info_data_t timebase;
     mach_timebase_info(&timebase);
@@ -164,6 +166,18 @@ static inline bool ARCFillSilence(ARCAudioRing *ring, uint32_t *output, uint32_t
     return audible;
 }
 
+// Fades in the first frames played after priming, so that the signal does not
+// jump from silence to its value: frame n of the fade keeps (n + 1) / 64.
+static inline void ARCFadeIn(ARCAudioRing *ring, uint32_t *output, uint32_t frames) CA_REALTIME_API {
+    uint32_t index = 0;
+    while (index < frames && ring->fadeInPosition < ARC_AUDIO_RAMP_FRAMES) {
+        int32_t factor = (int32_t)(ring->fadeInPosition + 1);
+        output[index] = ARCScaledSample(output[index], 0, factor) | ARCScaledSample(output[index], 16, factor);
+        index += 1;
+        ring->fadeInPosition += 1;
+    }
+}
+
 static inline void ARCEnterPriming(ARCAudioRing *ring, uint32_t *state) CA_REALTIME_API {
     *state = ARCAudioRingStatePriming;
     atomic_fetch_add_explicit(&ring->primes, 1, memory_order_relaxed);
@@ -205,8 +219,9 @@ void ARCAudioRingRender(ARCAudioRing *ring, uint32_t *output, uint32_t frames, b
         if (target > 0 && available >= target) {
             state = ARCAudioRingStatePlaying;
             // A fade-out still running belongs to the silence before; the new
-            // signal starts now.
+            // signal starts now and fades in.
             ring->rampPosition = ARC_AUDIO_RAMP_FRAMES;
+            ring->fadeInPosition = 0;
         }
     }
 
@@ -221,6 +236,8 @@ void ARCAudioRingRender(ARCAudioRing *ring, uint32_t *output, uint32_t frames, b
         memcpy(output, ring->frames + start, (size_t)first * sizeof(uint32_t));
         memcpy(output + first, ring->frames, (size_t)(played - first) * sizeof(uint32_t));
         atomic_store_explicit(&ring->readIndex, read + played, memory_order_release);
+        // Before lastFrame is taken, so that a fade-out starts from what played.
+        ARCFadeIn(ring, output, played);
         if (played > 0) {
             ring->lastFrame = output[played - 1];
         }
