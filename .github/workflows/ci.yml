@@ -87,6 +87,19 @@ jobs:
           done
           echo "XcodeGen $(xcodegen --version | awk '{ print $2 }'), $(cmake --version | head -n 1), Ninja $(ninja --version)"
 
+      # The renderer's shader needs the Metal compiler, which Xcode 27 ships as
+      # a separate component (docs/wissen/renderer.md). About 840 MB, so it is
+      # only downloaded when the image lacks it.
+      - name: Install the Metal toolchain if missing
+        if: steps.xcode.outputs.available == 'true'
+        run: |
+          status="$(xcodebuild -showComponent metaltoolchain -json 2> /dev/null | jq -r '.status // empty')" || status=""
+          if [[ "$status" == "installed" ]]; then
+            echo "Metal toolchain is installed"
+          else
+            xcodebuild -downloadComponent metaltoolchain
+          fi
+
       # The key covers what makes a core outdated for Scripts/bootstrap.sh:
       # submodule commit, recipe and build-core.sh, plus the Xcode build.
       - name: Compute core cache key
