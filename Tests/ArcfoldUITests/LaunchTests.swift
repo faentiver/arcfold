@@ -153,11 +153,10 @@ final class LaunchTests: XCTestCase {
         }
     }
 
-    /// selftest.gba through the debug launch, the same import as the file
-    /// importer: mGBA runs, and the debug overlay shows a frame rate.
+    /// Starts selftest.gba through the debug launch and waits until the debug
+    /// overlay shows a frame rate above 0. Returns the overlay.
     @MainActor
-    func testTheGameRunsAndTheOverlayShowsAFrameRate() throws {
-        let app = XCUIApplication()
+    private func launchTheSelftest(_ app: XCUIApplication) throws -> XCUIElement {
         app.launchArguments = ["-ArcfoldAutorun", try selftestPath()]
         app.launch()
 
@@ -172,10 +171,57 @@ final class LaunchTests: XCTestCase {
         }
         expectation(for: running, evaluatedWith: overlay)
         waitForExpectations(timeout: 30)
+        return overlay
+    }
+
+    /// Waits until the label of `element` contains `text`.
+    @MainActor
+    private func waitUntil(_ element: XCUIElement, shows text: String, timeout: TimeInterval = 10) {
+        let shows = XCTNSPredicateExpectation(predicate: NSPredicate(format: "label CONTAINS %@", text), object: element)
+        let result = XCTWaiter().wait(for: [shows], timeout: timeout)
+        XCTAssertEqual(result, .completed, "Expected \"\(text)\" in: \(element.label)")
+    }
+
+    /// selftest.gba through the debug launch, the same import as the file
+    /// importer: mGBA runs, and the debug overlay shows a frame rate.
+    @MainActor
+    func testTheGameRunsAndTheOverlayShowsAFrameRate() throws {
+        let app = XCUIApplication()
+        _ = try launchTheSelftest(app)
         XCTAssertTrue(app.descendants(matching: .any)["game-screen"].exists)
         keepScreenshot(of: app, named: "Game running")
     }
+
+    /// The touch controls reach the session: holding A, then sliding from A
+    /// to B (ADR 0005, section 7). A UI test cannot look while it presses, so
+    /// it reads the input line of the debug overlay afterwards: the latest
+    /// press and the number of presses stay there. That the session's buttons
+    /// reach mGBA, `CoreSessionTests` checks with the key row of selftest.gba.
+    /// One finger only; several fingers need the device.
+    @MainActor
+    func testTouchButtonsReachTheSession() throws {
+        let app = XCUIApplication()
+        let overlay = try launchTheSelftest(app)
+        let controls = app.descendants(matching: .any)["touch-controls"].firstMatch
+        XCTAssertTrue(controls.waitForExistence(timeout: 10))
+        let label = overlay.label
+        let match = try XCTUnwrap(label.firstMatch(of: /presses ([0-9]+)/), "No press count in: \(label)")
+        let before = try XCTUnwrap(Int(match.1))
+
+        // TouchLayout, upright: A at (0.84, 0.40), B at (0.67, 0.54) of the controls.
+        let a = controls.coordinate(withNormalizedOffset: CGVector(dx: 0.84, dy: 0.40))
+        let b = controls.coordinate(withNormalizedOffset: CGVector(dx: 0.67, dy: 0.54))
+        a.press(forDuration: 1)
+        waitUntil(overlay, shows: "Input held – · last A · presses \(before + 1)")
+
+        a.press(forDuration: 1, thenDragTo: b, withVelocity: .slow, thenHoldForDuration: 1)
+        waitUntil(overlay, shows: "Input held – · last B · presses \(before + 3)")
+        keepScreenshot(of: app, named: "After holding A and sliding to B")
+    }
 }
+
+/// A screenshot that could not be drawn into a bitmap.
+private struct UnreadableScreenshot: Error {}
 
 /// RGBA bytes of a screenshot.
 private struct Pixels {
@@ -196,7 +242,7 @@ private struct Pixels {
             context.draw(image, in: CGRect(x: 0, y: 0, width: image.width, height: image.height))
             return true
         }
-        guard drawn else { throw XCTSkip("The screenshot could not be read") }
+        guard drawn else { throw UnreadableScreenshot() }
         self.bytes = bytes
     }
 

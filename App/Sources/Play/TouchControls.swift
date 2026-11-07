@@ -35,6 +35,7 @@ struct TouchControls: View {
         }
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(Text("Game controls", comment: "Accessibility label of the on-screen game buttons."))
+        .accessibilityIdentifier("touch-controls")
     }
 
     private func update(_ buttons: JoypadButtons) {
