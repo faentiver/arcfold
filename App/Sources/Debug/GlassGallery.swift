@@ -321,15 +321,19 @@ private struct GalleryPanel: View {
             // The picture alone shows no controls: cut off, they would still
             // be elements of the page for the accessibility audit.
             if backdrop != .loading, part != .picture {
-                TouchControlsArt(layout: controls, pressed: pressed, screens: screens)
+                TouchControlsArt(layout: controls, pressed: pressed, screens: screens,
+                                 pause: PauseGlass.drawnByControls(controls, frame: placement.pauseButton, isPressed: false))
                 ForEach(controls.buttons) { button in
                     marker(button.label, frame: button.frame)
                 }
                 marker("Pad", frame: controls.pad.frame)
             }
             if part != .picture, let pause = placement.pauseButton {
+                // As in GameStage: the controls draw its glass in their
+                // container; while they are hidden the button draws its own.
                 PauseButton(transition: transition, diameter: min(pause.width, pause.height),
-                            backdrop: GlassBackdrop.under(pause, screens: screens)) {}
+                            backdrop: GlassBackdrop.under(pause, screens: screens),
+                            isDrawnByControls: backdrop != .loading) {}
                     .position(x: pause.midX, y: pause.midY)
             }
             if overlays != .none {

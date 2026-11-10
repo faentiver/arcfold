@@ -14,9 +14,11 @@ struct TouchControls: View {
     /// The screens in points of the game view: a button over one sits on the
     /// plate for the picture, every other one on the deck.
     let screens: [CGRect]
+    /// The glass of the pause button, in the container of the buttons.
+    var pause: PauseGlass?
 
     var body: some View {
-        TouchControlsArt(layout: layout, pressed: pressed, screens: screens)
+        TouchControlsArt(layout: layout, pressed: pressed, screens: screens, pause: pause)
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
             .allowsHitTesting(false)
             .accessibilityElement(children: .contain)

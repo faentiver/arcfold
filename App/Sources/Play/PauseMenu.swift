@@ -3,9 +3,16 @@ import SwiftUI
 /// The pause button of a game, where `GameLayout` puts it (ADR 0006): in
 /// the menu row between Select and Start with touch controls, in a corner of
 /// the safe area without them. In-game glass, a circle of the size of its
-/// place, over the plate of what lies beneath (rule R3), reacting to a touch
-/// like the system's glass buttons. It takes touches on at least 44 × 44 pt,
-/// also where it draws smaller. The pause sheet grows out of it.
+/// place, over the plate of what lies beneath (rule R3). It takes touches on
+/// at least 44 × 44 pt, also where it draws smaller. The pause sheet grows
+/// out of it.
+///
+/// With touch controls its glass belongs to their container (rule R4:
+/// several glass shapes share one container), so `TouchControlsArt` draws
+/// it, and the button above the touch surface only takes the touch and
+/// reports while a finger holds it down: the glass then shows pressed like
+/// the keys beside it. Alone in its corner the button draws its own glass,
+/// which reacts to a touch like the system's glass buttons.
 ///
 /// Not the system's glass button style: that style sizes the glass by its
 /// control size (47 pt at `.large`), and the menu row of M2 is 36 pt high.
@@ -15,6 +22,11 @@ struct PauseButton: View {
     /// The circle as drawn, in points.
     let diameter: CGFloat
     let backdrop: GlassBackdrop
+    /// The touch controls draw the glass; the button stays clear.
+    var isDrawnByControls = false
+    /// A finger holds the button down or let it go; for the glass the
+    /// controls draw.
+    var onPress: (Bool) -> Void = { _ in }
     let pause: () -> Void
 
     /// Apple's smallest target for a touch, in points.
@@ -26,7 +38,7 @@ struct PauseButton: View {
                 .frame(width: max(diameter, Self.minimumTarget), height: max(diameter, Self.minimumTarget))
                 .contentShape(Rectangle())
         }
-        .buttonStyle(.plain)
+        .buttonStyle(ReportsPress(onPress: onPress))
         .accessibilityLabel(Text("Pause", comment: "Button that pauses the game and opens its menu."))
         .accessibilityIdentifier("pause")
         // The symbol keeps its size like a toolbar button; large content shows it bigger.
@@ -35,16 +47,44 @@ struct PauseButton: View {
 
     @ViewBuilder
     private var circle: some View {
-        let circle = Image(systemName: "pause.fill")
-            .font(.system(size: min(diameter * 0.42, 20), weight: .semibold))
-            .foregroundStyle(.white)
-            .frame(width: diameter, height: diameter)
-            .gameGlass(in: Circle(), backdrop: backdrop, isInteractive: true)
+        let circle = Group {
+            if isDrawnByControls {
+                Color.clear
+                    .frame(width: diameter, height: diameter)
+            } else {
+                PauseSymbol(diameter: diameter)
+                    .gameGlass(in: Circle(), backdrop: backdrop, isInteractive: true)
+            }
+        }
         if let transition {
             circle.matchedTransitionSource(id: PauseMenu.transitionID, in: transition)
         } else {
             circle
         }
+    }
+}
+
+/// The symbol of the pause button in a circle of `diameter`, without glass.
+struct PauseSymbol: View {
+    let diameter: CGFloat
+
+    var body: some View {
+        Image(systemName: "pause.fill")
+            .font(.system(size: min(diameter * 0.42, 20), weight: .semibold))
+            .foregroundStyle(.white)
+            .frame(width: diameter, height: diameter)
+    }
+}
+
+/// A plain button that reports while a finger holds it down.
+private struct ReportsPress: ButtonStyle {
+    let onPress: (Bool) -> Void
+
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .onChange(of: configuration.isPressed) { _, isPressed in
+                onPress(isPressed)
+            }
     }
 }
 

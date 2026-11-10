@@ -23,6 +23,11 @@ struct TouchControlsArt: View {
     /// gets the plate for the moving picture, every other one the lighter
     /// plate for the still deck.
     let screens: [CGRect]
+    /// The glass of the pause button, 8 pt from Select and Start, drawn in
+    /// the same container as theirs (rule R4); nil without a pause button.
+    /// The button that takes its touches lies above the touch surface
+    /// (`PauseButton`).
+    var pause: PauseGlass?
 
     var body: some View {
         // Spacing 0: neighbouring buttons (A and B 26.6 pt apart outside,
@@ -35,9 +40,33 @@ struct TouchControlsArt: View {
                     GlassKey(button: button, isPressed: pressed.isSuperset(of: button.buttons),
                              backdrop: Backdrop.under(button.frame, screens: screens))
                 }
+                if let pause {
+                    PauseSymbol(diameter: min(pause.frame.width, pause.frame.height))
+                        .gameGlass(in: Circle(), isPressed: pause.isPressed,
+                                   backdrop: Backdrop.under(pause.frame, screens: screens))
+                        // The button above the touch surface is the element.
+                        .accessibilityHidden(true)
+                        .position(x: pause.frame.midX, y: pause.frame.midY)
+                }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         }
+    }
+}
+
+/// The pause button as the controls draw it: where it sits, and whether a
+/// finger holds it down, which the button reports.
+nonisolated struct PauseGlass: Sendable, Hashable {
+    var frame: CGRect
+    var isPressed = false
+
+    /// Who draws the glass of a pause button in `frame`: the touch controls
+    /// in their container while they show, so that no glass shape of the
+    /// menu row stands outside it; without them the button itself, alone in
+    /// its corner.
+    static func drawnByControls(_ controls: TouchLayout?, frame: CGRect?, isPressed: Bool) -> PauseGlass? {
+        guard controls != nil, let frame else { return nil }
+        return PauseGlass(frame: frame, isPressed: isPressed)
     }
 }
 

@@ -36,6 +36,8 @@ struct GameStage: View {
     var isLoading = false
 
     @State private var pressed: JoypadButtons = []
+    /// A finger holds the pause button down.
+    @State private var isPausePressed = false
 
     var body: some View {
         let scale = CGFloat(geometry.scale)
@@ -55,7 +57,12 @@ struct GameStage: View {
                     .transaction { $0.animation = nil }
             }
             if let controls {
-                TouchControls(layout: controls, pressed: pressed, screens: screens)
+                // The glass of the pause button belongs to the container of
+                // the buttons beside it (rule R4); its touches go to the
+                // button above the touch surface.
+                TouchControls(layout: controls, pressed: pressed, screens: screens,
+                              pause: PauseGlass.drawnByControls(controls, frame: onPause == nil ? nil : placement.pauseButton,
+                                                                isPressed: isPausePressed))
                     .frame(width: size.width, height: size.height)
                     .opacity(isCovered ? 0 : 1)
                     .animation(Motion.fade, value: isCovered)
@@ -73,7 +80,8 @@ struct GameStage: View {
                 // Where OverlayPlacement puts it, from GameLayout: between
                 // Select and Start, or in a corner without touch controls.
                 PauseButton(transition: pauseTransition, diameter: min(pause.width, pause.height),
-                            backdrop: GlassBackdrop.under(pause, screens: screens), pause: onPause)
+                            backdrop: GlassBackdrop.under(pause, screens: screens),
+                            isDrawnByControls: controls != nil, onPress: { isPausePressed = $0 }, pause: onPause)
                     .position(x: pause.midX, y: pause.midY)
             }
         }
