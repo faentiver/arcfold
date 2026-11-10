@@ -20,6 +20,7 @@ struct LibraryView: View {
     @State private var geometry: FoldGeometry?
     @State private var margins: SystemMargins?
     @Environment(\.displayScale) private var displayScale
+    @Environment(\.layoutDirection) private var layoutDirection
     @AppStorage("LibrarySort") private var sort = LibrarySort.name
 
     var body: some View {
@@ -150,8 +151,8 @@ struct LibraryView: View {
         } else {
             let games = LibraryArrangement.arranged(library.games, sort: sort, query: query)
             ScrollView {
-                if let geometry, let margins {
-                    GameGrid(games: games, space: LibraryColumns.Space(geometry: geometry, margins: margins)) { game in
+                if let space {
+                    GameGrid(games: games, space: space) { game in
                         open(.game(game))
                     }
                     .padding(.top, LibraryColumns.topPadding)
@@ -171,6 +172,16 @@ struct LibraryView: View {
                 }
             }
         }
+    }
+
+    /// The room of the grid, once the scroll view and the margins are known.
+    private var space: LibraryColumns.Space? {
+        guard var geometry, let margins else { return nil }
+        #if DEBUG
+        // The artificial fold of debug builds, as in a game.
+        geometry = DebugRemote.shared.foldOverride?.applied(to: geometry) ?? geometry
+        #endif
+        return LibraryColumns.Space(geometry: geometry, margins: margins, isRightToLeft: layoutDirection == .rightToLeft)
     }
 
     /// The same way as the file picker: import, then show any problems.

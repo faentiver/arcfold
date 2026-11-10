@@ -17,6 +17,13 @@ import UIKit
 /// - A tile shows its artwork, its name and its system at once: while a row
 ///   is higher than the scroll view, the grid takes one more column, down
 ///   to tiles of `narrowestTile`.
+/// - A fold that divides the window from top to bottom (the Duo held like a
+///   book) divides the grid into two pages, as the system divides its own
+///   apps there: the same number of equal columns on each side, from the
+///   margin and from the fold on, and no tile on the division region; the
+///   pages stay at least one tile distance apart. A
+///   fold across the window and an inactive fold divide nothing, as in the
+///   system.
 nonisolated struct LibraryColumns: Sendable, Equatable {
     /// The room the grid has.
     struct Space: Sendable, Equatable {
@@ -27,19 +34,33 @@ nonisolated struct LibraryColumns: Sendable, Equatable {
         /// The height of the scroll view inside the safe area: what shows
         /// at once. Nil when it does not limit the tiles.
         var visibleHeight: CGFloat?
+        /// An active fold from top to bottom: the division region with its
+        /// margins, from the leading edge of the scroll view. Nil when no
+        /// fold divides the width.
+        var fold: ClosedRange<CGFloat>?
 
-        init(width: CGFloat, margins: SystemMargins = .standard, visibleHeight: CGFloat? = nil) {
+        init(width: CGFloat, margins: SystemMargins = .standard, visibleHeight: CGFloat? = nil,
+             fold: ClosedRange<CGFloat>? = nil) {
             self.width = width
             self.margins = margins
             self.visibleHeight = visibleHeight
+            self.fold = fold
         }
 
         /// The room inside the safe area of `geometry`, as the library reads
         /// it with `onFoldGeometryChange(scale:perform:)`.
-        init(geometry: FoldGeometry, margins: SystemMargins) {
+        init(geometry: FoldGeometry, margins: SystemMargins, isRightToLeft: Bool = false) {
             let scale = CGFloat(max(1, geometry.scale))
-            self.init(width: CGFloat(geometry.safeBounds.width) / scale, margins: margins,
-                      visibleHeight: CGFloat(geometry.safeBounds.height) / scale)
+            let safe = geometry.safeBounds
+            self.init(width: CGFloat(safe.width) / scale, margins: margins, visibleHeight: CGFloat(safe.height) / scale)
+            // The book: active, and higher than wide. The geometry counts
+            // from the left, the grid from its leading edge.
+            if geometry.isFoldActive, let fold = geometry.fold, fold.height > fold.width,
+               fold.minX > safe.minX, fold.maxX < safe.maxX {
+                let left = CGFloat(fold.minX - safe.minX) / scale
+                let right = CGFloat(fold.maxX - safe.minX) / scale
+                self.fold = isRightToLeft ? (width - right)...(width - left) : left...right
+            }
         }
     }
 
@@ -65,8 +86,9 @@ nonisolated struct LibraryColumns: Sendable, Equatable {
     static let narrowestTile: CGFloat = 120
 
     init(space: Space, typeSize: DynamicTypeSize) {
-        let start = space.margins.leading
-        let room = max(space.width - space.margins.leading - space.margins.trailing, 1)
+        let pages = Self.pages(in: space)
+        // Every page gets the columns that fit into the narrowest one.
+        let room = pages.map { $0.upperBound - $0.lowerBound }.min() ?? 1
         let spacing = Metrics.gridSpacing(for: room)
         let minimum = Metrics.tileMinWidth(for: room) * Self.tileScale(for: typeSize)
         var count = Self.count(in: room, minimum: minimum, spacing: spacing.horizontal)
@@ -79,11 +101,28 @@ nonisolated struct LibraryColumns: Sendable, Equatable {
             }
         }
         let width = Self.tileWidth(in: room, count: count, spacing: spacing.horizontal)
-        columns = (0..<count).map { index in
-            Column(x: start + CGFloat(index) * (width + spacing.horizontal), width: width)
+        columns = pages.flatMap { page in
+            (0..<count).map { index in
+                Column(x: page.lowerBound + CGFloat(index) * (width + spacing.horizontal), width: width)
+            }
         }
         rowSpacing = spacing.vertical
         corner = Metrics.tileCorner(for: room)
+    }
+
+    /// The parts of the width that take tiles: between the margins, or on
+    /// each side of the fold. A side too narrow for a tile stays empty.
+    static func pages(in space: Space) -> [ClosedRange<CGFloat>] {
+        let start = space.margins.leading
+        let end = max(space.width - space.margins.trailing, start + 1)
+        guard let fold = space.fold else { return [start...end] }
+        // A fold narrower than the distance between two tiles, such as a
+        // bare crease, still keeps the tiles that far apart.
+        let gutter = max(Metrics.gridSpacing(for: end - start).horizontal - (fold.upperBound - fold.lowerBound), 0) / 2
+        let sides = [(start, min(fold.lowerBound - gutter, end)), (max(fold.upperBound + gutter, start), end)]
+            .filter { $0.1 - $0.0 >= Self.narrowestTile }
+            .map { $0.0...$0.1 }
+        return sides.isEmpty ? [start...end] : sides
     }
 
     /// The columns for `LazyVGrid`: fixed widths, each with the distance to
