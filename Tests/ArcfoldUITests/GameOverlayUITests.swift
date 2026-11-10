@@ -2,8 +2,9 @@ import XCTest
 
 /// What lies over a running game, in the pose the device is in when the
 /// tests run (ADR 0007): the status chip above a notice, the debug overlay
-/// clear of every control, the pause sheet with equal margins, the pause
-/// button in the row of the controls, and the failure message on one screen.
+/// clear of them and of every control, the pause sheet with equal margins,
+/// the pause button in the row of the controls, and the failure message on
+/// one screen.
 /// A UI test cannot change the real pose, so the tests are run once per
 /// pose, with the device brought into it beforehand. Everything here is
 /// measured against the elements of the app, so each test holds in every
@@ -62,13 +63,16 @@ final class GameOverlayUITests: XCTestCase {
 
     /// The chip and a long notice never overlap and cover no control, at the
     /// default text size and at the largest, for the GBA and the DS. The
-    /// frames are those of their glass, 6 pt apart.
+    /// frames are those of their glass, 6 pt apart. The card of the debug
+    /// overlay gives way to both: it ends above or beside them, with fewer
+    /// lines where the room is short, and its element stays.
     @MainActor
     func testTheChipAndALongNoticeNeverOverlap() throws {
         for system in ["gba", "ds"] {
             for (size, arguments) in [("default", []), ("largest", Self.largestText)] {
                 let app = try overlayLaunch(system, arguments: arguments)
                 overlayWaitForTheGame(app)
+                let card = app.descendants(matching: .any)["debug-overlay"].firstMatch
                 postDebugNotification("chip.show")
                 let chip = overlayText(app, beginning: Self.chip)
                 XCTAssertTrue(chip.waitForExistence(timeout: 5), "\(system) \(size): no chip")
@@ -79,10 +83,17 @@ final class GameOverlayUITests: XCTestCase {
                 Thread.sleep(forTimeInterval: 0.6)
                 let chipFrame = chip.frame
                 let noticeFrame = notice.frame
+                let cardExists = card.exists
+                let cardFrame = cardExists ? card.frame : .zero
                 overlayKeep(app, named: "notice-\(system)-\(size)")
                 XCTAssertFalse(chipFrame.isEmpty || noticeFrame.isEmpty, "\(system) \(size): the notice went away too early")
                 XCTAssertFalse(chipFrame.insetBy(dx: -2, dy: -2).intersects(noticeFrame.insetBy(dx: -2, dy: -2)),
                                "\(system) \(size): the chip \(chipFrame) and the notice \(noticeFrame) overlap")
+                XCTAssertTrue(cardExists, "\(system) \(size): the debug overlay went away")
+                for (name, frame) in [("chip", chipFrame), ("notice", noticeFrame)] {
+                    XCTAssertFalse(cardFrame.insetBy(dx: -2, dy: -2).intersects(frame),
+                                   "\(system) \(size): the debug overlay \(cardFrame) lies under the \(name) \(frame)")
+                }
                 for (name, frame) in overlayControlFrames(app) {
                     XCTAssertFalse(frame.intersects(chipFrame),
                                    "\(system) \(size): the chip \(chipFrame) covers \(name) \(frame)")

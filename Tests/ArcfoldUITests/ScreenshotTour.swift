@@ -599,7 +599,8 @@ final class ScreenshotTour: GlassUITestCase {
 
     /// A real long notice (a failed battery save, through the session's own
     /// path) with the status chip over a running game: the chip and the
-    /// notice stand in the window, do not overlap and cover no key.
+    /// notice stand in the window, do not overlap and cover no key, and the
+    /// card of the debug overlay ends above or beside them.
     @MainActor
     func test36NoticesInThePose() throws {
         try onlyInAPose()
@@ -618,7 +619,10 @@ final class ScreenshotTour: GlassUITestCase {
             // The chip moves up for the notice; read both once they rest.
             Thread.sleep(forTimeInterval: 0.6)
             let window = app.gameWindow.frame
-            record("pose \(Self.pose) \(system): chip \(chip.frame) notice \(notice.frame)")
+            let card = overlay.exists ? overlay.frame : .zero
+            record("pose \(Self.pose) \(system): chip \(chip.frame) notice \(notice.frame) debug overlay \(card)")
+            XCTAssertFalse(card.insetBy(dx: -2, dy: -2).intersects(chip.frame) || card.insetBy(dx: -2, dy: -2).intersects(notice.frame),
+                           "\(Self.pose) \(system): the debug overlay \(card) lies under the chip or the notice")
             XCTAssertFalse(chip.frame.isEmpty || notice.frame.isEmpty, "\(Self.pose) \(system): the notice went away too early")
             XCTAssertTrue(window.insetBy(dx: -1, dy: -1).contains(chip.frame) && window.insetBy(dx: -1, dy: -1).contains(notice.frame),
                           "\(Self.pose) \(system): the chip or the notice leaves the window \(window)")

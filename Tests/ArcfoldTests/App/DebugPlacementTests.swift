@@ -4,14 +4,18 @@ import FoldLayout
 import Foundation
 import LibretroKit
 import Renderer
+import SwiftUI
 import Testing
+import UIKit
 
 /// The debug overlay (ADR 0007) in every geometry of `DuoGeometries` and the
 /// closed Duo sideways as measured, for the GBA and the DS, with touch
 /// controls and with a controller: its area lies in the safe area and covers
 /// no button with its slop, no reach of the pad, no pause button, no touch
 /// screen and no fold, and it holds the card with every line at one of the
-/// card's type sizes.
+/// card's type sizes. While the status chip or a notice shows, the area
+/// ends 6 pt from their stack at every size of the text, and the card shows
+/// the lines that fit it.
 struct DebugPlacementTests {
     typealias Case = OverlayPlacementTests.Case
 
@@ -52,10 +56,10 @@ struct DebugPlacementTests {
         return readings.lines
     }
 
-    @Test(arguments: NoticePlacementTests.cases)
-    func theDebugOverlayCoversNoButton(_ testCase: Case) {
+    /// `area` lies in the safe area and covers nothing that takes touches,
+    /// no touch screen and no fold.
+    static func checkCoversNothing(_ area: CGRect, in testCase: Case) {
         let placement = testCase.placement
-        let area = placement.debugArea
         let safe = testCase.points(testCase.geometry.geometry.safeBounds)
         #expect(safe.insetBy(dx: placement.inset - 0.001, dy: placement.inset - 0.001).contains(area),
                 "\(area) leaves the safe area \(safe)")
@@ -75,6 +79,11 @@ struct DebugPlacementTests {
         if let fold = testCase.geometry.geometry.fold, !fold.isEmpty {
             #expect(!area.intersects(testCase.points(fold)), "the debug overlay lies on the fold \(fold)")
         }
+    }
+
+    @Test(arguments: NoticePlacementTests.cases)
+    func theDebugOverlayCoversNoButton(_ testCase: Case) {
+        Self.checkCoversNothing(testCase.placement.debugArea, in: testCase)
     }
 
     /// The card shows every line: at one of its type sizes the lines of a
@@ -106,6 +115,141 @@ struct DebugPlacementTests {
         let gba = Case(system: .gba, geometry: book, showsControls: true)
         let l = try #require(OverlayPlacementTests.buttonAreas(gba.controls).first { $0.0 == "L" }).1
         #expect(!gba.placement.debugArea.intersects(l))
+    }
+
+    // MARK: Beside the status chip and a notice
+
+    /// What the stack of the notices shows: the chip, the longest notice, or
+    /// both.
+    static let stacks: [(name: String, notice: String?, chip: String?)] = [
+        ("the chip", nil, NoticePlacementTests.audioProblem),
+        ("a notice", NoticePlacementTests.longNotice, nil),
+        ("the chip above a notice", NoticePlacementTests.longNotice, NoticePlacementTests.audioProblem),
+    ]
+
+    /// The heights of the stack measured so far: many geometries share a
+    /// column, and SwiftUI lays the stack out anew for each measurement.
+    @MainActor private static var measuredHeights: [String: CGFloat] = [:]
+
+    /// The height of stack `index` of `stacks` as SwiftUI lays it out in
+    /// `column` at `size`.
+    @MainActor static func stackHeight(_ index: Int, in column: CGRect, size: DynamicTypeSize) -> CGFloat {
+        let key = "\(index) \(column.width) \(column.height) \(size)"
+        if let height = measuredHeights[key] {
+            return height
+        }
+        let height = NoticePlacementTests.stackHeight(width: column.width, offering: column.height, notice: stacks[index].notice,
+                                                      audioProblem: stacks[index].chip, size: size)
+        measuredHeights[key] = height
+        return height
+    }
+
+    /// The card and the stack never meet: for the chip, a notice and both,
+    /// at every size of the text, the area of the card keeps 6 pt from what
+    /// the stack takes of its column, and still covers nothing else.
+    @MainActor @Test(arguments: NoticePlacementTests.cases)
+    func theDebugOverlayGivesWayToTheChipAndANotice(_ testCase: Case) {
+        let placement = testCase.placement
+        for size in DynamicTypeSize.allCases {
+            for (index, stack) in Self.stacks.enumerated() {
+                let height = Self.stackHeight(index, in: placement.noticeColumn, size: size)
+                let taken = placement.noticeStack(height: height)
+                let area = placement.debugArea(besideStackOf: height)
+                let apart = taken.insetBy(dx: -OverlayPlacement.spacing + 0.001, dy: -OverlayPlacement.spacing + 0.001)
+                #expect(area.isEmpty || !area.intersects(apart),
+                        "\(size), \(stack.name): the debug overlay \(area) meets the stack \(taken)")
+                #expect(placement.noticeColumn.insetBy(dx: -0.001, dy: -0.001).contains(taken))
+                // The card stays where it is and only gives up room, never
+                // down to a strip too narrow to read.
+                #expect(placement.debugArea.contains(area), "\(size), \(stack.name): \(area) leaves \(placement.debugArea)")
+                #expect(area.isEmpty || area.width >= OverlayPlacement.debugMinWidth, "\(size), \(stack.name): \(area)")
+                Self.checkCoversNothing(area, in: testCase)
+            }
+        }
+    }
+
+    /// Without the chip and a notice the card keeps its usual area.
+    @Test(arguments: NoticePlacementTests.cases)
+    func withoutAStackTheDebugOverlayKeepsItsArea(_ testCase: Case) {
+        let placement = testCase.placement
+        #expect(placement.debugArea(besideStackOf: 0) == placement.debugArea)
+        #expect(placement.noticeStack(height: 0).isEmpty)
+        // A stack is never higher than its column.
+        #expect(placement.noticeStack(height: .greatestFiniteMagnitude) == placement.noticeColumn)
+    }
+
+    /// The fault found in the real poses stays fixed. Sideways on the outer
+    /// display the DS has room for both only on its upper screen, where the
+    /// chip and a notice lay on the card at the default size: now the card
+    /// ends above them, and beside the chip alone it still shows every line.
+    /// Upright on the outer display and flat upright on the inner one they
+    /// met with large text.
+    @MainActor @Test func theCardEndsAboveTheStackOnTheUpperScreenOfTheDS() throws {
+        let flatUpright = DuoGeometries.Case(name: "flat upright as measured", geometry: FoldGeometry(
+            container: DuoGeometries.inner, fold: PixelRect(x: 0, y: 1366, width: 2007, height: 121), isFoldActive: false))
+        let closed = DuoGeometries.Case(name: "closed", geometry: DuoGeometries.closed(barOnTop: false))
+        for (geometry, size) in [(NoticePlacementTests.measuredSideways, DynamicTypeSize.large),
+                                 (closed, .accessibility5), (flatUpright, .accessibility5)] {
+            let testCase = Case(system: .ds, geometry: geometry, showsControls: true)
+            let placement = testCase.placement
+            let both = Self.stackHeight(2, in: placement.noticeColumn, size: size)
+            let taken = placement.noticeStack(height: both)
+            #expect(placement.debugArea.intersects(taken), "\(geometry.name): the usual area lies where the stack does")
+            let area = placement.debugArea(besideStackOf: both)
+            #expect(area.isEmpty || area.maxY <= taken.minY - OverlayPlacement.spacing + 0.001,
+                    "\(geometry.name): \(area) does not end above \(taken)")
+
+            // Beside the chip alone, which stays, the card keeps every line.
+            let chip = Self.stackHeight(0, in: placement.noticeColumn, size: .large)
+            let beside = placement.debugArea(besideStackOf: chip)
+            let lines = Self.lines(for: testCase)
+            let heights = DebugOverlay.fontSizes.map { DebugOverlay.estimatedHeight(of: lines, width: beside.width, fontSize: $0) }
+            #expect(heights.contains { $0 <= beside.height },
+                    "\(geometry.name): beside the chip the card needs \(heights) pt in \(beside.width) × \(beside.height) pt")
+        }
+    }
+
+    /// The height of the card as SwiftUI lays it out in an area of `size`.
+    @MainActor static func cardHeight(_ readings: DebugReadings, in size: CGSize) -> CGFloat {
+        let card = DebugOverlay { readings }
+            .frame(width: size.width, alignment: .topLeading)
+        return UIHostingController(rootView: card).sizeThatFits(in: size).height
+    }
+
+    /// The card never leaves the area it is offered: it takes a smaller
+    /// type, then leaves out lines from the end, whole, and where not even
+    /// one line fits it draws nothing. With more room it never shows less.
+    @MainActor @Test func theCardShowsTheLinesThatFit() {
+        let testCase = Case(system: .ds, geometry: NoticePlacementTests.measuredSideways, showsControls: true)
+        var readings = GlassGallery.readings
+        readings.fold = FoldReadings(geometry: testCase.geometry.geometry, layout: testCase.layout, isOverridden: false)
+        let lines = readings.lines
+        let width = testCase.placement.debugArea.width
+        let smallest = DebugOverlay.fontSizes[DebugOverlay.fontSizes.count - 1]
+        let oneLine = DebugOverlay.estimatedHeight(of: [lines[0]], width: width, fontSize: smallest)
+        let everyLine = DebugOverlay.estimatedHeight(of: lines, width: width, fontSize: smallest)
+        // The most a line adds to the card: its rows and the spacing.
+        let highestLine = lines.map { DebugOverlay.estimatedHeight(of: [$0], width: width, fontSize: smallest) }.max() ?? 0
+
+        #expect(Self.cardHeight(readings, in: CGSize(width: width, height: 0)) <= 1)
+        var previous: CGFloat = 0
+        var heights: Set<CGFloat> = []
+        for offered in stride(from: 4, through: 400, by: 4) {
+            let height = Self.cardHeight(readings, in: CGSize(width: width, height: CGFloat(offered)))
+            #expect(height <= max(CGFloat(offered), 1) + 0.5, "\(height) pt in \(offered) pt")
+            #expect(height >= previous, "less with more room: \(height) pt in \(offered) pt after \(previous) pt")
+            if CGFloat(offered) >= oneLine {
+                #expect(height > 1, "no line in \(offered) pt")
+            }
+            if CGFloat(offered) >= oneLine, CGFloat(offered) <= everyLine {
+                #expect(height >= CGFloat(offered) - highestLine, "a line more fits: \(height) pt in \(offered) pt")
+            }
+            previous = height
+            heights.insert(height.rounded())
+        }
+        // Nothing, the lines one by one at the smallest type, and every line
+        // at each of the type sizes.
+        #expect(heights.count >= lines.count + DebugOverlay.fontSizes.count - 1, "\(heights.sorted())")
     }
 
     @Test func theEstimateWrapsAtWords() {

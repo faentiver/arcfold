@@ -22,7 +22,9 @@ nonisolated struct OverlayPlacement: Sendable, Hashable {
     /// corner: inside the safe area and free of everything that takes
     /// touches and of the fold, so that its card covers no button, no pad
     /// and no touch screen in any pose. The card wraps its lines to the
-    /// width and takes a smaller type where the height is short.
+    /// width and takes a smaller type where the height is short. While the
+    /// status chip or a notice shows, the card gets
+    /// `debugArea(besideStackOf:)` instead.
     var debugArea: CGRect
     /// The screen that notices and the chip stay on: the upper or only
     /// screen, never the touch screen.
@@ -52,6 +54,10 @@ nonisolated struct OverlayPlacement: Sendable, Hashable {
     static let debugCharacters: CGFloat = 900
     static let debugCharacterSize = CGSize(width: 6.02, height: 14)
     static let debugPadding: CGFloat = 6
+    /// The narrowest the debug overlay becomes beside a notice: 24
+    /// characters of its largest type in a row. A narrower strip would hold
+    /// a column of single words.
+    static let debugMinWidth: CGFloat = 160
     /// The narrowest column for a notice: sideways the upper DS screen is
     /// 256 pt wide, and the shoulder buttons or the reach of the pad take a
     /// few points off its sides.
@@ -87,18 +93,50 @@ nonisolated struct OverlayPlacement: Sendable, Hashable {
         debugArea = Self.debugArea(in: safe, inset: inset, obstacles: obstacles)
     }
 
+    /// What the status chip and a notice take of their column when their
+    /// stack is `height` high: its whole width, from its bottom edge
+    /// upwards, never more than the column.
+    func noticeStack(height: CGFloat) -> CGRect {
+        let height = min(max(0, height), noticeColumn.height)
+        return CGRect(x: noticeColumn.minX, y: noticeColumn.minY + (noticeColumn.height - height),
+                      width: noticeColumn.width, height: height)
+    }
+
+    /// The area of the debug overlay while the status chip or a notice
+    /// shows, their stack `stackHeight` high as laid out: the part of
+    /// `debugArea` that keeps clear of the stack and holds the most of the
+    /// card's text, so the card stays at its corner and ends above or
+    /// beside the stack. The card gives way, not the notice: a notice is for
+    /// the player, the card is a measuring tool, and glass over the card
+    /// bent its lines. Where the DS leaves both only its upper screen, the
+    /// card takes a smaller type or shows fewer lines meanwhile; where no
+    /// part is wide enough, the area is empty.
+    func debugArea(besideStackOf stackHeight: CGFloat) -> CGRect {
+        let stack = noticeStack(height: stackHeight)
+        guard stackHeight > 0, debugArea.intersects(stack.insetBy(dx: -Self.spacing, dy: -Self.spacing)) else {
+            return debugArea
+        }
+        let free = Self.freeRects(in: debugArea, obstacles: [stack], gap: Self.spacing)
+            .filter { $0.width >= Self.debugMinWidth }
+        return free.max { Self.debugScore($0).lexicographicallyPrecedes(Self.debugScore($1)) }
+            ?? CGRect(origin: debugArea.origin, size: .zero)
+    }
+
     /// The area of the debug overlay in the safe area `safe`: the free
     /// rectangle that holds the most of its text, and among those that hold
     /// all of it the one nearest the top, then the leading edge, then the
     /// widest, where the fewest lines wrap.
     static func debugArea(in safe: CGRect, inset: CGFloat, obstacles: [CGRect]) -> CGRect {
         let area = safe.insetBy(dx: inset, dy: inset)
-        func score(_ rect: CGRect) -> [CGFloat] {
-            [min(debugCapacity(of: rect.size), debugCharacters), -rect.minY, -rect.minX, rect.width]
-        }
         let free = freeRects(in: area, obstacles: obstacles, gap: spacing)
-        return free.max { score($0).lexicographicallyPrecedes(score($1)) }
+        return free.max { debugScore($0).lexicographicallyPrecedes(debugScore($1)) }
             ?? CGRect(x: area.minX, y: area.minY, width: 0, height: 0)
+    }
+
+    /// How well `rect` suits the debug overlay: by the text it holds, then
+    /// nearest the top, then the leading edge, then the widest.
+    private static func debugScore(_ rect: CGRect) -> [CGFloat] {
+        [min(debugCapacity(of: rect.size), debugCharacters), -rect.minY, -rect.minX, rect.width]
     }
 
     /// How many characters of the debug overlay's largest type fit `size`.

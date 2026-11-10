@@ -16,17 +16,23 @@ struct GameOverlays: View {
     let failure: String?
     let close: () -> Void
 
+    /// The height of the status chip and the notice as laid out, 0 while
+    /// neither shows: the debug overlay gives way to them.
+    @State private var noticeStackHeight: CGFloat = 0
+
     var body: some View {
         ZStack(alignment: .topLeading) {
             if let debugReadings {
-                // In the free area OverlayPlacement names: the card wraps its
-                // lines to the width and never reaches a button, the pad or
-                // the touch screen; what does not fit even in its smallest
-                // type is cut off rather than laid over a control.
+                // In the free area OverlayPlacement names, clear of the chip
+                // and a notice while they show: the card wraps its lines to
+                // the width and never reaches a button, the pad or the touch
+                // screen; lines that do not fit even in its smallest type
+                // are left out rather than laid over a control or a notice.
+                let area = placement.debugArea(besideStackOf: noticeStackHeight)
                 DebugOverlay(read: debugReadings)
-                    .frame(width: placement.debugArea.width, height: placement.debugArea.height, alignment: .topLeading)
+                    .frame(width: area.width, height: area.height, alignment: .topLeading)
                     .clipped()
-                    .offset(x: placement.debugArea.minX, y: placement.debugArea.minY)
+                    .offset(x: area.minX, y: area.minY)
                     .allowsHitTesting(false)
             }
 
@@ -34,6 +40,11 @@ struct GameOverlays: View {
             // fold, and without hit testing, so neither ever takes a touch
             // meant for the game (rule R6; M1 fault).
             NoticeStack(audioProblem: audioProblem, notice: notice)
+                .onGeometryChange(for: CGFloat.self) { proxy in
+                    proxy.size.height
+                } action: { height in
+                    noticeStackHeight = height
+                }
                 .frame(width: placement.noticeColumn.width, height: placement.noticeColumn.height, alignment: .bottom)
                 .position(x: placement.noticeColumn.midX, y: placement.noticeColumn.midY)
 

@@ -268,23 +268,34 @@ struct DebugOverlay: View {
     var body: some View {
         TimelineView(.periodic(from: .now, by: 0.25)) { _ in
             let readings = read()
-            // Where the area on offer is low, as between the shoulder buttons
-            // above the touch screen of the DS sideways, a smaller type
-            // keeps every line in it.
+            let lines = readings.lines
             ViewThatFits(in: .vertical) {
-                card(readings, fontSize: Self.fontSizes[0])
-                card(readings, fontSize: Self.fontSizes[1])
-                card(readings, fontSize: Self.fontSizes[2])
-                card(readings, fontSize: Self.fontSizes[3])
-                card(readings, fontSize: Self.fontSizes[4])
+                // Where the area on offer is low, as between the shoulder
+                // buttons above the touch screen of the DS sideways, a
+                // smaller type keeps every line in it.
+                ForEach(Self.fontSizes, id: \.self) { fontSize in
+                    card(readings, lines: lines, fontSize: fontSize)
+                }
+                // Too low even for that, as above a notice on the upper
+                // screen of the DS: the lines from the top that fit, whole.
+                ForEach(Array(lines.indices.dropFirst().reversed()), id: \.self) { count in
+                    card(readings, lines: Array(lines.prefix(count)), fontSize: Self.fontSizes[Self.fontSizes.count - 1])
+                }
+                // No room for a line: nothing to see. The element stays,
+                // because UI tests read the values from it.
+                Color.clear
+                    .frame(width: 1, height: 1)
+                    .accessibilityElement()
+                    .accessibilityValue(Text(verbatim: readings.accessibilityValue))
+                    .accessibilityIdentifier("debug-overlay")
             }
         }
         .allowsHitTesting(false)
     }
 
-    private func card(_ readings: DebugReadings, fontSize: CGFloat) -> some View {
+    private func card(_ readings: DebugReadings, lines: [String], fontSize: CGFloat) -> some View {
         VStack(alignment: .leading, spacing: 2) {
-            ForEach(readings.lines, id: \.self) { line in
+            ForEach(lines, id: \.self) { line in
                 Text(verbatim: line)
             }
         }
