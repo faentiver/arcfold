@@ -8,7 +8,9 @@ import SwiftUI
 /// look the same on every run: pressed states, backdrops and the sizes of the
 /// inner display. Every page draws the controls, the deck, the pause button
 /// and the overlays from `GameLayout` in a geometry of the Simulator's Duo
-/// (ADR 0006), the way `GameStage` and `GameOverlays` do in a game. Opened by
+/// (ADR 0006), the way `GameStage` and `GameOverlays` do in a game; only the
+/// pages that measure the keys sideways use a geometry made up for the worst
+/// case (`GalleryScene.sidewaysGBAOverThePicture`). Opened by
 /// `-ArcfoldGallery <page>` in debug builds (ADR 0007). Nothing here is
 /// localized; the texts are for development only.
 struct GlassGallery: View {
@@ -17,15 +19,20 @@ struct GlassGallery: View {
         case libraryShelf = "library-shelf"
         case libraryInner = "library-inner"
         case touchUpright = "touch-upright"
+        /// The keys of the GBA sideways with every one of them over the
+        /// picture, over white, the test pattern and black: the worst case
+        /// for their labels, not the layout of the closed Duo sideways.
         case touchLandscape = "touch-landscape"
         case touchInner = "touch-inner"
-        /// Pressed controls with Differentiate Without Color.
+        /// Pressed controls with Differentiate Without Color, upright and in
+        /// the worst case sideways.
         case touchDifferentiate = "touch-differentiate"
         case notices
         case failure
         case loading
-        /// The game screen sideways, turned by 90 degrees to fit the upright
-        /// window, so that one page shows every part of it at once.
+        /// The game screen of the closed Duo sideways, turned by 90 degrees
+        /// to fit the upright window, so that one page shows every part of
+        /// it at once.
         case gameLandscape = "game-landscape"
     }
 
@@ -90,12 +97,13 @@ struct GlassGallery: View {
                 }
             }
         case .touchLandscape:
-            // The closed GBA sideways: every control lies over the picture.
+            // The worst case, not the real pose: every control lies over the
+            // picture, so each label is measured over each backdrop.
             InGamePage {
                 let isPressed = Self.showsPressed
                 VStack(spacing: 0) {
                     ForEach(PanelBackdrop.allCases, id: \.self) { backdrop in
-                        GalleryPanel(scene: .sidewaysGBA, part: .whole, backdrop: backdrop,
+                        GalleryPanel(scene: .sidewaysGBAOverThePicture, part: .whole, backdrop: backdrop,
                                      pressed: isPressed ? Self.allPressed : [],
                                      row: "\(backdrop.rawValue)-\(isPressed ? "pressed" : "rest")")
                     }
@@ -111,7 +119,7 @@ struct GlassGallery: View {
                 VStack(spacing: 0) {
                     GalleryPanel(scene: .closedGBA, part: .controls, backdrop: .deck, pressed: [.a, .up, .start],
                                  row: "differentiate-upright")
-                    GalleryPanel(scene: .sidewaysGBA, part: .whole, backdrop: .pattern, pressed: Self.allPressed,
+                    GalleryPanel(scene: .sidewaysGBAOverThePicture, part: .whole, backdrop: .pattern, pressed: Self.allPressed,
                                  row: "differentiate-sideways")
                 }
                 .environment(\._accessibilityDifferentiateWithoutColor, true)
@@ -162,18 +170,26 @@ struct GlassGallery: View {
     static let allPressed: JoypadButtons = [.a, .b, .l, .r, .select, .start, .up]
 }
 
-/// A system in a geometry of the Simulator's Duo (docs/wissen/falz.md).
+/// A system in a geometry of the Simulator's Duo as measured
+/// (docs/wissen/falz.md), or in one made up for a measurement.
 enum GalleryScene {
     /// The closed Duo upright with the GBA, which moves the vertical bar to the top.
     case closedGBA
-    /// The closed Duo sideways with the GBA.
+    /// The closed Duo sideways with the GBA, as measured: the bar stays on
+    /// top, so the picture is 6× and the direction pad, L and R lie over it,
+    /// the other keys and the pause button beside it on the deck.
     case sidewaysGBA
+    /// No pose of the Duo: its outer display sideways without any safe
+    /// area. The picture grows to 8× and every control lies over it, the
+    /// worst case for the labels, which the gallery measures over white,
+    /// the test pattern and black. The real pose is `sidewaysGBA`.
+    case sidewaysGBAOverThePicture
     /// The DS on the inner display in the tabletop pose.
     case tabletopDS
 
     var system: GameSystem {
         switch self {
-        case .closedGBA, .sidewaysGBA: .gba
+        case .closedGBA, .sidewaysGBA, .sidewaysGBAOverThePicture: .gba
         case .tabletopDS: .ds
         }
     }
@@ -183,6 +199,8 @@ enum GalleryScene {
         case .closedGBA:
             FoldGeometry(container: PixelSize(width: 1398, height: 2034), safeArea: PixelInsets(top: 246, bottom: 102))
         case .sidewaysGBA:
+            FoldGeometry(container: PixelSize(width: 2034, height: 1398), safeArea: PixelInsets(top: 246, bottom: 102))
+        case .sidewaysGBAOverThePicture:
             FoldGeometry(container: PixelSize(width: 2034, height: 1398))
         case .tabletopDS:
             FoldGeometry(container: PixelSize(width: 2007, height: 2853),

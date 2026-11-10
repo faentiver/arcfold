@@ -313,9 +313,10 @@ final class ScreenshotTour: GlassUITestCase {
         shoot(app, 10, "pause-menu")
     }
 
-    /// The gallery page with the parts that the game places sideways, turned
-    /// by 90 degrees, so that one page shows them all at once; the real game
-    /// sideways comes in the pose part (state 30, `closed-landscape`).
+    /// The gallery page with the game in the geometry of the closed Duo
+    /// sideways, turned by 90 degrees, so that one page shows every part and
+    /// overlay at once; the real game sideways comes in the pose part (states
+    /// 30 and 31, `closed-landscape`).
     @MainActor
     func test11GameLandscape() throws {
         try only("light", "contrast")
@@ -376,7 +377,10 @@ final class ScreenshotTour: GlassUITestCase {
     }
 
     /// The controls sideways over white, the test pattern and black, at rest
-    /// and pressed, with the contrast of each label against its plate.
+    /// and pressed, with the contrast of each label against its plate. The
+    /// page shows the worst case, every control over the picture, which no
+    /// pose of the Duo gives: sideways the closed Duo keeps B, A, Select and
+    /// Start beside the picture (state 31, `closed-landscape`).
     @MainActor
     func test14TouchLandscapeBackdrops() throws {
         try only("light", "contrast")
@@ -462,7 +466,8 @@ final class ScreenshotTour: GlassUITestCase {
     }
 
     /// Pressed with Differentiate Without Color: a ring inside each pressed
-    /// button, drawn as content of the glass.
+    /// button, drawn as content of the glass, upright and in the worst case
+    /// sideways.
     @MainActor
     func test19TouchDifferentiate() throws {
         try only("light", "contrast")
