@@ -3,10 +3,11 @@ import FoldLayout
 
 /// Where the overlays of a game sit, in points of the whole game view, the
 /// coordinates of `GameStage`: the pause button, the debug overlay, notices,
-/// the status chip and the message of a failed start (ADR 0007). A pure function of `GameLayout` (ADR 0006)
-/// and the touch controls built from it, so tests check it against every
-/// system and pose: no overlay of glass covers a touch button with its slop,
-/// the reach of the pad, the pause button, the DS touch screen or the fold.
+/// the status chip and the message of a failed start (ADR 0007). A pure
+/// function of `GameLayout` (ADR 0006) and the touch controls built from
+/// it, so tests check it against every system and pose: no overlay covers a
+/// touch button with its slop, the reach of the pad, the pause button, the
+/// DS touch screen or the fold.
 ///
 /// Keeps the two faults of M1 fixed: sideways the pause button covered R,
 /// upright a notice lay over Select and Start and took their touches.
@@ -45,9 +46,9 @@ nonisolated struct OverlayPlacement: Sendable, Hashable {
     static let chipMaxWidth: CGFloat = 320
     /// The measurements of the debug overlay at its largest type: about
     /// 900 characters with the room that wrapping at words wastes, in a
-    /// monospaced type of 10 pt (6.02 × 12 pt a character) with 2 pt between
-    /// the lines and 6 pt around them. An area that holds as many is large
-    /// enough; among those the one nearest the top leading corner wins.
+    /// monospaced type of 10 pt, 6.02 pt wide and 14 pt from line to line,
+    /// with 6 pt around them. An area that holds as many is large enough;
+    /// among those the one nearest the top leading corner wins.
     static let debugCharacters: CGFloat = 900
     static let debugCharacterSize = CGSize(width: 6.02, height: 14)
     static let debugPadding: CGFloat = 6
