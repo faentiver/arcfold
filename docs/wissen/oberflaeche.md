@@ -5,7 +5,7 @@ description: Die Liquid-Glass-Oberfläche (ADR 0007) auf der Architektur von M2:
 
 # Oberfläche mit Liquid Glass
 
-Stand 10. November 2026, Branch `m4/liquid-glass` auf `m2/ds-falz`, auf der Architektur von M2 (ADR 0006); die Oberfläche kommt als eigener Pull Request auf M2. Die Entscheidung steht in ADR 0007, die Zusammenführung mit M2 in deren Abschnitt „Zusammenführung mit M2“ („zusammengeführt“ und „Merge“ heißen hier: Glas sitzt auf der Architektur von M2; der Branch hat keinen Merge-Commit). Die Bausteine liegen in `App/Sources/Design/`, das Pausenmenü in `App/Sources/Play/PauseMenu.swift`, die Spielansicht von M2 mit Bühne, Tasten und Eingabefläche in `App/Sources/Play/` (`GameView`, `GameStage`, `TouchControls`).
+Stand 10. November 2026, Branch `m4/liquid-glass` auf `main`, auf der Architektur von M2 (ADR 0006, seit dem 10. November 2026 abgenommen und auf `main`); die Oberfläche kommt als eigener Pull Request gegen `main` und wartet auf ihre Abnahme durch Fatih. Die Entscheidung steht in ADR 0007, die Zusammenführung mit M2 in deren Abschnitt „Zusammenführung mit M2“ („zusammengeführt“ und „Merge“ heißen hier: Glas sitzt auf der Architektur von M2; der Branch hat keinen Merge-Commit). Die Bausteine liegen in `App/Sources/Design/`, das Pausenmenü in `App/Sources/Play/PauseMenu.swift`, die Spielansicht von M2 mit Bühne, Tasten und Eingabefläche in `App/Sources/Play/` (`GameView`, `GameStage`, `TouchControls`).
 
 ## Zwei Gläser
 
@@ -192,7 +192,7 @@ Gegenüber dem Entwurf vom 7. November 2026, aus dem ADR 0007 hervorging, jeweil
 
 ## Mit M2 zusammengeführt
 
-Am 7. November 2026 wurde die Oberfläche mit dem damaligen Stand von M2 zusammengeführt; am 10. November 2026 wurde sie ohne ihren früheren Verlauf auf den bereinigten Verlauf von M2 gelegt (Branch `m4/liquid-glass`, kein Merge-Commit). Dabei fielen die doppelten Test-Helfer für das Innendisplay weg: Glass-Tests und Tour nutzen die Helfer von M2 (`app.gameWindow`, `app.viewOrigin`, `app.displayScreenshot()`, `XCUIScreenshot.uprightImage`), die Kontrastmessung ist eine Erweiterung von `Pixels`. Die Architektur von M2 gewinnt, Glas liefert das Aussehen (ADR 0007, Abschnitt „Zusammenführung mit M2“, Entscheidungen E1 bis E9).
+Am 7. November 2026 wurde die Oberfläche mit dem damaligen Stand von M2 zusammengeführt; am 10. November 2026 wurde sie ohne ihren früheren Verlauf auf den bereinigten Verlauf von M2 gelegt (Branch `m4/liquid-glass`, kein Merge-Commit); nach der Abnahme von M2 am selben Tag liegt der Branch auf `main`. Dabei fielen die doppelten Test-Helfer für das Innendisplay weg: Glass-Tests und Tour nutzen die Helfer von M2 (`app.gameWindow`, `app.viewOrigin`, `app.displayScreenshot()`, `XCUIScreenshot.uprightImage`), die Kontrastmessung ist eine Erweiterung von `Pixels`. Die Architektur von M2 gewinnt, Glas liefert das Aussehen (ADR 0007, Abschnitt „Zusammenführung mit M2“, Entscheidungen E1 bis E9).
 
 **Übernommen aus den Empfehlungen an M2**
 

@@ -5,7 +5,7 @@ description: Aufbau der App (Bibliothek, Import, Spielansicht mit Falz-Layouts s
 
 # App
 
-Stand 7. November 2026 (M1 nach der Integration von Spur A und Spur K; M2 Spur L: Spielansicht auf FoldLayout, Touchscreen, Pause beim Zuklappen; M2 nach den Nachbesserungen der Prüfung: Spiel statt Vollbild, Schutzrand oben, Ende nur über `quit()`; danach Lizenzhinweise mit Urheber, Quellort und Änderungen und die DNS-Option des DS; die Glas-Oberfläche aus ADR 0007 liegt als eigener Pull Request auf M2). Target `Arcfold` mit `SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor`; was abseits des Main Actors läuft, ist ausdrücklich `nonisolated` oder `@concurrent`. Die Entscheidungen dahinter stehen in ADR 0005, Abschnitte 7 und 9, und ADR 0006, Abschnitte 6, 7, 9, 10 und 15.
+Stand 7. November 2026 (M1 nach der Integration von Spur A und Spur K; M2 Spur L: Spielansicht auf FoldLayout, Touchscreen, Pause beim Zuklappen; M2 nach den Nachbesserungen der Prüfung: Spiel statt Vollbild, Schutzrand oben, Ende nur über `quit()`; danach Lizenzhinweise mit Urheber, Quellort und Änderungen und die DNS-Option des DS; die Glas-Oberfläche aus ADR 0007 liegt als eigener Pull Request gegen `main`). Target `Arcfold` mit `SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor`; was abseits des Main Actors läuft, ist ausdrücklich `nonisolated` oder `@concurrent`. Die Entscheidungen dahinter stehen in ADR 0005, Abschnitte 7 und 9, und ADR 0006, Abschnitte 6, 7, 9, 10 und 15.
 
 ## Aufbau
 
@@ -55,7 +55,7 @@ App/Sources/
 
 ## Gestaltung
 
-Seit dem 7. November 2026 (ADR 0007, Branch `m4/liquid-glass` auf `m2/ds-falz`, als eigener Pull Request auf M2). Vollständige Regeln, Tokens, Messwerte und Stolperfallen: `docs/wissen/oberflaeche.md`.
+Seit dem 7. November 2026 (ADR 0007, Branch `m4/liquid-glass` auf `main`, als eigener Pull Request gegen `main`). Vollständige Regeln, Tokens, Messwerte und Stolperfallen: `docs/wissen/oberflaeche.md`.
 
 - **Zwei Gläser:** Systemglas außerhalb des Spiels (Toolbar, Menüs, Suche, Sheet, Alerts) kommt vom System. Spielglas ist `Glass.clear` über einer Dimmplatte (`.gameGlass(in:isPressed:isSmallLabel:)`), für Touch-Tasten, Pause-Knopf, Hinweis und Ton-Chip. Inhalt (Bild, Kacheln, Listen, Debug-Overlay) trägt kein Glas.
 - **Bausteine** in `App/Sources/Design/`: `Theme` (Breitenklassen, Metriken, Bewegung), `GameStyle` und `GameArtwork` (Kachelkunst aus der SHA-256, keine Cover), `GameTile`/`GameGrid`, `LibraryArrangement` (Sortieren und Suchen als Ansichtslogik), `GameGlass` (Spielglas, Platte je Hintergrund, flacher Rückfall), `GlassControls` (Tasten aus dem `TouchLayout` von M2), `ControlDeck` mit `DeckLayout`, `StatusToast`, `OverlayPlacement` (reine Funktion von `GameLayout`), `LoadingBackdrop`; dazu `Play/GameOverlays.swift` (die Überlagerungen des Spiels, aus einfachen Werten), `Play/PauseMenu.swift` (Pause-Knopf und Sheet) und `Play/GameFailureView.swift`.
