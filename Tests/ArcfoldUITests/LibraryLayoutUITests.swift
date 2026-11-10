@@ -153,19 +153,23 @@ final class LibraryLayoutUITests: XCTestCase {
         }
     }
 
-    /// Keeps a picture of the screen with the test, for the record.
+    /// Keeps a picture of the display that shows the app with the test, for
+    /// the record. `app.screenshot()` would take the outer display, which is
+    /// off while the app runs on the inner one.
     @MainActor
     private func keepLibraryScreenshot(of app: XCUIApplication, named name: String) {
-        let attachment = XCTAttachment(screenshot: app.screenshot())
-        attachment.name = name
-        attachment.lifetime = .keepAlways
-        add(attachment)
-        // XCTest captures the outer display only. A script that photographs
-        // the inner one asks for time with ARCFOLD_LIBRARY_HOLD (seconds).
-        if let hold = ProcessInfo.processInfo.environment["ARCFOLD_LIBRARY_HOLD"].flatMap(Double.init) {
-            note("holding \(name)")
-            Thread.sleep(forTimeInterval: hold)
-        }
+        keep(app.displayScreenshot(), named: name)
+    }
+
+    /// Opens Licenses from the More menu and waits for the list.
+    @MainActor
+    private func openLicenses(in app: XCUIApplication) {
+        app.buttons["info-menu"].tap()
+        let licenses = app.buttons["Licenses"]
+        XCTAssertTrue(licenses.waitForExistence(timeout: 5))
+        licenses.tap()
+        XCTAssertTrue(app.navigationBars["Licenses"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["GPL-3.0-or-later"].firstMatch.waitForExistence(timeout: 5))
     }
 
     /// The texts on screen that lie on `fold`, with their frames.
@@ -232,28 +236,25 @@ final class LibraryLayoutUITests: XCTestCase {
         keepLibraryScreenshot(of: app, named: "cores")
     }
 
-    /// The list and the text share the window only at a real fold; the
-    /// artificial one of debug builds does not reach the system.
+    /// Licenses in the window as it is: the list of the components. The list
+    /// and a text share the window only at a real fold; the artificial one
+    /// of debug builds does not reach the system, so that part needs a fold
+    /// named from outside.
     @MainActor
-    func testLicensesShareTheWindowAtAFold() throws {
-        try XCTSkipIf(Self.namedFold == nil, "Needs a real fold, named by ARCFOLD_LIBRARY_FOLD")
+    func testLicensesShowTheirListAndAtAFoldATextBesideIt() {
         let app = launchLibraryShelf()
-        let fold = fold(in: app.gameWindow.frame)
-        app.buttons["info-menu"].tap()
-        let licenses = app.buttons["Licenses"]
-        XCTAssertTrue(licenses.waitForExistence(timeout: 5))
-        licenses.tap()
-        XCTAssertTrue(app.navigationBars["Licenses"].waitForExistence(timeout: 5))
-        XCTAssertTrue(app.staticTexts["GPL-3.0-or-later"].firstMatch.waitForExistence(timeout: 5))
-        XCTAssertEqual(textsOnTheFold(fold, in: app), [])
-        // The list on the first page, the text of Arcfold on the second.
+        openLicenses(in: app)
         let row = app.buttons.matching(NSPredicate(format: "label BEGINSWITH 'mGBA 0.10.5'")).firstMatch
         XCTAssertTrue(row.exists, "The list of licenses has no row for mGBA")
+        keepLibraryScreenshot(of: app, named: "licenses")
+        guard let fold = Self.namedFold else { return }
+
+        XCTAssertEqual(textsOnTheFold(fold, in: app), [])
+        // The list on the first page, the text of Arcfold on the second.
         XCTAssertLessThanOrEqual(row.frame.maxX, fold.lowerBound + 0.5)
         let names = app.staticTexts.matching(identifier: "Arcfold").allElementsBoundByIndex.map(\.frame)
         note("licenses: Arcfold at \(names), fold \(fold.lowerBound)-\(fold.upperBound)")
         XCTAssertTrue(names.contains { $0.minX >= fold.upperBound - 0.5 }, "No license text on the second page")
-        keepLibraryScreenshot(of: app, named: "licenses")
 
         // Another component: its text takes the second page.
         row.tap()
@@ -292,12 +293,7 @@ final class LibraryLayoutUITests: XCTestCase {
             app.terminate()
         }
         let app = launchLibraryShelf()
-        app.buttons["info-menu"].tap()
-        let licenses = app.buttons["Licenses"]
-        XCTAssertTrue(licenses.waitForExistence(timeout: 5))
-        licenses.tap()
-        XCTAssertTrue(app.navigationBars["Licenses"].waitForExistence(timeout: 5))
-        XCTAssertTrue(app.staticTexts["GPL-3.0-or-later"].firstMatch.waitForExistence(timeout: 5))
+        openLicenses(in: app)
         try auditLibraryScreen(app, named: "licenses")
     }
 }
