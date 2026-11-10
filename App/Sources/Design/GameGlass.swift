@@ -72,6 +72,11 @@ nonisolated enum GamePlate {
     /// below 3 and 4.5, so both went up by 0.1. Over the dark, still deck a
     /// plate that dark hid the glass; there white reads well above 7 : 1 on
     /// a light plate (docs/wissen/oberflaeche.md).
+    ///
+    /// The edge of Increase Contrast and of Show Borders is white at
+    /// `borderOpacity`. Over the picture Increase Contrast draws it at
+    /// `pictureBorderOpacity`: there a dark picture leaves the plate nothing
+    /// to stand out from, so the edge has to, against any picture.
     static func look(isSmallLabel: Bool, backdrop: GlassBackdrop = .picture, increasedContrast: Bool,
                      reduceTransparency: Bool, showsBorders: Bool) -> Look {
         var opacity = switch backdrop {
@@ -85,8 +90,18 @@ nonisolated enum GamePlate {
             opacity = max(opacity, isSmallLabel ? 0.90 : 0.85)
         }
         let border = increasedContrast || showsBorders
-        return Look(plateOpacity: opacity, borderWidth: border ? 1 : 0, borderOpacity: border ? 0.35 : 0)
+        let strong = increasedContrast && backdrop == .picture
+        return Look(plateOpacity: opacity, borderWidth: border ? 1 : 0,
+                    borderOpacity: border ? (strong ? pictureBorderOpacity : borderOpacity) : 0)
     }
+
+    /// The white edge over the deck, and with Show Borders alone.
+    static let borderOpacity = 0.35
+    /// The white edge over the picture with Increase Contrast. At 0.35 it
+    /// measured 2.84 to 2.92 : 1 against the dark picture of the test
+    /// programs; from 0.90 on either the edge or the plate keeps 3 : 1
+    /// against a picture of any brightness (`GamePlateTests`).
+    static let pictureBorderOpacity = 0.90
 
     /// A pressed control shows the game's colour, nearly opaque: at 0.85 the
     /// glass over white left small labels at 3.3 : 1.

@@ -277,7 +277,9 @@ extension Pixels {
             var inside: [Double] = []
             let rows = stride(from: Int(rect.midY - rect.height * 0.15), through: Int(rect.midY + rect.height * 0.15), by: 1)
             for y in rows {
-                for step in stride(from: 2.5, through: 4, by: 0.5) {
+                // Close to the edge: a key that lies beside the picture
+                // stands out from the deck, not from a picture 3 pt away.
+                for step in stride(from: 1, through: 2, by: 0.5) {
                     outside.append(luminance(x: Int(edge - inward * step * scale), y: y))
                 }
                 for step in stride(from: 0.2, through: 2.2, by: 1 / scale) {

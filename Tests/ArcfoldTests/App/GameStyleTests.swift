@@ -93,10 +93,44 @@ struct GamePlateTests {
             let contrast = GamePlate.look(isSmallLabel: isSmallLabel, backdrop: backdrop, increasedContrast: true,
                                           reduceTransparency: false, showsBorders: false)
             #expect(contrast.plateOpacity == (isSmallLabel ? 0.90 : 0.80))
-            #expect(contrast.borderWidth == 1 && contrast.borderOpacity == 0.35)
+            // Over the picture the edge has to stand out by itself.
+            #expect(contrast.borderWidth == 1 && contrast.borderOpacity == (backdrop == .picture ? 0.90 : 0.35))
+            let borders = GamePlate.look(isSmallLabel: isSmallLabel, backdrop: backdrop, increasedContrast: false,
+                                         reduceTransparency: false, showsBorders: true)
+            #expect(borders.borderWidth == 1 && borders.borderOpacity == 0.35)
             let solid = GamePlate.look(isSmallLabel: isSmallLabel, backdrop: backdrop, increasedContrast: false,
                                        reduceTransparency: true, showsBorders: false)
             #expect(solid.plateOpacity == (isSmallLabel ? 0.90 : 0.85))
         }
+    }
+
+    /// With Increase Contrast a key over the picture keeps its boundary at
+    /// 3 : 1 against a picture of any brightness: the white edge against a
+    /// dark picture, the plate against a light one. Reckoned for grey
+    /// pictures, with the plate and the edge blended over them as the view
+    /// draws them; at 0.35 the edge left a gap down to 1.7 : 1 in between.
+    @Test(arguments: [false, true])
+    func theEdgeOverThePictureStandsOutFromAnyPicture(isSmallLabel: Bool) {
+        func luminance(_ value: Double) -> Double {
+            value <= 0.04045 ? value / 12.92 : pow((value + 0.055) / 1.055, 2.4)
+        }
+        func contrast(_ one: Double, _ other: Double) -> Double {
+            let (light, dark) = (max(luminance(one), luminance(other)), min(luminance(one), luminance(other)))
+            return (light + 0.05) / (dark + 0.05)
+        }
+        func weakest(_ look: GamePlate.Look) -> Double {
+            (0...255).map { step in
+                let picture = Double(step) / 255
+                let plate = 0.15 * look.plateOpacity + picture * (1 - look.plateOpacity)
+                let edge = look.borderOpacity + plate * (1 - look.borderOpacity)
+                return max(contrast(edge, picture), contrast(plate, picture))
+            }.min() ?? 0
+        }
+        let look = GamePlate.look(isSmallLabel: isSmallLabel, backdrop: .picture, increasedContrast: true,
+                                  reduceTransparency: false, showsBorders: false)
+        #expect(weakest(look) >= 3, "the edge at \(look.borderOpacity) falls to \(weakest(look)) : 1")
+        var old = look
+        old.borderOpacity = GamePlate.borderOpacity
+        #expect(weakest(old) < 2)
     }
 }
