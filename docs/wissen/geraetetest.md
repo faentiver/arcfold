@@ -1,11 +1,11 @@
 ---
 name: geraetetest
-description: Anleitung für alle ausstehenden Gerätetests auf dem iPhone Duo (M1 mit ADR 0005, M2 mit ADR 0006, PS2-JIT mit ADR 0002), was dabei gemessen wird und wo die Ergebnisse hinkommen
+description: Anleitung für alle ausstehenden Gerätetests auf dem iPhone Duo (M1 mit ADR 0005, Glas gegen flach mit ADR 0007, M2 mit ADR 0006, PS2-JIT mit ADR 0002), was dabei gemessen wird und wo die Ergebnisse hinkommen
 ---
 
 # Gerätetest auf dem iPhone Duo
 
-Stand 7. November 2026. Der Simulator sagt nichts über Bildrate, Wärme, Tonlatenz, Mehrfachberührung und JIT. Diese Anleitung bündelt alles, was nur das Gerät klärt. Teil 1 (M1) dauert etwa 45 Minuten, Teil 2 (PS2 mit JIT) etwa 30 Minuten, Teil 3 (M2, DS und Falz) etwa 45 Minuten; jeder Teil lässt sich getrennt machen.
+Stand 7. November 2026. Der Simulator sagt nichts über Bildrate, Wärme, Tonlatenz, Mehrfachberührung und JIT. Diese Anleitung bündelt alles, was nur das Gerät klärt. Teil 1 (M1) dauert etwa 45 Minuten, Teil 1b (Glas gegen flach, ADR 0007) etwa zwei Stunden, Teil 2 (PS2 mit JIT) etwa 30 Minuten, Teil 3 (M2, DS und Falz) etwa 45 Minuten; jeder Teil lässt sich getrennt machen.
 
 ## Einmalig vorbereiten (etwa 15 Minuten)
 
@@ -39,6 +39,41 @@ Für jeden Punkt: das Overlay fotografieren oder die Werte notieren.
 | 13 | Zweiter Emulator (falls installiert) | Import öffnen | `.gba`-Dateien sind auswählbar, nicht ausgegraut |
 
 Optional, für genaue Zahlen: Konsole.app am Mac → das Duo wählen → Filter `subsystem:com.faentiver.arcfold category:stats`. Die App schreibt dort alle 10 s eine Zeile mit allen Werten des Overlays.
+
+## Teil 1b: Glas gegen flach (ADR 0007)
+
+Die Tasten aus Liquid Glass kosten den Render-Server Arbeit; zugeklappt quer liegen die des GBA alle über dem Spielbild, in den anderen Posen liegen die meisten auf dem Deck neben oder unter den Bildschirmen (seit dem Merge mit M2, `docs/wissen/oberflaeche.md`). Der Simulator misst das nur relativ; entscheidend ist das Duo. Etwa zwei Stunden, mit dem Debug-Build aus Xcode; die Läufe lassen sich auf mehrere Tage verteilen.
+
+1. Das Scheme **Store** → Edit Scheme → Run → Arguments: `-ArcfoldControlSurface glass` eintragen. Für den Gegenlauf den Wert auf `flat` ändern. Ohne das Argument entscheidet das System (flach, solange iOS `systemPrefersReducedResourceUsage` meldet).
+2. Je 10 Minuten `selftest.gba` laufen lassen, jeweils mit Glas und flach: zugeklappt hochkant und quer, einmal mit 120 Hz und einmal mit Stromsparmodus (60 Hz). Das sind acht Läufe. Dazu je 10 Minuten `selftest.nds` mit Glas und flach, aufgeklappt (offen).
+3. Am Ende jedes Laufs das Overlay fotografieren, besser die Zeile aus Konsole.app (Filter `subsystem:com.faentiver.arcfold category:stats`) kopieren.
+4. Einmal 30 Minuten quer mit Glas, danach 30 Minuten quer flach, und jeweils „Thermal“ notieren.
+5. Optional: Instruments → Vorlage „Animation Hitches“ und „Metal System Trace“, je 2 Minuten quer mit Glas.
+
+| Kriterium | Glas besteht, wenn |
+| --- | --- |
+| Anzeige | „Display“ weicht höchstens 1 Hz von flach ab |
+| Übersprungene Bilder | „skipped“ liegt höchstens 1 Prozentpunkt über flach |
+| Verspätete Bilder | „late“ in der Display-Zeile und „GPU busy“ bleiben 0 |
+| Wärme | „Thermal“ nach 30 Minuten nicht schlechter als flach |
+| Instruments | kein Frame über dem Budget, keine Hitches |
+
+Fällt quer durch, wird quer standardmäßig flach (ADR 0007, „Folgen“). Hochkant liegt über dem Bild dauerhaft nichts aus Glas außer, beim DS zugeklappt, L und R über den unteren Ecken des oberen Bildschirms; der Pause-Knopf sitzt seit dem Merge in der Menüzeile auf dem Deck.
+
+Außerdem, nur am Gerät sichtbar: Wirkt das Glas über hellen Spielen lesbar (selftest hat einen weißen Balken)? Zeigt der Pause-Knopf eine helle „Mondsichel“ an der Kante? Dann im PR melden; der Rückfall ist Rauchglas `.clear.tint(.black.opacity(0.45))` ohne eigene Platte.
+
+Bedienung mit Glas am Gerät. G1 bis G3 sind seit dem Merge mit M2 auch im Simulator belegt, weil das private Posen-Werkzeug das Außendisplay quer stellt (`testSidewaysTheRButtonIsFree`, Tour-Zustand 12); am Gerät zählen sie mit echtem Glas und den Randgesten. Zwei Finger gehen im Simulator nur mit der Wahltaste:
+
+| Nr. | Was | Wie | Erwartet |
+| --- | --- | --- | --- |
+| G1 | R quer | Duo quer halten, R antippen | Overlay „last R“, „presses“ steigt um 1; kein Pausenmenü |
+| G2 | Pause quer | Pause-Knopf in der Menüzeile rechts unten (zwischen Select und Start) antippen | Sheet geht auf; Inhalt lesbar, nichts unter der Systemspalte abgeschnitten (Bildschirmfoto) |
+| G3 | L durch das Debug-Overlay | quer im Debug-Build L dort antippen, wo das Debug-Overlay darüberliegt | „last L“, das Overlay nimmt keine Berührung an |
+| G4 | Zwei Finger mit Glas | hochkant und quer: Steuerkreuz und A gleichzeitig halten, dann A und B, dann L und R | „Input held“ zeigt beide Tasten; beide leuchten sofort, nichts hinkt nach |
+| G5 | Zug über die Tasten | hochkant mit zwei Fingern auf den Tasten nach unten ziehen | Das Spiel bleibt, Tasten melden den Zug; ein Schließen per Zoom gibt es seit dem Merge nicht mehr (`RootView`) |
+| G6 | Sheet nach dem Zuklappen | im Spiel zuklappen, außen „Resume“, dann wieder zu und auf | Zuklappen zeigt das Sheet außen; „Resume“ spielt außen weiter; Aufklappen schließt das Sheet und setzt fort |
+
+Wo der Ton-Chip sitzt (über dem Hinweis auf dem oberen oder einzigen Bildschirm), belegen `OverlayPlacementTests` und die Galerie-Seite `notices`; am Gerät erscheint er nur, wenn der Ton nicht startet.
 
 ## Teil 2: PS2 mit JIT (ADR 0002)
 

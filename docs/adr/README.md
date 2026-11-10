@@ -10,6 +10,7 @@ Jede größere technische Entscheidung bekommt eine Datei `NNNN-kurzer-titel.md`
 | [0004](0004-xcode-projekt-per-xcodegen.md) | Xcode-Projekt per XcodeGen | Angenommen |
 | [0005](0005-laufzeit-fuer-software-kerne.md) | Laufzeit für Software-Kerne: Takt, Callbacks, Bild, Ton, Eingabe, Spielstände | Angenommen |
 | [0006](0006-ds-und-falz-layouts.md) | DS und Falz-Layouts: melonDS DS, zwei Bildschirme, Touch, FoldLayout, Pause beim Zuklappen | Angenommen, M2 abgenommen |
+| [0007](0007-oberflaeche-mit-liquid-glass.md) | Oberfläche mit Liquid Glass (aus M4 vorgezogen) | Vorgeschlagen, folgt als eigener Pull Request; Abnahme durch Fatih ausstehend |
 
 Aufbau jeder Datei:
 
