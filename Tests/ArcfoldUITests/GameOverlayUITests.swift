@@ -1,0 +1,235 @@
+import notify
+import XCTest
+
+/// What lies over a running game, in the pose the device is in when the
+/// tests run (ADR 0007): the status chip above a notice, the debug overlay
+/// clear of every control, the pause sheet with equal margins, the pause
+/// button in the row of the controls, and the failure message on one screen.
+/// A UI test cannot change the real pose, so the tests are run once per
+/// pose, with the device brought into it beforehand. Everything here is
+/// measured against the elements of the app, so each test holds in every
+/// pose and needs no fixed geometry.
+final class GameOverlayUITests: XCTestCase {
+    private static let notice = "The save could not be written"
+    private static let chip = "The audio engine could not start"
+    private static let largestText = ["-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityXXXL"]
+
+    override func setUp() {
+        continueAfterFailure = true
+    }
+
+    // MARK: Helpers
+
+    /// A test program of this bundle, by path, for the debug launch.
+    private func overlayFixture(_ system: String) throws -> String {
+        let name = system == "ds" ? "nds" : "gba"
+        let url = try XCTUnwrap(Bundle(for: GameOverlayUITests.self).url(forResource: "selftest", withExtension: name),
+                                "selftest.\(name) is not in the UI test bundle")
+        return url.path(percentEncoded: false)
+    }
+
+    /// Asks the debug build for a sample or a pose (`DebugRemote`).
+    private func overlayRemote(_ name: String) {
+        _ = notify_post("com.faentiver.arcfold.debug." + name)
+    }
+
+    /// Starts the test program of `system` and waits for the game.
+    @MainActor
+    private func overlayLaunch(_ system: String, arguments: [String] = []) throws -> XCUIApplication {
+        let app = XCUIApplication()
+        app.launchArguments = ["-ArcfoldAutorun", try overlayFixture(system)] + arguments
+        app.launch()
+        return app
+    }
+
+    @MainActor
+    private func overlayWaitForTheGame(_ app: XCUIApplication) {
+        XCTAssertTrue(app.descendants(matching: .any)["debug-overlay"].firstMatch.waitForExistence(timeout: 40),
+                      "The game did not start")
+    }
+
+    /// The frames of everything that takes touches for the game: the
+    /// buttons, the pad and the pause button.
+    @MainActor
+    private func overlayControlFrames(_ app: XCUIApplication) -> [(name: String, frame: CGRect)] {
+        let controls = app.descendants(matching: .any).matching(
+            NSPredicate(format: "identifier BEGINSWITH %@ OR identifier == %@ OR identifier == %@",
+                        "touch-button-", "touch-pad", "pause"))
+        return (0..<controls.count).map { index in
+            let element = controls.element(boundBy: index)
+            return (element.identifier, element.frame)
+        }.filter { !$0.frame.isEmpty }
+    }
+
+    /// Keeps a screenshot of the display the app runs on: in the Duo
+    /// Simulator the main screen is the outer display, also while the app
+    /// runs on the inner one.
+    @MainActor
+    private func overlayKeep(_ app: XCUIApplication, named name: String) {
+        let window = app.windows.firstMatch.frame.size
+        let screen = XCUIScreen.screens.first { screen in
+            let size = screen.screenshot().image.size
+            return (abs(size.width - window.width) < 1 && abs(size.height - window.height) < 1)
+                || (abs(size.width - window.height) < 1 && abs(size.height - window.width) < 1)
+        } ?? .main
+        let attachment = XCTAttachment(screenshot: screen.screenshot())
+        attachment.name = name
+        attachment.lifetime = .keepAlways
+        add(attachment)
+    }
+
+    @MainActor
+    private func overlayText(_ app: XCUIApplication, beginning: String) -> XCUIElement {
+        app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH %@", beginning)).firstMatch
+    }
+
+    // MARK: Notices
+
+    /// The chip and a long notice never overlap and cover no control, at the
+    /// default text size and at the largest, for the GBA and the DS. The
+    /// frames are those of their glass, 6 pt apart.
+    @MainActor
+    func testTheChipAndALongNoticeNeverOverlap() throws {
+        for system in ["gba", "ds"] {
+            for (size, arguments) in [("default", []), ("largest", Self.largestText)] {
+                let app = try overlayLaunch(system, arguments: arguments)
+                overlayWaitForTheGame(app)
+                overlayRemote("chip.show")
+                let chip = overlayText(app, beginning: Self.chip)
+                XCTAssertTrue(chip.waitForExistence(timeout: 5), "\(system) \(size): no chip")
+                overlayRemote("notice.long")
+                let notice = overlayText(app, beginning: Self.notice)
+                XCTAssertTrue(notice.waitForExistence(timeout: 5), "\(system) \(size): no notice")
+                // The chip moved up for the notice; read both once they rest.
+                Thread.sleep(forTimeInterval: 0.6)
+                let chipFrame = chip.frame
+                let noticeFrame = notice.frame
+                overlayKeep(app, named: "notice-\(system)-\(size)")
+                XCTAssertFalse(chipFrame.isEmpty || noticeFrame.isEmpty, "\(system) \(size): the notice went away too early")
+                XCTAssertFalse(chipFrame.insetBy(dx: -2, dy: -2).intersects(noticeFrame.insetBy(dx: -2, dy: -2)),
+                               "\(system) \(size): the chip \(chipFrame) and the notice \(noticeFrame) overlap")
+                for (name, frame) in overlayControlFrames(app) {
+                    XCTAssertFalse(frame.intersects(chipFrame),
+                                   "\(system) \(size): the chip \(chipFrame) covers \(name) \(frame)")
+                    XCTAssertFalse(frame.intersects(noticeFrame),
+                                   "\(system) \(size): the notice \(noticeFrame) covers \(name) \(frame)")
+                }
+                app.terminate()
+            }
+        }
+    }
+
+    // MARK: Debug overlay
+
+    /// The card of the debug overlay covers no button, no pad and no pause
+    /// button, for the GBA and the DS.
+    @MainActor
+    func testTheDebugOverlayCoversNoControl() throws {
+        for system in ["gba", "ds"] {
+            let app = try overlayLaunch(system)
+            overlayWaitForTheGame(app)
+            let overlay = app.descendants(matching: .any)["debug-overlay"].firstMatch
+            let controls = overlayControlFrames(app)
+            XCTAssertGreaterThanOrEqual(controls.count, 8, "\(system): the controls are missing")
+            let card = overlay.frame
+            overlayKeep(app, named: "debug-\(system)")
+            XCTAssertFalse(card.isEmpty)
+            for (name, frame) in controls {
+                XCTAssertFalse(frame.intersects(card), "\(system): the debug overlay \(card) covers \(name) \(frame)")
+            }
+            app.terminate()
+        }
+    }
+
+    // MARK: Pause
+
+    /// The pause button takes touches on 44 × 44 pt beside Select and Start,
+    /// overlaps neither, and opens the sheet, whose content has equal
+    /// margins at both sides at the default text size, also sideways beside
+    /// the system column.
+    @MainActor
+    func testThePauseButtonOpensASheetWithEqualMargins() throws {
+        for system in ["gba", "ds"] {
+            let app = try overlayLaunch(system)
+            overlayWaitForTheGame(app)
+            let pause = app.buttons["pause"]
+            XCTAssertTrue(pause.waitForExistence(timeout: 10))
+            let target = pause.frame
+            XCTAssertGreaterThanOrEqual(target.width, 44)
+            XCTAssertGreaterThanOrEqual(target.height, 44)
+            for name in ["touch-button-Select", "touch-button-Start"] {
+                let neighbour = app.descendants(matching: .any)[name].firstMatch.frame
+                XCTAssertFalse(neighbour.isEmpty, "\(system): \(name) is missing")
+                // The circle is drawn 36 pt wide inside its target.
+                XCTAssertFalse(neighbour.intersects(target.insetBy(dx: 4, dy: 4)),
+                               "\(system): the pause button \(target) lies on \(name) \(neighbour)")
+            }
+            overlayKeep(app, named: "pause-button-\(system)")
+
+            pause.tap()
+            let sheet = app.descendants(matching: .any)["pause-menu"].firstMatch
+            XCTAssertTrue(sheet.waitForExistence(timeout: 10), "\(system): the pause button opened no sheet")
+            let resume = app.buttons["resume"]
+            XCTAssertTrue(resume.waitForExistence(timeout: 5))
+            Thread.sleep(forTimeInterval: 1)
+            let sheetFrame = sheet.frame
+            let resumeFrame = resume.frame
+            overlayKeep(app, named: "pause-sheet-\(system)")
+            // Along the axis the button is long in, whichever way round the
+            // display reports its frames.
+            let margins = resumeFrame.width >= resumeFrame.height
+                ? (resumeFrame.minX - sheetFrame.minX, sheetFrame.maxX - resumeFrame.maxX)
+                : (resumeFrame.minY - sheetFrame.minY, sheetFrame.maxY - resumeFrame.maxY)
+            XCTAssertEqual(margins.0, margins.1, accuracy: 1,
+                           "\(system): Resume \(resumeFrame) is not centred in the sheet \(sheetFrame)")
+            resume.tap()
+            let gone = XCTNSPredicateExpectation(predicate: NSPredicate(format: "exists == false"), object: sheet)
+            XCTAssertEqual(XCTWaiter().wait(for: [gone], timeout: 10), .completed, "\(system): Resume did not close the sheet")
+            app.terminate()
+        }
+    }
+
+    // MARK: Failure
+
+    /// The message of a game that could not start and its button stand on
+    /// one screen. On the inner display of the Duo the fold crosses the
+    /// middle of the long side, 121 px wide in the Simulator: nothing of the
+    /// message reaches it, and everything lies on the same side. Close
+    /// brings the library back.
+    @MainActor
+    func testTheFailureMessageStaysOnOneScreen() throws {
+        for system in ["gba", "ds"] {
+            let app = try overlayLaunch(system, arguments: ["-ArcfoldFailStart", "YES"])
+            let close = app.buttons["Close"]
+            XCTAssertTrue(close.waitForExistence(timeout: 30), "\(system): no failure message")
+            let title = overlayText(app, beginning: "The Game Could Not Start")
+            let message = overlayText(app, beginning: "The game could not start:")
+            XCTAssertTrue(title.exists && message.exists)
+            overlayKeep(app, named: "failure-\(system)")
+
+            let window = app.windows.firstMatch.frame
+            let frames = [("Close", close.frame), ("title", title.frame), ("message", message.frame)]
+            for (name, frame) in frames {
+                XCTAssertTrue(window.insetBy(dx: -1, dy: -1).contains(frame), "\(system): \(name) \(frame) leaves the window \(window)")
+            }
+            let long = max(window.width, window.height)
+            let isInnerDisplay = abs(long - 951) < 2 && abs(min(window.width, window.height) - 669) < 2
+            if isInnerDisplay {
+                // The division region as measured: 1366 to 1487 px of 2853.
+                let fold = (1366.0 / 3)...(1487.0 / 3)
+                let sides = frames.map { name, frame -> Int in
+                    let extent = window.width > window.height ? (frame.minX, frame.maxX) : (frame.minY, frame.maxY)
+                    XCTAssertTrue(extent.1 <= fold.lowerBound + 0.5 || extent.0 >= fold.upperBound - 0.5,
+                                  "\(system): \(name) \(frame) lies on the fold")
+                    return extent.1 <= fold.lowerBound + 0.5 ? 0 : 1
+                }
+                XCTAssertEqual(Set(sides).count, 1, "\(system): the message is split between the screens")
+            }
+
+            close.tap()
+            XCTAssertTrue(app.descendants(matching: .any)["info-menu"].firstMatch.waitForExistence(timeout: 15),
+                          "\(system): Close did not bring the library back")
+            app.terminate()
+        }
+    }
+}
