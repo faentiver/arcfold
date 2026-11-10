@@ -72,6 +72,8 @@ Bedienung mit Glas am Gerät. G1 bis G3 sind seit dem Merge mit M2 auch im Simul
 | G4 | Zwei Finger mit Glas | hochkant und quer: Steuerkreuz und A gleichzeitig halten, dann A und B, dann L und R | „Input held“ zeigt beide Tasten; beide leuchten sofort, nichts hinkt nach |
 | G5 | Zug über die Tasten | hochkant mit zwei Fingern auf den Tasten nach unten ziehen | Das Spiel bleibt, Tasten melden den Zug; ein Schließen per Zoom gibt es seit dem Merge nicht mehr (`RootView`) |
 | G6 | Sheet nach dem Zuklappen | im Spiel zuklappen, außen „Resume“, dann wieder zu und auf | Zuklappen zeigt das Sheet außen; „Resume“ spielt außen weiter; Aufklappen schließt das Sheet und setzt fort |
+| G7 | Ränder am Falz im Buch | Duo im Buch aufstellen, Bibliothek ansehen; ebenso die Lizenzen | Kein Kachelrand und kein Text liegt auf der Division-Region; jede Seite hält etwa 20 pt Abstand zu ihr (`FoldDivision.pageMargin`, im Simulator 20 pt bei einer Region von 121 px; die Region des Geräts kann anders sein, Maße notieren) |
+| G8 | Pausen-Sheet | im Spiel Pause antippen, zugeklappt hochkant, im Buch und im Tabletop | Das Sheet ist so hoch wie sein Inhalt (im Simulator 269 pt, 34 pt unter „Quit Game“); im Tabletop bleibt es unter dem Falz; mit größter Schrift wächst es und scrollt (Bildschirmfoto) |
 
 Wo der Ton-Chip sitzt (über dem Hinweis auf dem oberen oder einzigen Bildschirm), belegen `OverlayPlacementTests` und die Galerie-Seite `notices`; am Gerät erscheint er nur, wenn der Ton nicht startet.
 

@@ -126,7 +126,7 @@ Am 10. November 2026 wurden die Befunde der Prüfung der Gestaltung auf dem Stan
 
 - **Spielansicht:** Fehleransicht auf einem Bildschirm außerhalb des Falzes; Hinweis und Ton-Chip als ein Stapel in einem Glascontainer, bei großer Schrift mit der größten passenden Schriftgröße; Debug-Overlay aus freien Rechtecken, nie auf einer Taste; Pausen-Sheet mit gleichen Rändern; Glas des Pause-Knopfs im Container der Tasten.
 - **Bibliothek:** Raster an den Systemrändern in jeder Pose (20 / 20 pt, zu quer 84 / 84 pt), Spaltenzahl nach der Breite, die Kachelkunst niedriger, wo das Fenster für 4 : 3 zu niedrig ist, im Buch zwei Seiten links und rechts des Falzes, Lizenzen mit Liste und Text nebeneinander.
-- **Nach der Gegenprüfung:** Die Spaltenzahl der Bibliothek folgt allein der Breite; zugeklappt quer hatte die Höhenregel bei den größten Schriften drei Kacheln zu 181 pt mit gekürzten Namen ergeben. Mit Kontrast erhöhen ist der Rand einer Taste über dem Spielbild Weiß 0,90 statt 0,35 (Kante 12,4 bis 12,7 statt 2,9 : 1), über dem Deck bleibt 0,35.
+- **Nach der Gegenprüfung:** Die Spaltenzahl der Bibliothek folgt allein der Breite; zugeklappt quer hatte die Höhenregel bei den größten Schriften drei Kacheln zu 181 pt mit gekürzten Namen ergeben. Mit Kontrast erhöhen ist der Rand einer Taste über dem Spielbild Weiß 0,90 statt 0,35 (Kante 12,4 bis 12,7 statt 2,9 : 1), über dem Deck blieb damals 0,35 (seit der zweiten Runde 0,90 für alle Tasten, siehe „Nachbesserungen nach der Gegenprüfung“).
 - **Tour:** läuft jetzt in jeder echten Pose und jeder Variante über alle Zustände, auch Bibliothek, Menü, Suche, Lizenzen, langer Hinweis mit Ton-Chip und Fehleransicht (24 Läufe, Ergebnis und offene Befunde in `oberflaeche.md`, „Tour in jeder Pose“).
 - **Entfallen:** Der Test mit dem Debug-Overlay über L, weil das Overlay keine Taste mehr deckt.
 
@@ -159,12 +159,98 @@ Stand 10. November 2026. Die Oberfläche (Stand vom 7. November 2026, zusammenge
 | Prüfung | Ergebnis |
 | --- | --- |
 | Builds | Store und JIT für den Simulator, Store für `generic/platform=iOS` mit `CODE_SIGNING_ALLOWED=NO` und Store mit den Test-Bundles, frisch in einem leeren Build-Ordner: ohne Warnung, die einzigen Warnzeilen stammen von `appintentsmetadataprocessor`. `Scripts/bootstrap.sh` holte nach dem Merge die Submodule von melonDS DS und baute den Kern (27 s) und mGBA neu (6 s, das Rezept von M2 ändert den Stempel) |
-| Tests | Store 365 (333 bestanden, 32 übersprungen, 0 fehlgeschlagen: ArcfoldTests 159, LibretroKitTests 64, FoldLayoutTests 31, RendererTests 39, ArcfoldUITests 72 mit 40 bestanden), JIT 293 bestanden, je ein voller Lauf auf einem eigenen Duo-Gerät, zugeklappt hochkant gestartet, ohne anderes parallel (parallel gestartete Läufe ließen die zeitabhängigen Tests des DS-Touchscreens scheitern). Übersprungen sind die 30 Zustände der Tour (sie laufen über `Scripts/screenshot-tour.sh`) und je ein Test, der eine bestimmte Pose braucht. Seit M2 neu sind die Tests der Nachbesserungen (Hinweis-Stapel, Fehleransicht, Debug-Overlay, Pause-Sheet, Titelkante, Spalten, Falz im Buch) und `GameOverlayUITests`, `LibraryLayoutUITests` |
+| Tests | (Stand vor den Nachbesserungen der Gegenprüfung, neue Zahlen im Abschnitt „Nachbesserungen nach der Gegenprüfung“) Store 365 (333 bestanden, 32 übersprungen, 0 fehlgeschlagen: ArcfoldTests 159, LibretroKitTests 64, FoldLayoutTests 31, RendererTests 39, ArcfoldUITests 72 mit 40 bestanden), JIT 293 bestanden, je ein voller Lauf auf einem eigenen Duo-Gerät, zugeklappt hochkant gestartet, ohne anderes parallel (parallel gestartete Läufe ließen die zeitabhängigen Tests des DS-Touchscreens scheitern). Übersprungen sind die 30 Zustände der Tour (sie laufen über `Scripts/screenshot-tour.sh`) und je ein Test, der eine bestimmte Pose braucht. Seit M2 neu sind die Tests der Nachbesserungen (Hinweis-Stapel, Fehleransicht, Debug-Overlay, Pause-Sheet, Titelkante, Spalten, Falz im Buch) und `GameOverlayUITests`, `LibraryLayoutUITests` |
 | Tour, Varianten | hell, dunkel, Kontrast und große Schrift grün, das Audit dunkel und mit Kontrast erhöhen bestanden; die Messwerte stehen in `docs/wissen/oberflaeche.md` („Mit M2 zusammengeführt“): unter anderem Pause 44 × 44 pt, Beschriftungen über dem Deck 8,87 bis 13,20 : 1, quer über Weiß 3,25 bis 5,10 : 1, Weiß auf dem Akzent 4,65 bis 6,25 : 1 |
-| Tour, Posen | 24 Läufe (sechs Posen, vier Varianten): Spiel DS und GBA mit Pausen-Sheet, Bibliothek, Menü, Suche, Lizenzen, langer Hinweis mit Ton-Chip und Fehleransicht in jeder Pose; vier Läufe mit Befunden (hell zugeklappt quer und im Buch, Kontrast erhöhen zugeklappt und zugeklappt quer), siehe `docs/wissen/oberflaeche.md`, „Tour in jeder Pose“. Nach der Gegenprüfung behoben und in den betroffenen Posen neu gefahren: Kontrast erhöhen (30, 31) in allen sechs Posen und die Bibliothek hell zugeklappt quer grün; offen bleibt das Audit im Buch. Pause 44 × 44 pt ohne Taste darunter, Ränder des Sheets gleich, Titelkante 20 / 20 pt (zu quer 84 / 84 pt) in jeder Pose |
+| Tour, Posen | 24 Läufe (sechs Posen, vier Varianten): Spiel DS und GBA mit Pausen-Sheet, Bibliothek, Menü, Suche, Lizenzen, langer Hinweis mit Ton-Chip und Fehleransicht in jeder Pose; vier Läufe mit Befunden (hell zugeklappt quer und im Buch, Kontrast erhöhen zugeklappt und zugeklappt quer), siehe `docs/wissen/oberflaeche.md`, „Tour in jeder Pose“. Nach der Gegenprüfung behoben und in den betroffenen Posen neu gefahren: Kontrast erhöhen (30, 31) in allen sechs Posen und die Bibliothek hell zugeklappt quer grün; das Audit im Buch lief damals noch in die Zeitgrenze (behoben, siehe „Nachbesserungen nach der Gegenprüfung“). Pause 44 × 44 pt ohne Taste darunter, Ränder des Sheets gleich, Titelkante 20 / 20 pt (zu quer 84 / 84 pt) in jeder Pose |
 | Touch in den echten Posen | `DSTouchUITests.testEveryTapHitsItsDSPixel` offen, Buch, Tabletop und flach hochkant je 32 von 32 Taps im Overlay und im Fadenkreuz, kein Tastendruck |
 | Posenprüfung | `Scripts/pose-check.sh gba` und `ds` mit dem Build dieses Branches: dritter Lauf des DS und Lauf des GBA ohne Lücke in einem Fenster eines Wechsels, eine Szene über alle Wechsel, „Paused: folded“ mit dem Sheet außen, „Resumed“ beim Aufklappen; DS 59,78 bis 60,00 Bilder/s. Bei fremder Last von 20 bis 35 zeigte der DS Lücken von 57 bis 66 ms |
 | Leistung | `test98MeasureGlassAgainstFlat`, je 60 s, Glas / flach: Emulation überall 59,95 bis 59,96 Bilder/s, `resync`, Aussetzer und „GPU busy“ 0; übersprungene Bilder mit Glas 0,6 bis 3,7 Prozentpunkte über flach, Anzeige 46 bis 52 Hz; Tabelle in `oberflaeche.md` |
+
+## Nachbesserungen nach der Gegenprüfung
+
+Am 10. November 2026 folgte eine zweite Runde auf demselben Branch, wieder als zwei Pakete (Spielansicht, Bibliothek), danach ein voller Lauf in der Reihenfolge Builds, Tests Store und JIT, ganze Tour, Posenprüfung. Neue Commits obenauf, kein Umschreiben des Verlaufs. Einzelheiten stehen mit Messwerten in `docs/wissen/oberflaeche.md` (Abweichungen 33 bis 38, „Tour in jeder Pose“, Stolperfallen):
+
+- **Debug-Overlay und Hinweis:** Die Karte gibt nach, nicht der Hinweis. Sie endet 6 pt vor Ton-Chip und Hinweis, nimmt kleinere Schrift, dann weniger Zeilen und zeichnet nichts, wenn keine Zeile passt (`OverlayPlacement.debugArea(besideStackOf:)`; vorher 5437 Überschneidungen im Unit-Test, nachher keine über 172 Geometrien mal 12 Schriftgrößen).
+- **Pausen-Sheet:** so hoch wie sein Inhalt (269 statt 390 pt zugeklappt hochkant, 269 statt 458 pt quer, auch im Buch und im Tabletop); im Tabletop bleibt es unter dem Falz, bei großer Schrift wächst es bis zum Fenster und scrollt dann.
+- **Kontrast erhöhen:** Alle Tasten tragen den Rand 0,90, die Kanten messen 12,4 bis 17,3 : 1 (über dem Deck vorher 3,6 bis 4,2).
+- **Galerie und Tour:** `GalleryScene.sidewaysGBA` hat den gemessenen sicheren Bereich, der ungünstigste Fall ist die eigene Szene `sidewaysGBAOverThePicture`. Die Tour hat den Zustand 38 (Spiel ohne Debug-Overlay in jeder Pose, hell und dunkel) und startet in jeder Pose beide Testprogramme über ihre Kacheln.
+- **Bibliothek im Buch:** Jede Seite hält 20 pt zur Division-Region (Kacheln 168,67 statt 178,67 pt, rechte Seite ab 515,67 statt 495,67 pt); der Lizenztext beginnt ebenfalls 20 pt dahinter.
+- **Raster beim Zuklappen:** Nach jedem Zuklappen blieb das Raster mit den vier Spalten des Innendisplays außen stehen und war an beiden Seiten abgeschnitten. Ursache war eine `ScrollView`, die mit ihrem Inhalt wuchs; behoben, nachher zwei Kacheln zu 174 pt.
+- **Audit im Buch:** Die Zeitgrenze kam aus der Kontrast-Prüfung auf der Lizenzseite, nicht aus dem Raster; sie ist dort ausgenommen, der Kontrast wird in Pixeln gemessen (21,00 : 1, Hinweis 3,44 : 1).
+- **Fotos der Bibliothek:** `LibraryLayoutUITests` fotografiert die Anzeige, die die Bibliothek zeigt (`app.displayScreenshot()`), statt schwarzer Bilder im Buch; Kerne, leere Bibliothek und Suche ohne Treffer laufen ohne künstlichen Falz.
+- **Entscheidung ohne Änderung:** Der kleine Titel nach Buch → Tabletop ist Systemverhalten (alle Systemlisten im selben Wechsel, 52 pt Unterschied) und bleibt.
+
+**Belege** (Duo-Simulator, iOS 27.1, Xcode 27.2, je ein voller Lauf nacheinander auf einem eigenen Gerät, zugeklappt hochkant gestartet)
+
+| Prüfung | Ergebnis |
+| --- | --- |
+| Builds | Store und JIT für den Simulator und Store für `generic/platform=iOS` mit `CODE_SIGNING_ALLOWED=NO` (Xcode, Build-Ordner des Laufs): erfolgreich, ohne Warnung im eigenen Code, die einzige Warnzeile stammt von `appintentsmetadataprocessor` |
+| Tests | Store 380 (348 bestanden, 32 übersprungen, 0 fehlgeschlagen: ArcfoldTests 171, LibretroKitTests 64, FoldLayoutTests 31, RendererTests 39, ArcfoldUITests 75 mit 43 bestanden), JIT 305 bestanden (ArcfoldTests 171, LibretroKitTests 64, FoldLayoutTests 31, RendererTests 39). Vorher Store 365 (333 bestanden), JIT 293; neu sind `PauseSheetHeightTests`, die Tests von `DebugPlacementTests` zum Stapel, `LibraryColumnsTests` zu Falz und Breite, `GameOverlayUITests.testThePauseSheetIsAsHighAsItsContent`, `ScreenshotTour.test38CleanGamesInThePose` und `LibraryLayoutUITests.testTheScreensBesideTheGridShowWholeInTheWindow`; übersprungen sind die 31 Zustände der Tour und ein Test, der quer braucht. Kein Fehlschlag, keine Wiederholung nötig |
+| Tour | alle vier Varianten und alle 24 Läufe in den echten Posen grün (sechs Posen mal hell, dunkel, Kontrast, große Schrift), dazu die Schließen-Fotos hell und dunkel; Zustand 38 und der Start beider Testprogramme aus der Bibliothek in jeder Pose; `LibraryLayoutUITests` auch im Buch ganz grün. Beim Durchsehen der Fotos kein Überschneiden, kein abgeschnittener Text, kein Glas auf dem Falz oder über dem Touchscreen, kein schwarzes Foto |
+| Posenprüfung | `Scripts/pose-check.sh ds` und `gba`: je sieben Schritte, keine Lücke und keine Neusynchronisation in einem Fenster eines Wechsels, eine Szene über alle Wechsel, „Paused: folded“ beim Zuklappen, „Resumed“ beim Aufklappen; DS 59,75 bis 59,87 Bilder/s, GBA 59,67 bis 59,78 |
+| Kanten, Sheet, Raster | Kanten mit Kontrast erhöhen 12,37 bis 17,30 : 1 in allen Posen; Sheet 269 pt hoch und 34,33 pt unter „Quit Game“ in jeder Pose und Variante; Titelkante gegen Kachel gleich in jeder Pose; Kacheln im Buch bei 20 / 202,67 / 515,67 / 698,33 pt |
+
+## Bilder
+
+Bildschirmfotos aus der Tour dieses Stands (Variante und Pose im Namen; Spielbilder ohne Debug-Overlay aus Zustand 38, sonst Zustände 30, 32, 35 und 36), aufrecht gedreht und verkleinert, Außendisplay 466 × 678 pt (quer 678 × 466), Innendisplay 700 × 492 (Tabletop 492 × 700):
+
+![Bibliothek zugeklappt, hell](0007/glass-bibliothek-zugeklappt-hell.jpg)
+
+Bibliothek zugeklappt, hell: zwei Spalten, Kanten von Titel und erster Kachel bei 20 pt.
+
+![Dieselbe Bibliothek dunkel.](0007/glass-bibliothek-zugeklappt-dunkel.jpg)
+
+Dieselbe Bibliothek dunkel.
+
+![Bibliothek zugeklappt mit der Schriftgröße accessibility-large](0007/glass-bibliothek-grosse-schrift.jpg)
+
+Bibliothek zugeklappt mit der Schriftgröße accessibility-large: eine Spalte, Kunst und Namen wachsen mit.
+
+![Bibliothek im Buch](0007/glass-bibliothek-buch.jpg)
+
+Bibliothek im Buch: zwei Seiten links und rechts des Falzes, jede mit 20 pt Abstand zur Division-Region.
+
+![Bibliothek offen, dunkel](0007/glass-bibliothek-offen-dunkel.jpg)
+
+Bibliothek offen, dunkel: vier Spalten über die ganze Breite.
+
+![Lizenzen im Buch](0007/glass-lizenzen-buch.png)
+
+Lizenzen im Buch: Liste links, Text rechts des Falzes.
+
+![DS zugeklappt ohne Debug-Overlay](0007/glass-ds-zugeklappt.png)
+
+DS zugeklappt ohne Debug-Overlay: L und R auf dem Bild, Steuerkreuz, Select, Start, X, Y, A, B und Pause auf dem Deck.
+
+![DS im Buch](0007/glass-ds-buch.png)
+
+DS im Buch: ein Bildschirm links, der Touchscreen rechts des Falzes, Tasten auf dem Deck.
+
+![DS im Tabletop](0007/glass-ds-tabletop.png)
+
+DS im Tabletop: Bild oben, der Touchscreen unter dem Falz, Tasten daneben.
+
+![GBA zugeklappt quer](0007/glass-gba-zugeklappt-quer.png)
+
+GBA zugeklappt quer: Steuerkreuz, L und R auf dem Bild, B, A, Select, Start und Pause auf dem Deck.
+
+![GBA im Buch](0007/glass-gba-buch.png)
+
+GBA im Buch: das Bild über dem Falz, Tasten in Spalten links und rechts.
+
+![Pausen-Sheet zugeklappt](0007/glass-pause-sheet-zugeklappt.png)
+
+Pausen-Sheet zugeklappt: so hoch wie sein Inhalt, 20 pt Rand, 34 pt unter „Quit Game“.
+
+![Pausen-Sheet im Buch](0007/glass-pause-sheet-buch.png)
+
+Pausen-Sheet im Buch: links vom Falz, ebenso hoch.
+
+![Hinweis-Stapel (Ton-Chip und Hinweis) zugeklappt, darüber die Debug-Karte, die vor dem Stapel endet.](0007/glass-hinweis-stapel-zugeklappt.png)
+
+Hinweis-Stapel (Ton-Chip und Hinweis) zugeklappt, darüber die Debug-Karte, die vor dem Stapel endet.
+
+Alle Bilder stehen auch in `docs/wissen/oberflaeche.md`, Abschnitt „Tour in jeder Pose“.
 
 ## Folgen
 
@@ -177,7 +263,10 @@ Stand 10. November 2026. Die Oberfläche (Stand vom 7. November 2026, zusammenge
 - Kein Zoom ins Spiel, solange ein Spiel die Bibliothek ersetzt. Käme er zurück, bräuchte er eine Präsentation über der Bibliothek, und vor der stünde wieder der Test der Oberkante (ADR 0006, „Nachbesserungen nach der Prüfung“).
 - Der Teil `poses` der Tour hängt am privaten Posen-Werkzeug außerhalb des Repos und damit an privaten Schnittstellen des Simulators (ADR 0006, `docs/wissen/falz.md`); ohne `POSE_CHECK_POSTURE_TOOL` oder wenn ein Update von Xcode es bricht, laufen die Varianten weiter, nur der Teil `poses` überspringt sich mit einem Hinweis.
 - Offen für Fatih:
-  - Befund der Tour in den Posen (`docs/wissen/oberflaeche.md`, „Tour in jeder Pose“): Das Audit der Bibliothek im Buch läuft in die Zeitgrenze. Die Kante der Tasten über dem Spielbild mit Kontrast erhöhen und „Text clipped“ an den Kachelnamen zugeklappt quer sind behoben (Abweichungen 31 und 34),
+  - Statusleiste im Pausen-Sheet bei größter Schrift: Zugeklappt hochkant (DS) reicht das Sheet dann bis y 136, der Statusring der Systemspalte liegt über seiner oberen rechten Ecke; der Inhalt ist frei davon (Abweichung 35). Hängt an der Frage „Statusleiste im Pausen-Sheet“ unten,
+  - Titel nach dem Wechsel von breit nach hoch: Nach Buch → Tabletop steht der große Titel klein in der Leiste, wie bei jeder Systemliste. Will Fatih ihn trotzdem groß, wäre das ein eigener Eingriff gegen das Systemverhalten (an den Anfang rollen, wenn die Ansicht vorher am Anfang stand),
+  - Audit auf dem Innendisplay: Die Kontrast-Prüfung kann dort je nach Lage der Zeilen in die Zeitgrenze laufen; sie ist für die Lizenzseite im Buch ausgenommen und in Pixeln gemessen. Tritt es bei anderem Text, anderer Sprache oder Schriftgröße auf einer anderen Seite auf, entfällt sie auf dem Innendisplay ganz,
+  - Abstände am Falz auf dem Gerät: Die Zahlen gelten für den Simulator (Division-Region 121 px mit je 20 pt Rand); auf dem Gerät können Region und Ränder anders sein (`FoldDivision.pageMargin` ist eine Konstante). Gehört in den Gerätetest,
   - Icon-Motiv (umgesetzt: Pixel springt über den gefalteten Bogen; Alternative „Bogen am Falz“),
   - Akzent im dunklen Modus: umgesetzt sind die hellen Werte von `systemIndigo` (siehe „Nachbesserungen nach der Prüfung“); zurück zur reinen Systemfarbe ginge mit dem Colorset allein, Weiß läge dann wieder bei 3,5 : 1, mit Kontrast erhöhen bei 2,1 : 1,
   - Statusleiste im Pausen-Sheet,
