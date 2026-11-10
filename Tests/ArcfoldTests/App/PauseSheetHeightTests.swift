@@ -8,9 +8,9 @@ import UIKit
 /// The height of the pause sheet (ADR 0007): that of its content, so no
 /// empty glass lies below the last button, and never across a fold that is
 /// bent across the window. The numbers are those measured in the Simulator's
-/// Duo: the content is 235 pt high at the default text size, the content
-/// area of the sheet ends 42 pt above the lower edge of the window, and the
-/// fold of the inner display is 121 px wide.
+/// Duo: the content is 235 pt high at the default text size, the safe area
+/// at the bottom of the sheet 34 pt, and the fold of the inner display is
+/// 121 px wide.
 struct PauseSheetHeightTests {
     /// The inner display folded like a laptop, as measured.
     static let tabletop = FoldGeometry(container: DuoGeometries.inner,
@@ -67,49 +67,51 @@ struct PauseSheetHeightTests {
         #expect(PauseSheetHeight(content: 0).value == 1)
     }
 
-    /// Only a fold that is bent across the view gives a ceiling: the
-    /// tabletop posture. Flat, in the book pose and on the outer display the
-    /// sheet may be as high as the window.
+    /// Only a fold that is bent across the view holds the sheet: the
+    /// tabletop posture, with the height of the view below the fold. Flat,
+    /// in the book pose and on the outer display the sheet may be as high as
+    /// the window.
     @Test func onlyAFoldBentAcrossTheViewHoldsTheSheet() {
-        #expect(PauseSheetHeight.foldCeiling(in: nil) == nil)
-        #expect(PauseSheetHeight.foldCeiling(in: Self.tabletop) == CGFloat(1487) / 3)
+        #expect(PauseSheetHeight.roomBelowFold(in: nil) == nil)
+        #expect(PauseSheetHeight.roomBelowFold(in: Self.tabletop) == CGFloat(2853 - 1487) / 3)
         for testCase in DuoGeometries.cases {
             let geometry = testCase.geometry
-            let ceiling = PauseSheetHeight.foldCeiling(in: geometry)
+            let room = PauseSheetHeight.roomBelowFold(in: geometry)
             if geometry.posture == .tabletop, let fold = geometry.fold {
-                #expect(ceiling == CGFloat(fold.maxY) / CGFloat(geometry.scale), "\(testCase.name)")
+                #expect(room == CGFloat(geometry.container.height - fold.maxY) / CGFloat(geometry.scale), "\(testCase.name)")
                 #expect(geometry.isFoldActive && fold.width > fold.height)
             } else {
-                #expect(ceiling == nil, "\(testCase.name)")
+                #expect(room == nil, "\(testCase.name)")
             }
         }
     }
 
-    /// Folded like a laptop, the content area of the sheet ends 42 pt above
-    /// the lower edge of the window (909 of 951 pt) and the fold at 495.67 pt:
-    /// 413 pt of room. The content of the default size fits and the sheet is
-    /// as high as it; the content of the largest text is held at the fold
-    /// and scrolls, and may be pulled up to the full height.
+    /// Folded like a laptop, 455.33 pt of the window lie below the fold, and
+    /// the safe area at the bottom of the sheet takes 34 pt of them: 421 pt
+    /// for the content, as the system's medium height gave it. The content
+    /// of the default size fits and the sheet is as high as it; the content
+    /// of the largest text is held and scrolls, and may be pulled up to the
+    /// full height.
     @Test func foldedLikeALaptopTheSheetStaysBelowTheFold() throws {
-        let ceiling = try #require(PauseSheetHeight.foldCeiling(in: Self.tabletop))
-        let fits = PauseSheetHeight(content: 234.67, foldCeiling: ceiling, contentBottom: 909)
-        #expect(fits.roomBelowFold == 909 - ceiling)
+        let room = try #require(PauseSheetHeight.roomBelowFold(in: Self.tabletop))
+        let fits = PauseSheetHeight(content: 234.67, roomBelowFold: room, bottomInset: 34)
+        #expect(fits.roomBelowFold == room - 34)
         #expect(fits.value == 235 && !fits.isHeldBelowFold)
         #expect(fits.detents(isAccessibilitySize: true) == [.height(235)])
 
-        let held = PauseSheetHeight(content: 438, foldCeiling: ceiling, contentBottom: 909)
-        #expect(held.value == 413 && held.isHeldBelowFold)
-        #expect(909 - (held.value ?? 0) >= ceiling, "the sheet begins above the lower edge of the fold")
-        #expect(held.detents(isAccessibilitySize: true) == [.height(413), .large])
-        #expect(held.detents(isAccessibilitySize: false) == [.height(413)])
+        let held = PauseSheetHeight(content: 438, roomBelowFold: room, bottomInset: 34)
+        #expect(held.value == 421 && held.isHeldBelowFold)
+        #expect(held.detents(isAccessibilitySize: true) == [.height(421), .large])
+        #expect(held.detents(isAccessibilitySize: false) == [.height(421)])
+        // With its safe area the sheet is no higher than the window below the fold.
+        #expect((held.value ?? 0) + 34 <= room)
     }
 
-    /// Until the sheet has measured where its content area ends, and where
-    /// that lies above the fold, nothing holds it.
-    @Test func withoutAMeasuredEndNothingHoldsTheSheet() throws {
-        let ceiling = try #require(PauseSheetHeight.foldCeiling(in: Self.tabletop))
-        #expect(PauseSheetHeight(content: 438, foldCeiling: ceiling, contentBottom: nil).value == 438)
-        #expect(PauseSheetHeight(content: 438, foldCeiling: ceiling, contentBottom: ceiling - 10).value == 438)
-        #expect(PauseSheetHeight(content: 438, foldCeiling: nil, contentBottom: 909).value == 438)
+    /// Without such a fold nothing holds the sheet, whatever the safe area;
+    /// a room smaller than the safe area leaves the sheet its least height.
+    @Test func withoutAFoldNothingHoldsTheSheet() {
+        #expect(PauseSheetHeight(content: 438, roomBelowFold: nil, bottomInset: 34).value == 438)
+        #expect(PauseSheetHeight(content: 438, roomBelowFold: nil, bottomInset: 34).roomBelowFold == nil)
+        #expect(PauseSheetHeight(content: 438, roomBelowFold: 20, bottomInset: 34).value == 1)
     }
 }

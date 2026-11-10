@@ -195,7 +195,9 @@ final class GameOverlayUITests: XCTestCase {
     /// than the sheet may become, as with the largest text in a low window
     /// or below the fold of the tabletop pose, Quit Game ends in that margin
     /// or below it: the sheet is as high as it may be and scrolls. It never
-    /// leaves the window and never lies on a fold that is bent across it.
+    /// leaves the window, and below a fold that is bent across the window
+    /// it begins no higher than the system's medium height did, 8 pt above
+    /// the lower edge of the fold.
     @MainActor
     func testThePauseSheetIsAsHighAsItsContent() throws {
         for system in ["gba", "ds"] {
@@ -225,7 +227,7 @@ final class GameOverlayUITests: XCTestCase {
                                              "\(name) scrolls though it could be higher")
                 }
                 if let fold {
-                    XCTAssertGreaterThanOrEqual(sheetFrame.minY, fold - 1, "\(name) lies on the fold that ends at \(fold)")
+                    XCTAssertGreaterThanOrEqual(sheetFrame.minY, fold - 9, "\(name) lies on the fold that ends at \(fold)")
                 }
                 app.terminate()
             }

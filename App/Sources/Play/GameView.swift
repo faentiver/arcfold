@@ -140,7 +140,7 @@ struct GameView: View {
             }
         }) {
             PauseMenu(gameName: session.game.name, transition: pauseTransition,
-                      foldCeiling: PauseSheetHeight.foldCeiling(in: measured),
+                      roomBelowFold: PauseSheetHeight.roomBelowFold(in: measured),
                       showsDebugOverlay: $showsDebugOverlay,
                       resume: {
                           session.resumeFromMenu()

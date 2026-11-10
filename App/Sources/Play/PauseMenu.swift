@@ -98,9 +98,9 @@ struct PauseMenu: View {
 
     let gameName: String
     let transition: Namespace.ID
-    /// The lower edge of a fold that lies bent across the window, in points
-    /// of the window: the sheet stays below it. Nil without such a fold.
-    var foldCeiling: CGFloat?
+    /// The height of the window below a fold that lies bent across it, in
+    /// points: the sheet stays in it. Nil without such a fold.
+    var roomBelowFold: CGFloat?
     @Binding var showsDebugOverlay: Bool
     let resume: () -> Void
     let quit: () -> Void
@@ -112,16 +112,13 @@ struct PauseMenu: View {
     /// first layout it counts as wide enough at the bottom, as on every
     /// display with a home indicator, so that the content is measured once.
     @State private var insets = PauseSheetMargins.Insets(bottom: PauseSheetMargins.bottomMargin)
-    /// Where the content area of the sheet ends in the window; nil before
-    /// the first layout.
-    @State private var contentBottom: CGFloat?
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @Environment(\.prefersFades) private var prefersFades
     @Environment(\.verticalSizeClass) private var verticalSizeClass
 
     var body: some View {
         let margins = PauseSheetMargins(insets: insets, isUpright: verticalSizeClass == .regular)
-        let height = PauseSheetHeight(content: contentHeight, foldCeiling: foldCeiling, contentBottom: contentBottom)
+        let height = PauseSheetHeight(content: contentHeight, roomBelowFold: roomBelowFold, bottomInset: insets.bottom)
         // Scrolls only when larger text is higher than the sheet may become.
         ScrollView {
             PauseMenuContent(gameName: gameName, showsDebugOverlay: $showsDebugOverlay, resume: resume, quit: quit)
@@ -144,11 +141,6 @@ struct PauseMenu: View {
                                      bottom: proxy.safeAreaInsets.bottom)
         } action: { insets in
             self.insets = insets
-        }
-        .onGeometryChange(for: CGFloat.self) { proxy in
-            proxy.frame(in: .global).maxY
-        } action: { bottom in
-            contentBottom = bottom
         }
         // A container, or the identifier would replace those of the buttons.
         .accessibilityElement(children: .contain)
@@ -238,10 +230,12 @@ struct PauseMenuContent: View {
 /// sizes it opens without a second move; with the accessibility sizes it
 /// begins at the system's medium height, as it used to.
 ///
-/// Folded like a laptop, the sheet stays on the lower half: the content
-/// area ends where the fold does, and what does not fit scrolls. The
-/// system's medium height did the same; a height of one's own crosses the
-/// fold unless it is held.
+/// Folded like a laptop, the sheet stays on the lower half, where the
+/// system's medium height kept it, and what does not fit scrolls; a height
+/// of one's own crosses the fold unless it is held. The sheet is given the
+/// height of the window below the fold; the system keeps it 8 pt off the
+/// edge of the display, so it begins 8 pt above the lower edge of the fold,
+/// as the medium height did.
 nonisolated struct PauseSheetHeight: Equatable {
     /// The height of the content as laid out; nil before the first layout.
     var content: CGFloat?
@@ -253,13 +247,12 @@ nonisolated struct PauseSheetHeight: Equatable {
     /// safe area of the sheet as its margin at the bottom.
     static let contentAtDefaultSize: CGFloat = 235
 
-    /// `foldCeiling` is the lower edge of such a fold and `contentBottom`
-    /// the end of the sheet's content area, both in points of the window.
-    init(content: CGFloat?, foldCeiling: CGFloat? = nil, contentBottom: CGFloat? = nil) {
+    /// `roomBelowFold` is the height of the window below such a fold. The
+    /// safe area at the bottom of the sheet, `bottomInset`, lies in it below
+    /// the content.
+    init(content: CGFloat?, roomBelowFold: CGFloat? = nil, bottomInset: CGFloat = 0) {
         self.content = content
-        if let foldCeiling, let contentBottom, contentBottom > foldCeiling {
-            roomBelowFold = contentBottom - foldCeiling
-        }
+        self.roomBelowFold = roomBelowFold.map { max(0, $0 - bottomInset) }
     }
 
     /// The height of the sheet's content area in whole points; nil before
@@ -286,11 +279,11 @@ nonisolated struct PauseSheetHeight: Equatable {
         return isHeldBelowFold && isAccessibilitySize ? [.height(value), .large] : [.height(value)]
     }
 
-    /// The lower edge of a fold that lies bent across the view of
-    /// `geometry`, the tabletop posture, in points; nil in every other pose.
-    static func foldCeiling(in geometry: FoldGeometry?) -> CGFloat? {
+    /// The height of the view of `geometry` below a fold that lies bent
+    /// across it, the tabletop posture, in points; nil in every other pose.
+    static func roomBelowFold(in geometry: FoldGeometry?) -> CGFloat? {
         guard let geometry, geometry.posture == .tabletop, let fold = geometry.fold else { return nil }
-        return CGFloat(fold.maxY) / CGFloat(geometry.scale)
+        return CGFloat(geometry.container.height - fold.maxY) / CGFloat(geometry.scale)
     }
 }
 
