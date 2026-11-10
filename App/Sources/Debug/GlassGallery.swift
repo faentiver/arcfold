@@ -129,7 +129,7 @@ struct GlassGallery: View {
             }
         case .failure:
             InGamePage {
-                GameFailureView(message: "Core Failed to Load: the framework mgba_libretro could not be opened.") {}
+                MeasuredFailure(message: "Core Failed to Load: the framework mgba_libretro could not be opened.")
             }
         case .gameLandscape:
             InGamePage {
@@ -381,6 +381,29 @@ extension GlassGallery {
         thermalState: .nominal,
         isLowPowerModeEnabled: false
     )
+}
+
+/// The failure message in the geometry the page measures, where
+/// `OverlayPlacement` puts it in a game: on one screen, never across the fold.
+private struct MeasuredFailure: View {
+    let message: String
+    @State private var measured: FoldGeometry?
+    @Environment(\.displayScale) private var displayScale
+
+    var body: some View {
+        // As in GameView: the reader fills the safe area, the message hangs
+        // in its background in the coordinates of the whole view.
+        Color.clear
+            .onFoldGeometryChange(scale: max(1, Int(displayScale.rounded()))) { geometry in
+                measured = geometry
+            }
+            .background(alignment: .topLeading) {
+                if let measured {
+                    GameFailureView(message: message, area: OverlayPlacement.failureArea(in: measured)) {}
+                        .ignoresSafeArea()
+                }
+            }
+    }
 }
 
 /// A page that looks like a running game of selftest.gba: dark, without

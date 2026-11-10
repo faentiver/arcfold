@@ -2,8 +2,8 @@ import CoreGraphics
 import FoldLayout
 
 /// Where the overlays of a game sit, in points of the whole game view, the
-/// coordinates of `GameStage`: the pause button, the debug overlay, notices
-/// and the status chip (ADR 0007). A pure function of `GameLayout` (ADR 0006)
+/// coordinates of `GameStage`: the pause button, the debug overlay, notices,
+/// the status chip and the message of a failed start (ADR 0007). A pure function of `GameLayout` (ADR 0006)
 /// and the touch controls built from it, so tests check it against every
 /// system and pose: no overlay covers a touch button with its slop, the reach
 /// of the pad, the pause button, the DS touch screen or the fold.
@@ -30,6 +30,9 @@ nonisolated struct OverlayPlacement: Sendable, Hashable {
     /// The area the status chip is laid out in, aligned to its bottom edge:
     /// just above the notices.
     var chipAnchor: CGRect
+    /// Where the message of a game that could not start and its button are
+    /// centred: the safe area of one screen, never across the fold.
+    var failureArea: CGRect
     /// Distance of the overlays from the edges.
     var inset: CGFloat
 
@@ -81,6 +84,8 @@ nonisolated struct OverlayPlacement: Sendable, Hashable {
         }
         debugMaxWidth = max(0, debugRight - origin.x)
 
+        failureArea = Self.failureArea(in: geometry)
+
         // Notices and the chip stay on the picture, clear of everything
         // that takes touches and of the fold, where glass must not lie.
         let obstacles = Self.obstacles(layout: layout, geometry: geometry, controls: controls, pauseTarget: pauseTarget)
@@ -109,6 +114,34 @@ nonisolated struct OverlayPlacement: Sendable, Hashable {
             let top = min(chip.maxY + Self.spacing, toast.maxY)
             toastAnchor = CGRect(x: toast.minX, y: top, width: toast.width, height: toast.maxY - top)
         }
+    }
+
+    /// Where the message of a failed start is centred: the safe area, and
+    /// with a fold the part of it above the fold, or left of a fold from top
+    /// to bottom. That holds for an inactive fold and for one without a
+    /// width too: the hinge lies there in every pose of the inner display,
+    /// and text and a button across it read badly. An occlusion such as the
+    /// camera takes the smaller part beside it away.
+    static func failureArea(in geometry: FoldGeometry) -> CGRect {
+        let scale = geometry.scale
+        var area = geometry.safeBounds.points(scale: scale)
+        if let fold = geometry.fold.map({ $0.points(scale: scale) }) {
+            if fold.width > fold.height {
+                area.size.height = max(0, min(area.maxY, fold.minY) - area.minY)
+            } else {
+                area.size.width = max(0, min(area.maxX, fold.minX) - area.minX)
+            }
+        }
+        for occlusion in geometry.occlusions.map({ $0.points(scale: scale) }) where occlusion.intersects(area) {
+            let parts = [
+                CGRect(x: area.minX, y: area.minY, width: occlusion.minX - area.minX, height: area.height),
+                CGRect(x: occlusion.maxX, y: area.minY, width: area.maxX - occlusion.maxX, height: area.height),
+                CGRect(x: area.minX, y: area.minY, width: area.width, height: occlusion.minY - area.minY),
+                CGRect(x: area.minX, y: occlusion.maxY, width: area.width, height: area.maxY - occlusion.maxY),
+            ].filter { $0.width > 0 && $0.height > 0 }
+            area = parts.max { $0.width * $0.height < $1.width * $1.height } ?? area
+        }
+        return area
     }
 
     /// The lowest picture that holds the notice and the chip one above the

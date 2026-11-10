@@ -51,7 +51,7 @@ struct GameOverlays: View {
             .allowsHitTesting(false)
 
             if let failure {
-                GameFailureView(message: failure, close: close)
+                GameFailureView(message: failure, area: placement.failureArea, close: close)
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
