@@ -144,9 +144,12 @@ final class GlassUITests: GlassUITestCase {
         XCTAssertTrue(waitUntil(overlay, hasValue: "paused=false;"), "Resume did not resume")
         sleep(1)
 
-        let origin = app.coordinate(withNormalizedOffset: .zero)
+        // Relative to the window: on the inner display the application keeps
+        // the frame of the display's own orientation, and a tap relative to
+        // it misses the window (UITestSupport).
+        let origin = app.viewOrigin
         let before = OverlayValues(overlay)
-        origin.withOffset(CGVector(dx: app.frame.width / 2, dy: 3)).tap()
+        origin.withOffset(CGVector(dx: app.gameWindow.frame.width / 2, dy: 3)).tap()
         sleep(1)
         let afterEdge = OverlayValues(overlay)
         XCTAssertEqual(afterEdge.buttonPresses, before.buttonPresses, "The top edge pressed a button")
