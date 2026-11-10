@@ -154,7 +154,7 @@ struct LibraryView: View {
                     GameGrid(games: games, space: LibraryColumns.Space(geometry: geometry, margins: margins)) { game in
                         open(.game(game))
                     }
-                    .padding(.top, 8)
+                    .padding(.top, LibraryColumns.topPadding)
                     .padding(.bottom, 24)
                 }
             }

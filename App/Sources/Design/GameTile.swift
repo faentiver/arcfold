@@ -6,10 +6,14 @@ struct GameTile: View {
     let game: Game
     let corner: CGFloat
 
+    /// Between the artwork and the name, and between the name and the system.
+    nonisolated static let labelSpacing: CGFloat = 6
+    nonisolated static let lineSpacing: CGFloat = 2
+
     var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
+        VStack(alignment: .leading, spacing: Self.labelSpacing) {
             GameArtwork(style: GameStyle(game), variant: .tile(corner: corner))
-            VStack(alignment: .leading, spacing: 2) {
+            VStack(alignment: .leading, spacing: Self.lineSpacing) {
                 Text(verbatim: game.name)
                     .font(.subheadline.weight(.semibold))
                     .foregroundStyle(.primary)
