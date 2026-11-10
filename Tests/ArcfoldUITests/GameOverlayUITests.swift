@@ -1,4 +1,3 @@
-import notify
 import XCTest
 
 /// What lies over a running game, in the pose the device is in when the
@@ -20,24 +19,11 @@ final class GameOverlayUITests: XCTestCase {
 
     // MARK: Helpers
 
-    /// A test program of this bundle, by path, for the debug launch.
-    private func overlayFixture(_ system: String) throws -> String {
-        let name = system == "ds" ? "nds" : "gba"
-        let url = try XCTUnwrap(Bundle(for: GameOverlayUITests.self).url(forResource: "selftest", withExtension: name),
-                                "selftest.\(name) is not in the UI test bundle")
-        return url.path(percentEncoded: false)
-    }
-
-    /// Asks the debug build for a sample or a pose (`DebugRemote`).
-    private func overlayRemote(_ name: String) {
-        _ = notify_post("com.faentiver.arcfold.debug." + name)
-    }
-
     /// Starts the test program of `system` and waits for the game.
     @MainActor
     private func overlayLaunch(_ system: String, arguments: [String] = []) throws -> XCUIApplication {
         let app = XCUIApplication()
-        app.launchArguments = ["-ArcfoldAutorun", try overlayFixture(system)] + arguments
+        app.launchArguments = ["-ArcfoldAutorun", try fixturePath("selftest", system == "ds" ? "nds" : "gba")] + arguments
         app.launch()
         return app
     }
@@ -61,21 +47,10 @@ final class GameOverlayUITests: XCTestCase {
         }.filter { !$0.frame.isEmpty }
     }
 
-    /// Keeps a screenshot of the display the app runs on: in the Duo
-    /// Simulator the main screen is the outer display, also while the app
-    /// runs on the inner one.
+    /// Keeps a screenshot of the display the app runs on.
     @MainActor
     private func overlayKeep(_ app: XCUIApplication, named name: String) {
-        let window = app.windows.firstMatch.frame.size
-        let screen = XCUIScreen.screens.first { screen in
-            let size = screen.screenshot().image.size
-            return (abs(size.width - window.width) < 1 && abs(size.height - window.height) < 1)
-                || (abs(size.width - window.height) < 1 && abs(size.height - window.width) < 1)
-        } ?? .main
-        let attachment = XCTAttachment(screenshot: screen.screenshot())
-        attachment.name = name
-        attachment.lifetime = .keepAlways
-        add(attachment)
+        keep(app.displayScreenshot(), named: name)
     }
 
     @MainActor
@@ -94,10 +69,10 @@ final class GameOverlayUITests: XCTestCase {
             for (size, arguments) in [("default", []), ("largest", Self.largestText)] {
                 let app = try overlayLaunch(system, arguments: arguments)
                 overlayWaitForTheGame(app)
-                overlayRemote("chip.show")
+                postDebugNotification("chip.show")
                 let chip = overlayText(app, beginning: Self.chip)
                 XCTAssertTrue(chip.waitForExistence(timeout: 5), "\(system) \(size): no chip")
-                overlayRemote("notice.long")
+                postDebugNotification("notice.long")
                 let notice = overlayText(app, beginning: Self.notice)
                 XCTAssertTrue(notice.waitForExistence(timeout: 5), "\(system) \(size): no notice")
                 // The chip moved up for the notice; read both once they rest.
@@ -207,7 +182,7 @@ final class GameOverlayUITests: XCTestCase {
             XCTAssertTrue(title.exists && message.exists)
             overlayKeep(app, named: "failure-\(system)")
 
-            let window = app.windows.firstMatch.frame
+            let window = app.gameWindow.frame
             let frames = [("Close", close.frame), ("title", title.frame), ("message", message.frame)]
             for (name, frame) in frames {
                 XCTAssertTrue(window.insetBy(dx: -1, dy: -1).contains(frame), "\(system): \(name) \(frame) leaves the window \(window)")

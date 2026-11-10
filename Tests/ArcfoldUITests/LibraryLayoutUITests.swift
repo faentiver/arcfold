@@ -60,7 +60,7 @@ final class LibraryLayoutUITests: XCTestCase {
             let title = app.navigationBars["Library"].staticTexts["Library"]
             XCTAssertTrue(title.waitForExistence(timeout: 5), "The library shows no title (\(textSize))")
             let tile = app.buttons["game-gba-Arc-Light"].frame
-            let window = app.windows.firstMatch.frame
+            let window = app.gameWindow.frame
             note("title \(title.frame.minX) tile \(tile.minX) window \(window.width) x \(window.height) \(textSize)")
             XCTAssertEqual(tile.minX, title.frame.minX, accuracy: 1,
                            "The grid does not begin at the large title (\(textSize), window \(window.size))")
@@ -72,7 +72,7 @@ final class LibraryLayoutUITests: XCTestCase {
     func testATileKeepsItsNameInViewAtEveryTextSize() {
         for textSize in Self.textSizes {
             let app = launchLibraryShelf(textSize: textSize)
-            let window = app.windows.firstMatch.frame
+            let window = app.gameWindow.frame
             let tiles = libraryTiles(in: app)
             guard let first = tiles.first else {
                 XCTFail("No tile (\(textSize))")
@@ -106,7 +106,7 @@ final class LibraryLayoutUITests: XCTestCase {
     func testNoTileLiesOnAFoldThatDividesTheWindow() {
         for textSize in ["UICTContentSizeCategoryL", "UICTContentSizeCategoryAccessibilityL"] {
             let app = launchLibraryShelf(textSize: textSize, arguments: Self.foldArguments)
-            let window = app.windows.firstMatch.frame
+            let window = app.gameWindow.frame
             let fold = fold(in: window)
             let tiles = libraryTiles(in: app)
             let before = tiles.filter { $0.maxX <= fold.lowerBound + 0.5 }
@@ -156,7 +156,7 @@ final class LibraryLayoutUITests: XCTestCase {
         app.launch()
         let importGames = app.buttons["Import Games"]
         XCTAssertTrue(importGames.waitForExistence(timeout: 15))
-        let fold = fold(in: app.windows.firstMatch.frame)
+        let fold = fold(in: app.gameWindow.frame)
         note("empty library: button \(importGames.frame), fold \(fold.lowerBound)-\(fold.upperBound)")
         // The glass button and the texts lie on the first page.
         XCTAssertLessThanOrEqual(importGames.frame.maxX, fold.lowerBound + 0.5, "Import Games lies on or after the fold")
@@ -167,7 +167,7 @@ final class LibraryLayoutUITests: XCTestCase {
     @MainActor
     func testASearchWithoutResultsStaysBesideAFold() {
         let app = launchLibraryShelf(arguments: Self.foldArguments)
-        let fold = fold(in: app.windows.firstMatch.frame)
+        let fold = fold(in: app.gameWindow.frame)
         let search = app.buttons["Search"]
         XCTAssertTrue(search.waitForExistence(timeout: 5), "The library shows no search button")
         search.tap()
@@ -189,7 +189,7 @@ final class LibraryLayoutUITests: XCTestCase {
     @MainActor
     func testCoresStayBesideAFold() {
         let app = launchLibraryShelf(arguments: Self.foldArguments)
-        let fold = fold(in: app.windows.firstMatch.frame)
+        let fold = fold(in: app.gameWindow.frame)
 
         app.buttons["info-menu"].tap()
         let cores = app.buttons["Cores"]
@@ -211,7 +211,7 @@ final class LibraryLayoutUITests: XCTestCase {
     func testLicensesShareTheWindowAtAFold() throws {
         try XCTSkipIf(Self.namedFold == nil, "Needs a real fold, named by ARCFOLD_LIBRARY_FOLD")
         let app = launchLibraryShelf()
-        let fold = fold(in: app.windows.firstMatch.frame)
+        let fold = fold(in: app.gameWindow.frame)
         app.buttons["info-menu"].tap()
         let licenses = app.buttons["Licenses"]
         XCTAssertTrue(licenses.waitForExistence(timeout: 5))
