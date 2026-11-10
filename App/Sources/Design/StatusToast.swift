@@ -22,10 +22,11 @@ struct NoticeStack: View {
 
     var body: some View {
         ViewThatFits(in: .vertical) {
-            stack(upTo: Self.sizeLimits[0])
-            stack(upTo: Self.sizeLimits[1])
-            stack(upTo: Self.sizeLimits[2])
-            stack(upTo: Self.sizeLimits[3])
+            // Each of these shows only when it fits, at its own height.
+            stack(upTo: Self.sizeLimits[0]).fixedSize(horizontal: false, vertical: true)
+            stack(upTo: Self.sizeLimits[1]).fixedSize(horizontal: false, vertical: true)
+            stack(upTo: Self.sizeLimits[2]).fixedSize(horizontal: false, vertical: true)
+            stack(upTo: Self.sizeLimits[3]).fixedSize(horizontal: false, vertical: true)
             // Too high even at the default size: the notice gives way.
             stack(upTo: Self.sizeLimits[4])
         }
