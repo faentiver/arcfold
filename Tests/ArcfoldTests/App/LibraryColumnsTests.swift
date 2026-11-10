@@ -3,12 +3,14 @@ import CoreGraphics
 import FoldLayout
 import SwiftUI
 import Testing
+import UIKit
 
 /// The columns of the library (`LibraryColumns`) in the windows of the Duo
 /// and in every geometry of `LayoutInvariantTests` in FoldLayout, at every
 /// text size: the grid begins and ends at the system's margins, its columns
 /// are equal and apart, a tile with its name fits into what the window
-/// shows at once, and no tile lies on a fold that divides the window.
+/// shows at once and is as wide as its text size asks, and no tile lies on
+/// a fold that divides the window.
 struct LibraryColumnsTests {
     /// A window as the library finds it: the width of its scroll view inside
     /// the safe area and the system's margins in it.
@@ -185,7 +187,95 @@ struct LibraryColumnsTests {
 
     /// The height of a tile with a name of two lines.
     static func tileHeight(_ layout: LibraryColumns, _ typeSize: DynamicTypeSize) -> CGFloat {
-        (layout.columns.first?.width ?? 0) / LibraryColumns.artworkAspect + LibraryColumns.labelHeight(for: typeSize)
+        layout.artworkHeight + LibraryColumns.labelHeight(for: typeSize)
+    }
+
+    /// The width a tile must have in `space` at `typeSize`: the minimum of
+    /// the width class times the factor of the text size, or the whole page
+    /// where that is narrower.
+    static func widthAsked(in space: LibraryColumns.Space, _ typeSize: DynamicTypeSize) -> CGFloat {
+        let room = LibraryColumns.pages(in: space).map { $0.upperBound - $0.lowerBound }.min() ?? 0
+        return min(Metrics.tileMinWidth(for: room) * LibraryColumns.tileScale(for: typeSize), room)
+    }
+
+    @Test(arguments: windows)
+    func aTileIsAsWideAsItsTextSizeAsks(window: Window) {
+        for typeSize in Self.typeSizes {
+            let layout = LibraryColumns(space: window.space, typeSize: typeSize)
+            #expect(layout.columns[0].width >= Self.widthAsked(in: window.space, typeSize) - 0.01,
+                    "\(window.name), \(typeSize): \(layout.columns.count) tiles of \(layout.columns[0].width) pt")
+        }
+    }
+
+    @Test(arguments: DuoGeometries.cases)
+    func aTileIsAsWideAsItsTextSizeAsksInEveryGeometry(geometry: DuoGeometries.Case) {
+        for margins in Self.margins {
+            let space = LibraryColumns.Space(geometry: geometry.geometry, margins: margins)
+            for typeSize in Self.typeSizes {
+                let layout = LibraryColumns(space: space, typeSize: typeSize)
+                #expect(layout.columns[0].width >= Self.widthAsked(in: space, typeSize) - 0.01,
+                        "\(geometry.name), \(typeSize): \(layout.columns.count) tiles of \(layout.columns[0].width) pt")
+                // Lower artwork, never higher than 4 : 3.
+                #expect(layout.artworkHeight <= layout.columns[0].width / LibraryColumns.artworkAspect + 0.01)
+                #expect(layout.artworkHeight >= min(LibraryColumns.lowestArtwork, layout.columns[0].width / LibraryColumns.artworkAspect))
+            }
+        }
+    }
+
+    /// The names of the gallery's shelf, the longest words first.
+    static let names = ["Homebrew Demo", "fold_runner", "Arc-Light", "Night Drive", "Pixel Quest", "Star Garden", "Tiny Racer", "selftest"]
+
+    /// Whether `name` fits into two lines of `width` in the font of a tile
+    /// at `typeSize`, without a break inside a word.
+    static func fits(_ name: String, width: CGFloat, _ typeSize: DynamicTypeSize) -> Bool {
+        let traits = UITraitCollection(preferredContentSizeCategory: UIContentSizeCategory(typeSize))
+        let size = UIFont.preferredFont(forTextStyle: .subheadline, compatibleWith: traits).pointSize
+        let font = UIFont.systemFont(ofSize: size, weight: .semibold)
+        let attributes: [NSAttributedString.Key: Any] = [.font: font]
+        let words = name.split(separator: " ").map { (String($0) as NSString).size(withAttributes: attributes).width }
+        let box = (name as NSString).boundingRect(with: CGSize(width: width, height: .greatestFiniteMagnitude),
+                                                  options: [.usesLineFragmentOrigin], attributes: attributes, context: nil)
+        return words.allSatisfy { $0 <= width } && box.height <= 2 * font.lineHeight + 1
+    }
+
+    /// Sideways on the outer display three tiles of 181 pt once cut the
+    /// names to "Arc-Li…" at the largest sizes.
+    @Test func noNameIsCutShortInTheWindowsOfTheDuo() {
+        let book = Window(name: "book", width: 867, margins: SystemMargins(leading: 20, trailing: 0), visibleHeight: 553)
+        for window in Self.measured + [book] {
+            var space = window.space
+            if window.name == "book" {
+                space = LibraryColumns.Space(geometry: Self.book, margins: window.margins)
+            }
+            for typeSize in Self.typeSizes {
+                let layout = LibraryColumns(space: space, typeSize: typeSize)
+                for name in Self.names {
+                    #expect(Self.fits(name, width: layout.columns[0].width, typeSize),
+                            "\(window.name), \(typeSize): \(name) is cut short in \(layout.columns[0].width) pt")
+                }
+            }
+        }
+        // The check itself: the tiles of old were too narrow.
+        #expect(!Self.fits("Homebrew Demo", width: 180.67, .accessibility5))
+        #expect(!Self.fits("fold_runner", width: 180.67, .accessibility3))
+    }
+
+    @Test func aLowWindowLowersTheArtworkNotTheWidth() {
+        // Sideways on the outer display: 594 pt wide, 350 pt high.
+        let window = Self.measured[1]
+        let standard = LibraryColumns(space: window.space, typeSize: .large)
+        #expect(standard.columns.count == 3)
+        #expect(abs(standard.artworkHeight - standard.columns[0].width / LibraryColumns.artworkAspect) < 0.01)
+        // The largest text: one tile over the whole width, its artwork as
+        // high as the label leaves room.
+        let largest = LibraryColumns(space: window.space, typeSize: .accessibility5)
+        #expect(largest.columns.count == 1 && abs(largest.columns[0].width - 574) < 0.01)
+        let room = 350 - LibraryColumns.topPadding - LibraryColumns.labelHeight(for: .accessibility5)
+        #expect(abs(largest.artworkHeight - room) < 0.01)
+        #expect(largest.artworkHeight < largest.columns[0].width / LibraryColumns.artworkAspect)
+        // Without a visible height the artwork keeps 4 : 3.
+        let unlimited = LibraryColumns(space: .init(width: 594, margins: window.margins), typeSize: .accessibility5)
+        #expect(abs(unlimited.artworkHeight - 574 / LibraryColumns.artworkAspect) < 0.01)
     }
 
     @Test(arguments: windows)
@@ -203,10 +293,11 @@ struct LibraryColumnsTests {
         let counts = Self.measured.map { window in
             accessibility.map { LibraryColumns(space: window.space, typeSize: $0).columns.count }
         }
-        // Beside the bar of the outer display there is room for one tile.
-        // Sideways there the height of a row asks for more columns again as
-        // the label grows; every wider window keeps at least two.
-        #expect(counts == [[1, 1, 1, 1, 1], [2, 2, 3, 3, 3], [2, 2, 2, 2, 2], [3, 3, 2, 2, 2]])
+        // Beside the bar of the outer display there is room for one tile,
+        // sideways there for two and at the two largest sizes for one; the
+        // height of a row never adds a column. Every wider window keeps at
+        // least two.
+        #expect(counts == [[1, 1, 1, 1, 1], [2, 2, 2, 1, 1], [2, 2, 2, 2, 2], [3, 3, 2, 2, 2]])
         for (window, counts) in zip(Self.measured, counts) {
             let standard = LibraryColumns(space: window.space, typeSize: .large).columns.count
             #expect(counts.allSatisfy { $0 <= standard }, "\(window.name)")

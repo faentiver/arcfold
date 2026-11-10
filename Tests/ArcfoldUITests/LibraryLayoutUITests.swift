@@ -91,6 +91,33 @@ final class LibraryLayoutUITests: XCTestCase {
         }
     }
 
+    /// A name that ends in an ellipsis or breaks inside a word is clipped
+    /// text for the system's audit. Sideways on the outer display the grid
+    /// once squeezed three tiles into the row at the largest sizes.
+    @MainActor
+    func testNoNameOfATileIsCutShortAtAnyTextSize() throws {
+        for textSize in Self.textSizes {
+            let app = launchLibraryShelf(textSize: textSize)
+            let window = app.gameWindow.frame
+            let tiles = libraryTiles(in: app)
+            let names = Set(app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'game-gba-'")).allElementsBoundByIndex
+                .map { String($0.identifier.dropFirst("game-gba-".count)) })
+            XCTAssertFalse(names.isEmpty, "No tile (\(textSize))")
+            note("names: \(Set(tiles.map(\.minX)).count) columns of \(tiles.first?.width ?? 0) pt, "
+                + "window \(window.width) x \(window.height) \(textSize)")
+            try app.performAccessibilityAudit(for: .textClipped) { issue in
+                let label = issue.element?.label ?? ""
+                // Only the names of the tiles count here; the audit of the
+                // whole screen is testTheLibraryPassesTheAccessibilityAuditInItsWindow.
+                let isName = names.contains(label)
+                self.note("names\(isName ? "" : " (not a name)"): \(issue.compactDescription) \(label) "
+                    + "\(issue.element?.frame ?? .zero) \(textSize)")
+                return !isName
+            }
+            app.terminate()
+        }
+    }
+
     /// The fold the app lays out for: the one named from outside, or the
     /// artificial one down the middle of the window.
     private func fold(in window: CGRect) -> ClosedRange<CGFloat> {

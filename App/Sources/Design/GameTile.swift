@@ -5,6 +5,8 @@ import SwiftUI
 struct GameTile: View {
     let game: Game
     let corner: CGFloat
+    /// The height of the artwork, as `LibraryColumns` gives it.
+    let artworkHeight: CGFloat
 
     /// Between the artwork and the name, and between the name and the system.
     nonisolated static let labelSpacing: CGFloat = 6
@@ -12,7 +14,7 @@ struct GameTile: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: Self.labelSpacing) {
-            GameArtwork(style: GameStyle(game), variant: .tile(corner: corner))
+            GameArtwork(style: GameStyle(game), variant: .tile(corner: corner, height: artworkHeight))
             VStack(alignment: .leading, spacing: Self.lineSpacing) {
                 Text(verbatim: game.name)
                     .font(.subheadline.weight(.semibold))
@@ -58,7 +60,7 @@ struct GameGrid: View {
                 Button {
                     play(game)
                 } label: {
-                    GameTile(game: game, corner: layout.corner)
+                    GameTile(game: game, corner: layout.corner, artworkHeight: layout.artworkHeight)
                         .contentShape(.rect(cornerRadius: layout.corner))
                 }
                 .buttonStyle(TileButtonStyle())

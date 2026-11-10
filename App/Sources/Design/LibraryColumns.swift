@@ -14,9 +14,9 @@ import UIKit
 /// - From the accessibility sizes on a tile must be wider, by the factor of
 ///   `tileScale(for:)`, so there are fewer columns; how many still follows
 ///   the width.
-/// - A tile shows its artwork, its name and its system at once: while a row
-///   is higher than the scroll view, the grid takes one more column, down
-///   to tiles of `narrowestTile`.
+/// - A tile shows its artwork, its name and its system at once: where a row
+///   would be higher than the scroll view, the artwork gets lower, never the
+///   tile narrower, so a name keeps the width its text size asks for.
 /// - A fold that divides the window from top to bottom (the Duo held like a
 ///   book) divides the grid into two pages, as the system divides its own
 ///   apps there: the same number of equal columns on each side, from the
@@ -71,13 +71,18 @@ nonisolated struct LibraryColumns: Sendable, Equatable {
     let rowSpacing: CGFloat
     /// The corner radius of a tile.
     let corner: CGFloat
+    /// The height of the artwork of a tile: its width at `artworkAspect`, or
+    /// what the label leaves of the visible height when that is less.
+    let artworkHeight: CGFloat
 
-    /// Width to height of the artwork of a tile, as `GameArtwork` draws it.
+    /// Width to height of the artwork of a tile with room for it.
     static let artworkAspect: CGFloat = 4 / 3
     /// The space above the first row of the grid.
     static let topPadding: CGFloat = 8
-    /// Below this width a tile gets no narrower for the sake of its height.
+    /// A side of a fold narrower than this takes no tiles.
     static let narrowestTile: CGFloat = 120
+    /// The artwork gets no lower than this, whatever the window.
+    static let lowestArtwork: CGFloat = 60
 
     init(space: Space, typeSize: DynamicTypeSize) {
         let pages = Self.pages(in: space)
@@ -85,16 +90,16 @@ nonisolated struct LibraryColumns: Sendable, Equatable {
         let room = pages.map { $0.upperBound - $0.lowerBound }.min() ?? 1
         let spacing = Metrics.gridSpacing(for: room)
         let minimum = Metrics.tileMinWidth(for: room) * Self.tileScale(for: typeSize)
-        var count = Self.count(in: room, minimum: minimum, spacing: spacing.horizontal)
+        // The width alone decides how many tiles lie side by side.
+        let count = Self.count(in: room, minimum: minimum, spacing: spacing.horizontal)
+        let width = Self.tileWidth(in: room, count: count, spacing: spacing.horizontal)
+        var artwork = width / Self.artworkAspect
         if let visibleHeight = space.visibleHeight {
             // The artwork may take what the label leaves of the visible height.
-            let limit = (visibleHeight - Self.topPadding - Self.labelHeight(for: typeSize)) * Self.artworkAspect
-            while Self.tileWidth(in: room, count: count, spacing: spacing.horizontal) > limit,
-                  Self.tileWidth(in: room, count: count + 1, spacing: spacing.horizontal) >= Self.narrowestTile {
-                count += 1
-            }
+            let limit = visibleHeight - Self.topPadding - Self.labelHeight(for: typeSize)
+            artwork = min(artwork, max(limit, Self.lowestArtwork))
         }
-        let width = Self.tileWidth(in: room, count: count, spacing: spacing.horizontal)
+        artworkHeight = artwork
         columns = pages.flatMap { page in
             (0..<count).map { index in
                 Column(x: page.lowerBound + CGFloat(index) * (width + spacing.horizontal), width: width)

@@ -5,8 +5,10 @@ import SwiftUI
 /// No covers: the look comes from the file's hash alone.
 struct GameArtwork: View {
     enum Variant: Hashable {
-        /// A library tile, 4 : 3, with the corner radius of the width class.
-        case tile(corner: CGFloat)
+        /// A library tile with the corner radius of the width class: 4 : 3,
+        /// or as wide as its column and `height` high where the grid names
+        /// one, because the window is too low for 4 : 3.
+        case tile(corner: CGFloat, height: CGFloat? = nil)
         /// The head of the pause menu, 56 × 42.
         case thumbnail
         /// Behind the loading spinner and the failure message: blurred and
@@ -35,10 +37,17 @@ struct GameArtwork: View {
 
     var body: some View {
         switch variant {
-        case let .tile(corner):
-            framed(corner: corner)
-                .aspectRatio(4 / 3, contentMode: .fit)
-                .modifier(ArtworkAccessibility())
+        case let .tile(corner, height):
+            Group {
+                if let height {
+                    framed(corner: corner)
+                        .frame(height: height)
+                } else {
+                    framed(corner: corner)
+                        .aspectRatio(4 / 3, contentMode: .fit)
+                }
+            }
+            .modifier(ArtworkAccessibility())
         case .thumbnail:
             framed(corner: 8)
                 .frame(width: Self.thumbnailSize.width, height: Self.thumbnailSize.height)
