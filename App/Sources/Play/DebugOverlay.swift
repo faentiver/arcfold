@@ -258,6 +258,9 @@ struct DebugOverlay: View {
     /// Called on every refresh; must only read snapshots.
     let read: () -> DebugReadings
 
+    @Environment(\.colorSchemeContrast) private var contrast
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+
     var body: some View {
         TimelineView(.periodic(from: .now, by: 0.25)) { _ in
             let readings = read()
@@ -269,7 +272,10 @@ struct DebugOverlay: View {
             .font(.system(size: 10, design: .monospaced))
             .foregroundStyle(.white)
             .padding(6)
-            .background(.black.opacity(0.6), in: RoundedRectangle(cornerRadius: 6))
+            // A measuring tool over the picture: a plain card, no glass, so it
+            // costs the compositor nothing extra while it measures.
+            .background(.black.opacity(contrast == .increased || reduceTransparency ? 0.85 : 0.6),
+                        in: RoundedRectangle(cornerRadius: 8, style: .continuous))
             .accessibilityElement(children: .combine)
             .accessibilityValue(Text(verbatim: readings.accessibilityValue))
             .accessibilityIdentifier("debug-overlay")

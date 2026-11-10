@@ -32,6 +32,12 @@ struct RootView: View {
             // A new game gets a view of its own, and with it a session of its own.
             GameView(game: game, library: library) { stage = .library }
                 .id(game.id)
+                // The game's colours for the artwork, the deck and the pause
+                // sheet; glass or flat for its controls (ADR 0007).
+                .environment(\.gameStyle, GameStyle(game))
+                .resolvesControlSurface()
+                // A game is always dark; the pause sheet inherits it.
+                .preferredColorScheme(.dark)
         #if DEBUG
         case .testPattern:
             TestPatternView { stage = .library }

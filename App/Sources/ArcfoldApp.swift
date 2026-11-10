@@ -7,8 +7,17 @@ struct ArcfoldApp: App {
 
     var body: some Scene {
         WindowGroup {
+            #if DEBUG
+            if let page = GlassGallery.requestedPage {
+                GlassGallery(page: page)
+            } else {
+                RootView()
+                    .environment(library)
+            }
+            #else
             RootView()
                 .environment(library)
+            #endif
         }
     }
 }

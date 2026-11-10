@@ -6,9 +6,9 @@ import SwiftUI
 import UIKit
 
 /// A running game: the screens and touch controls in the layout of the
-/// current pose (ADR 0006), the debug overlay and a pause menu. One mechanism
-/// for every system: the view measures its geometry and the fold, FoldLayout
-/// computes the layout, `GameStage` shows it.
+/// current pose (ADR 0006), the debug overlay and the pause menu, a system
+/// sheet (ADR 0007). One mechanism for every system: the view measures its
+/// geometry and the fold, FoldLayout computes the layout, `GameStage` shows it.
 ///
 /// The game ends only through `quit()`: "Quit Game", "Close" after a failed
 /// start, or the core asking. The view disappearing does not end it, so that
@@ -21,11 +21,17 @@ struct GameView: View {
     @State private var session: PlaySession
     @State private var measured: FoldGeometry?
     @State private var showsDebugOverlay = DebugOverlay.isOnByDefault
+    /// The pause sheet grows out of the pause button.
+    @Namespace private var pauseTransition
+    /// Its own state, not a binding on `showsPauseMenu`: resuming runs through
+    /// the session's queue, so right after a swipe the session still reports
+    /// a pause and SwiftUI would show the sheet again.
+    @State private var isPauseMenuShown = false
+    /// Quit closes the sheet first and ends the game in `onDismiss`.
+    @State private var isQuitting = false
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.displayScale) private var displayScale
 
-    /// The margin around the overlays.
-    private static let margin: CGFloat = 8
     private static let logger = Logger(subsystem: "com.faentiver.arcfold", category: "fold")
 
     init(game: Game, library: GameLibrary, onClose: @escaping () -> Void) {
@@ -46,18 +52,26 @@ struct GameView: View {
                 }
                 .background(alignment: .topLeading) {
                     if let geometry, let layout {
-                        GameStage(
-                            system: session.system, geometry: geometry, layout: layout,
-                            mailbox: session.mailbox, stats: session.presentationStats, isPaused: session.isPaused,
-                            showsControls: session.phase == .running && showsTouchControls,
-                            onButtons: { session.setTouchButtons($0) },
-                            onPointer: { session.setTouchPointer($0) },
-                            onPause: session.phase == .running ? { session.setUserPaused(true) } : nil
-                        )
+                        // The stage and its overlays in pixels of the whole
+                        // view; OverlayPlacement places the overlays from the
+                        // layout (ADR 0007).
+                        ZStack(alignment: .topLeading) {
+                            GameStage(
+                                system: session.system, geometry: geometry, layout: layout,
+                                mailbox: session.mailbox, stats: session.presentationStats, isPaused: session.isPaused,
+                                showsControls: showsControls,
+                                onButtons: { session.setTouchButtons($0) },
+                                onPointer: { session.setTouchPointer($0) },
+                                onPause: session.phase == .running ? { session.setUserPaused(true) } : nil,
+                                pauseTransition: pauseTransition,
+                                isCovered: isPauseMenuShown,
+                                isLoading: session.phase == .loading || (session.phase == .running && session.mailbox == nil)
+                            )
+                            overlays(geometry: geometry, layout: layout)
+                        }
                         .ignoresSafeArea()
                     }
                 }
-            overlays
         }
         // Game controls keep their places in right-to-left languages too.
         .environment(\.layoutDirection, .leftToRight)
@@ -104,6 +118,31 @@ struct GameView: View {
             if requested {
                 quit()
             }
+        }
+        // The menu opens when the game is paused by hand or the device is
+        // closed, also on the outer display, and closes when the session
+        // resumes by itself, as when the device opens (ADR 0006, section 10).
+        .onChange(of: session.showsPauseMenu && session.phase == .running, initial: true) { _, shows in
+            isPauseMenuShown = shows
+        }
+        .sheet(isPresented: $isPauseMenuShown, onDismiss: {
+            if isQuitting {
+                quit()
+            } else if session.showsPauseMenu {
+                // Swiping the sheet away or Escape resumes, like "Resume".
+                session.resumeFromMenu()
+            }
+        }) {
+            PauseMenu(gameName: session.game.name, transition: pauseTransition,
+                      showsDebugOverlay: $showsDebugOverlay,
+                      resume: {
+                          session.resumeFromMenu()
+                          isPauseMenuShown = false
+                      },
+                      quit: {
+                          isQuitting = true
+                          isPauseMenuShown = false
+                      })
         }
     }
 
@@ -156,122 +195,42 @@ struct GameView: View {
         return FoldReadings(geometry: geometry, layout: layout, isOverridden: isOverridden)
     }
 
-    /// The debug overlay's lines wrap before a pause button of its own in
-    /// the upper half of the view; with touch controls it sits in their menu.
-    private var overlayTrailingPadding: CGFloat {
-        guard let geometry, let pause = layout?.pauseButton, pause.minY < geometry.container.height / 2 else { return 0 }
-        return max(0, CGFloat(geometry.safeBounds.maxX - pause.minX) / CGFloat(geometry.scale))
+    /// The touch controls are drawn and take touches: the game runs and no
+    /// controller is in use.
+    private var showsControls: Bool {
+        session.phase == .running && showsTouchControls
     }
 
     // MARK: Overlays
 
-    @ViewBuilder
-    private var overlays: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            if showsDebugOverlay, !hidesOverlayForScreenshots, session.phase == .running {
-                let fold = readings
-                DebugOverlay {
-                    var values = session.debugReadings()
-                    values.fold = fold
-                    return values
-                }
-            }
-            if let audioProblem = session.audioProblem {
-                Text(audioProblem)
-                    .font(.caption2)
-                    .foregroundStyle(.yellow)
-            }
-        }
-        .padding(Self.margin)
-        // The lines wrap before they reach a pause button in the upper half.
-        .padding(.trailing, overlayTrailingPadding)
-
-        if let notice = session.notice {
-            Text(notice)
-                .font(.footnote)
-                .foregroundStyle(.white)
-                .padding(8)
-                .background(.black.opacity(0.7), in: Capsule())
-                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
-                .padding(.bottom, 24)
-        }
-
-        if session.showsPauseMenu, session.phase == .running {
-            pauseMenu
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-        }
-
-        if session.phase == .loading || (session.phase == .running && session.mailbox == nil) {
-            ProgressView()
-                .tint(.white)
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-        }
-
-        if case let .failed(message) = session.phase {
-            ContentUnavailableView {
-                Label {
-                    Text("The Game Could Not Start", comment: "Title when a game fails to start.")
-                } icon: {
-                    Image(systemName: "exclamationmark.triangle")
-                }
-            } description: {
-                Text(message)
-            } actions: {
-                Button {
-                    quit()
-                } label: {
-                    Text("Close", comment: "Button that leaves a game that could not start.")
-                }
-                .buttonStyle(.borderedProminent)
-            }
-            .foregroundStyle(.white)
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .background(.black)
-        }
+    private func overlays(geometry: FoldGeometry, layout: GameLayout) -> some View {
+        let controls = GameStage.controls(of: layout, scale: geometry.scale, system: session.system, shows: showsControls)
+        let fold = readings
+        return GameOverlays(
+            placement: OverlayPlacement(layout: layout, geometry: geometry, controls: controls),
+            debugReadings: showsDebugOverlay && !hidesOverlayForScreenshots && session.phase == .running ? {
+                var values = session.debugReadings()
+                values.fold = fold
+                return values
+            } : nil,
+            audioProblem: session.audioProblem,
+            notice: session.notice,
+            failure: failure,
+            close: { quit() })
     }
 
-    private var pauseMenu: some View {
-        VStack(spacing: 12) {
-            Text("Paused", comment: "Title of the menu of a paused game.")
-                .font(.headline)
-            Button {
-                session.resumeFromMenu()
-            } label: {
-                Text("Resume", comment: "Button that continues a paused game.")
-                    .frame(maxWidth: .infinity)
-            }
-            .buttonStyle(.borderedProminent)
-            .accessibilityIdentifier("resume")
-            Button {
-                showsDebugOverlay.toggle()
-            } label: {
-                Group {
-                    if showsDebugOverlay {
-                        Text("Hide Debug Overlay", comment: "Button that hides the measurements over the game.")
-                    } else {
-                        Text("Show Debug Overlay", comment: "Button that shows the measurements over the game.")
-                    }
-                }
-                .frame(maxWidth: .infinity)
-            }
-            .buttonStyle(.bordered)
-            Button(role: .destructive) {
-                quit()
-            } label: {
-                Text("Quit Game", comment: "Button that ends the game and returns to the library.")
-                    .frame(maxWidth: .infinity)
-            }
-            .buttonStyle(.bordered)
-            .accessibilityIdentifier("quit")
-        }
-        .padding(20)
-        .frame(maxWidth: 280)
-        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+    private var failure: String? {
+        if case let .failed(message) = session.phase { message } else { nil }
     }
 
     /// Ends the game: saves, unloads and stops the sound, then brings the
-    /// library back.
+    /// library back. An open pause sheet closes first.
     private func quit() {
+        guard !isPauseMenuShown else {
+            isQuitting = true
+            isPauseMenuShown = false
+            return
+        }
         Task {
             await session.stop()
             onClose()
