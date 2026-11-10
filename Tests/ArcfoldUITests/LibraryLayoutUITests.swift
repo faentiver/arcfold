@@ -292,13 +292,18 @@ final class LibraryLayoutUITests: XCTestCase {
         keepLibraryScreenshot(of: app, named: "licenses-mgba")
     }
 
+    /// What the audit checks on the screens of the library.
+    private static let auditTypes: XCUIAccessibilityAuditType = [.contrast, .hitRegion, .sufficientElementDescription,
+                                                                 .textClipped, .dynamicType]
+
     /// The system's accessibility audit of what the app shows. The system's
     /// secondary labels (the system under a tile, the license under a
     /// component) rate "nearly passed", as in the system's own apps; besides
     /// them only the tiles that leave the window may report.
     @MainActor
-    private func auditLibraryScreen(_ app: XCUIApplication, named screen: String) throws {
-        try app.performAccessibilityAudit(for: [.contrast, .hitRegion, .sufficientElementDescription, .textClipped, .dynamicType]) { issue in
+    private func auditLibraryScreen(_ app: XCUIApplication, named screen: String,
+                                    for types: XCUIAccessibilityAuditType = LibraryLayoutUITests.auditTypes) throws {
+        try app.performAccessibilityAudit(for: types) { issue in
             // Rows below the first leave the window while the audit enlarges
             // the text, so it rates their Dynamic Type "partially unsupported".
             let allowed = (issue.auditType == .contrast && issue.compactDescription == "Contrast nearly passed"
@@ -310,9 +315,67 @@ final class LibraryLayoutUITests: XCTestCase {
         }
     }
 
+    /// The contrast of a text against its ground, from the pixels of its
+    /// frame: the hundredth of them furthest from the median luminance, the
+    /// strokes, against that median, the ground of a text that covers less
+    /// than half of its frame. `frame` is in points of the window.
+    private static func textContrast(in frame: CGRect, of pixels: Pixels, scale: CGFloat) -> Double {
+        var values: [Double] = []
+        for y in Int(frame.minY * scale)..<Int(frame.maxY * scale) {
+            for x in Int(frame.minX * scale)..<Int(frame.maxX * scale) {
+                values.append(pixels.luminance(x: x, y: y))
+            }
+        }
+        values.sort()
+        guard !values.isEmpty else { return 0 }
+        let ground = values[values.count / 2]
+        let darkest = values[values.count / 100]
+        let brightest = values[values.count - 1 - values.count / 100]
+        let strokes = ground - darkest > brightest - ground ? darkest : brightest
+        return (max(strokes, ground) + 0.05) / (min(strokes, ground) + 0.05)
+    }
+
+    /// The contrast of the license text beside the list at a real fold, in
+    /// the pixels, in place of the contrast check of the audit: the name of
+    /// the component and the paragraphs of the text reach 4.5 : 1, the note
+    /// between them, a secondary label of the system, the 3 : 1 that the
+    /// audit rates "nearly passed".
+    @MainActor
+    private func checkTheContrastOfTheLicenseText(behind fold: ClosedRange<CGFloat>, in app: XCUIApplication) throws {
+        let window = app.gameWindow.frame
+        let screenshot = app.displayScreenshot()
+        let pixels = try Pixels(try XCTUnwrap(screenshot.uprightImage))
+        // The texts of the second page that show whole, from the top.
+        let texts = app.staticTexts.allElementsBoundByIndex
+            .filter { $0.exists && !$0.frame.isEmpty && $0.frame.minX >= fold.upperBound && window.contains($0.frame) }
+            .map { (label: $0.label, frame: $0.frame) }
+            .sorted { $0.frame.minY < $1.frame.minY }
+        XCTAssertGreaterThanOrEqual(texts.count, 3, "The name, the note and a paragraph of the license text are not on the second page")
+        for (index, text) in texts.enumerated() {
+            let contrast = Self.textContrast(in: text.frame, of: pixels, scale: screenshot.image.scale)
+            // The name, the note, then the paragraphs.
+            let limit = index == 1 ? 3.0 : 4.5
+            let beginning = text.label.split(whereSeparator: \.isWhitespace).prefix(4).joined(separator: " ")
+            note("contrast of the license text: \(String(format: "%.2f", contrast)) : 1 (limit \(limit)) \(beginning) \(text.frame)")
+            XCTAssertGreaterThanOrEqual(contrast, limit, "The contrast of \(beginning) \(text.frame)")
+        }
+    }
+
     /// The audit in the window as it is: the grid at the standard size and
     /// with large text, and Licenses, which at a real fold shows the list
     /// and a text side by side.
+    ///
+    /// At a real fold Licenses run without the contrast check of the audit.
+    /// In the Simulator (iOS 27.1) it does not end there in time: "Audit
+    /// failed to complete in time" after 15 s, while the app idles. Nothing
+    /// but the place of the lines decides that: under the note of Arcfold,
+    /// five lines above the license text, it fails; under a note of two,
+    /// three, four, six or seven lines and with every other component it
+    /// ends in 0.3 s. On the inner display the contrast check reports
+    /// nothing anyway, not even the "nearly passed" of the system's
+    /// secondary labels that it reports on the outer one. The other checks
+    /// of the audit run, and the contrast of the text beside the list is
+    /// measured in the pixels instead.
     @MainActor
     func testTheLibraryPassesTheAccessibilityAuditInItsWindow() throws {
         for textSize in ["UICTContentSizeCategoryL", "UICTContentSizeCategoryAccessibilityL"] {
@@ -322,6 +385,15 @@ final class LibraryLayoutUITests: XCTestCase {
         }
         let app = launchLibraryShelf()
         openLicenses(in: app)
-        try auditLibraryScreen(app, named: "licenses")
+        guard let fold = Self.namedFold else {
+            try auditLibraryScreen(app, named: "licenses")
+            return
+        }
+        // The text of Arcfold beside the list, once it has loaded. Its
+        // pixels first: the audit enlarges the text while it runs.
+        let licenseText = app.staticTexts.matching(NSPredicate(format: "label CONTAINS 'GNU GENERAL PUBLIC LICENSE'")).firstMatch
+        XCTAssertTrue(licenseText.waitForExistence(timeout: 10), "No license text beside the list")
+        try checkTheContrastOfTheLicenseText(behind: fold, in: app)
+        try auditLibraryScreen(app, named: "licenses beside their text", for: Self.auditTypes.subtracting(.contrast))
     }
 }
