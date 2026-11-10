@@ -9,10 +9,16 @@ enum Fixture: String, CaseIterable, Sendable {
     /// `Tests/Fixtures/gba/selftest/make_gba_selftest.py`.
     case gbaSelftest = "selftest.gba"
 
+    /// Own DS test program: both screens, touch, buttons, PSG tone, EEPROM
+    /// boot counter and heartbeat. The layout is described in
+    /// `Tests/Fixtures/ds/selftest/make_nds_selftest.py`.
+    case dsSelftest = "selftest.nds"
+
     /// The SHA-256 recorded in `Tests/Fixtures/LICENSES.md`.
     var sha256: String {
         switch self {
         case .gbaSelftest: "7df143129e713b1188ec40b3d91bd84ccb95188dd1f6264f2bb75fba4544f9fd"
+        case .dsSelftest: "9a21ca579b0f37e10f4d4fb6d469880055c3f8230c3ec50e6494729774e9a714"
         }
     }
 

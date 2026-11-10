@@ -1,11 +1,27 @@
 import LibretroKit
 import Testing
 
-/// Loads the real mGBA core through LibretroKit from the Frameworks folder of the
+/// Loads the real cores through LibretroKit from the Frameworks folder of the
 /// host app, the same way the app does.
 struct EmbeddedCoreTests {
-    @Test func appEmbedsMGBA() {
-        #expect(LibretroCore.embeddedCoreNames().contains("mgba_libretro"))
+    @Test func appEmbedsMGBAAndMelonDSDS() {
+        let names = LibretroCore.embeddedCoreNames()
+        #expect(names.contains("mgba_libretro"))
+        #expect(names.contains("melondsds_libretro"))
+    }
+
+    @Test func melonDSDSReportsItsLibraryInfo() throws {
+        let core = try LibretroCore(named: "melondsds_libretro")
+        let apiVersion = core.apiVersion()
+        let info = core.systemInfo()
+
+        #expect(info.libraryName == "melonDS DS")
+        #expect(apiVersion == LibretroCore.hostAPIVersion)
+        // Cores/melonds-ds is pinned to tag v1.4.0. Update this together with the submodule.
+        #expect(info.libraryVersion == "1.4.0")
+        // The core reads the game from memory, so the app can pass its mapped copy.
+        #expect(!info.needsFullPath)
+        #expect(info.validExtensions.contains("nds"))
     }
 
     @Test func mgbaReportsItsLibraryInfo() throws {

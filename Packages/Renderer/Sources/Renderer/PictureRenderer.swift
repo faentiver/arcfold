@@ -84,40 +84,76 @@ package final class PictureRenderer {
                         picture: any MTLTexture, format: PixelFormat, width: Int, height: Int) -> ScreenPlacement {
         let placement = ScreenPlacement.fitting(
             sourceWidth: width, sourceHeight: height, drawableWidth: target.width, drawableHeight: target.height)
+        let viewport = ScreenViewport(
+            sourceX: 0, sourceY: 0, sourceWidth: width, sourceHeight: height,
+            originX: placement.originX, originY: placement.originY, scale: placement.scale)
+        encode(into: commandBuffer, target: target, picture: picture, format: format,
+               frameWidth: width, frameHeight: height, viewports: CollectionOfOne(viewport))
+        return placement
+    }
+
+    /// Encodes one render pass into `target`: black everywhere, and each
+    /// viewport's part of the frame, the `frameWidth x frameHeight` pixels at
+    /// the top left of `picture`, at its origin and scale (ADR 0006). Parts
+    /// of a viewport outside the target or outside the frame stay black, so
+    /// the shader never reads a texel the frame does not cover.
+    package func encode(into commandBuffer: any MTLCommandBuffer, target: any MTLTexture,
+                        picture: any MTLTexture, format: PixelFormat, frameWidth: Int, frameHeight: Int,
+                        viewports: some Collection<ScreenViewport>) {
         let pass = MTLRenderPassDescriptor()
         pass.colorAttachments[0].texture = target
         pass.colorAttachments[0].loadAction = .clear
         pass.colorAttachments[0].clearColor = MTLClearColor(red: 0, green: 0, blue: 0, alpha: 1)
         pass.colorAttachments[0].storeAction = .store
-        guard let encoder = commandBuffer.makeRenderCommandEncoder(descriptor: pass) else { return placement }
+        guard let encoder = commandBuffer.makeRenderCommandEncoder(descriptor: pass) else { return }
         defer { encoder.endEncoding() }
-
-        // The viewport is the visible part of the scaled picture.
-        let left = max(placement.originX, 0)
-        let top = max(placement.originY, 0)
-        let right = min(placement.originX + placement.width, target.width)
-        let bottom = min(placement.originY + placement.height, target.height)
-        guard right > left, bottom > top,
-              let pipeline = format == .xrgb8888 ? xrgb8888Pipeline : format == .rgb565 ? rgb565Pipeline : nil
-        else {
-            return placement
+        guard let pipeline = format == .xrgb8888 ? xrgb8888Pipeline : format == .rgb565 ? rgb565Pipeline : nil else {
+            return
         }
         encoder.setRenderPipelineState(pipeline)
-        encoder.setViewport(MTLViewport(
-            originX: Double(left), originY: Double(top),
-            width: Double(right - left), height: Double(bottom - top), znear: 0, zfar: 1))
-        var uniforms = PictureUniforms(
-            origin: SIMD2(Int32(placement.originX), Int32(placement.originY)), scale: Int32(placement.scale))
-        encoder.setFragmentBytes(&uniforms, length: MemoryLayout<PictureUniforms>.stride, index: 0)
         encoder.setFragmentTexture(picture, index: 0)
-        encoder.drawPrimitives(type: .triangle, vertexStart: 0, vertexCount: 3)
-        return placement
+        for viewport in viewports {
+            guard let visible = Self.visibleRect(of: viewport, frameWidth: frameWidth, frameHeight: frameHeight,
+                                                 targetWidth: target.width, targetHeight: target.height)
+            else { continue }
+            encoder.setViewport(MTLViewport(
+                originX: Double(visible.left), originY: Double(visible.top),
+                width: Double(visible.right - visible.left), height: Double(visible.bottom - visible.top),
+                znear: 0, zfar: 1))
+            var uniforms = PictureUniforms(
+                origin: SIMD2(Int32(clamping: viewport.originX), Int32(clamping: viewport.originY)),
+                sourceOrigin: SIMD2(Int32(clamping: viewport.sourceX), Int32(clamping: viewport.sourceY)),
+                scale: Int32(clamping: viewport.scale))
+            encoder.setFragmentBytes(&uniforms, length: MemoryLayout<PictureUniforms>.stride, index: 0)
+            encoder.drawPrimitives(type: .triangle, vertexStart: 0, vertexCount: 3)
+        }
+    }
+
+    /// The drawable pixels a viewport covers: its scaled screen, cut to the
+    /// part of its source rectangle that lies in the frame and to the target.
+    /// Nil when nothing is left.
+    package static func visibleRect(of viewport: ScreenViewport, frameWidth: Int, frameHeight: Int,
+                                    targetWidth: Int, targetHeight: Int)
+        -> (left: Int, top: Int, right: Int, bottom: Int)?
+    {
+        guard viewport.scale >= 1, viewport.sourceX >= 0, viewport.sourceY >= 0 else { return nil }
+        let columns = min(viewport.sourceWidth, frameWidth - viewport.sourceX)
+        let rows = min(viewport.sourceHeight, frameHeight - viewport.sourceY)
+        guard columns > 0, rows > 0 else { return nil }
+        let left = max(viewport.originX, 0)
+        let top = max(viewport.originY, 0)
+        let right = min(viewport.originX + columns * viewport.scale, targetWidth)
+        let bottom = min(viewport.originY + rows * viewport.scale, targetHeight)
+        guard right > left, bottom > top else { return nil }
+        return (left, top, right, bottom)
     }
 }
 
-/// Matches `PictureUniforms` in Picture.metal: int2 origin, int scale.
+/// Matches `PictureUniforms` in Picture.metal: int2 origin, int2 sourceOrigin,
+/// int scale (24 bytes with the padding of the int2 alignment).
 private struct PictureUniforms {
     var origin: SIMD2<Int32>
+    var sourceOrigin: SIMD2<Int32>
     var scale: Int32
 }
 

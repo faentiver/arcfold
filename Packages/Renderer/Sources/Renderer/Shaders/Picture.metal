@@ -1,17 +1,21 @@
-// Draws one emulated picture at a whole-number scale (ADR 0005, section 5).
+// Draws emulated screens at a whole-number scale (ADR 0005, section 5; ADR 0006,
+// section 5).
 //
-// The viewport covers the visible part of the scaled picture; one triangle
-// covers the viewport. Each fragment reads exactly one texel with read() at
-// integer coordinates, so no sampler and no filtering is involved and every
-// drawable pixel shows its source pixel unchanged.
+// Each screen is one viewport: the visible part of the scaled screen; one
+// triangle covers it. A screen is a rectangle of the core's frame starting at
+// sourceOrigin, so both DS screens come out of one uploaded texture. Each
+// fragment reads exactly one texel with read() at integer coordinates, so no
+// sampler and no filtering is involved and every drawable pixel shows its
+// source pixel unchanged.
 
 #include <metal_stdlib>
 using namespace metal;
 
 // Matches PictureUniforms in PictureRenderer.swift.
 struct PictureUniforms {
-    int2 origin;   // top left of the scaled picture in drawable pixels, may be negative
-    int scale;     // whole-number factor, at least 1
+    int2 origin;        // top left of the scaled screen in drawable pixels, may be negative
+    int2 sourceOrigin;  // top left of the screen in the core's frame
+    int scale;          // whole-number factor, at least 1
 };
 
 vertex float4 picture_vertex(uint id [[vertex_id]]) {
@@ -19,9 +23,11 @@ vertex float4 picture_vertex(uint id [[vertex_id]]) {
     return float4(corner * 2.0 - 1.0, 0.0, 1.0);
 }
 
+// The fragment's drawable pixel lies inside the viewport, so `pixel` is never
+// negative and the division rounds down.
 static uint2 picture_texel(float4 position, constant PictureUniforms &uniforms) {
     int2 pixel = int2(position.xy) - uniforms.origin;
-    return uint2(pixel / uniforms.scale);
+    return uint2(pixel / uniforms.scale + uniforms.sourceOrigin);
 }
 
 // RGB565 in an r16Uint texture: red in bits 15-11, green in 10-5, blue in 4-0.

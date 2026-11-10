@@ -1,13 +1,16 @@
 import Darwin
 import GameController
 import Metal
+import os
 import QuartzCore
 import Synchronization
 import SwiftUI
 import UIKit
 
-/// The picture of a running game: the newest due frame of a `FrameMailbox`,
-/// at the largest whole-number scale that fits, centred, black around it.
+/// The picture of a running game: the newest due frame of a `FrameMailbox`.
+/// Without an arrangement the whole frame sits at the largest whole-number
+/// scale that fits, centred; with one, each viewport shows its part of the
+/// frame (ADR 0006). Black around it.
 ///
 /// Drawn with Metal into a `CAMetalLayer`, paced by a `CAMetalDisplayLink` on
 /// the main run loop. The main thread never waits for the emulation or the GPU.
@@ -15,20 +18,26 @@ public struct GameScreen: UIViewRepresentable {
     private let mailbox: FrameMailbox
     private let stats: PresentationStats
     private let isPaused: Bool
+    private let arrangement: ScreenArrangement?
 
     /// - Parameters:
     ///   - mailbox: The frames to show.
     ///   - stats: Where the screen counts what it presented.
     ///   - isPaused: Stops the display link and keeps the last picture.
-    public init(mailbox: FrameMailbox, stats: PresentationStats, isPaused: Bool = false) {
+    ///   - arrangement: Where the screens of each frame go, from FoldLayout;
+    ///     nil fits the whole frame.
+    public init(mailbox: FrameMailbox, stats: PresentationStats, isPaused: Bool = false,
+                arrangement: ScreenArrangement? = nil) {
         self.mailbox = mailbox
         self.stats = stats
         self.isPaused = isPaused
+        self.arrangement = arrangement
     }
 
     public func makeUIView(context: Context) -> UIView {
         let view = GameScreenView(mailbox: mailbox, stats: stats)
         view.isPaused = isPaused
+        view.arrangement = arrangement
         return view
     }
 
@@ -36,6 +45,7 @@ public struct GameScreen: UIViewRepresentable {
         guard let view = view as? GameScreenView else { return }
         view.mailbox = mailbox
         view.isPaused = isPaused
+        view.arrangement = arrangement
     }
 }
 
@@ -164,6 +174,19 @@ final class GameScreenView: UIView, CAMetalDisplayLinkDelegate {
         didSet { updateLinkState() }
     }
 
+    /// The viewports of the screens and the scale of the drawable (ADR 0006).
+    /// A change draws the current picture again, also while paused.
+    var arrangement: ScreenArrangement? {
+        didSet {
+            guard arrangement != oldValue else { return }
+            if arrangement?.pixelsPerPoint != oldValue?.pixelsPerPoint {
+                setNeedsLayout()
+            }
+            needsRedraw = true
+            updateLinkState()
+        }
+    }
+
     private let stats: PresentationStats
     private let renderer: PictureRenderer?
     private var displayLink: CAMetalDisplayLink?
@@ -177,10 +200,17 @@ final class GameScreenView: UIView, CAMetalDisplayLinkDelegate {
     private var lastTargetTimestamp: CFTimeInterval = 0
     private var refreshRate = 0.0
     private let hostTicksPerSecond: Double
+    /// The scene and the screen the view was last seen on.
+    private var sceneIdentity: ObjectIdentifier?
+    private var screenTraits: ScreenTraits?
 
     /// Reserve on top of the display link's lead for the run time of a frame
     /// and the wake-up delay of the emulation thread (ADR 0005, section 5).
     private static let selectionReserve = 0.008
+
+    /// Scene, screen and drawable changes, as evidence for the pose check
+    /// (Scripts/pose-check.sh, ADR 0006, section 9).
+    private nonisolated static let logger = Logger(subsystem: "com.faentiver.arcfold", category: "fold")
 
     private var metalLayer: CAMetalLayer {
         // layerClass guarantees the type.
@@ -226,26 +256,66 @@ final class GameScreenView: UIView, CAMetalDisplayLinkDelegate {
     override func didMoveToWindow() {
         super.didMoveToWindow()
         if window != nil {
+            followScene()
             startDisplayLink()
             setNeedsLayout()
         } else {
-            displayLink?.invalidate()
-            displayLink = nil
+            stopDisplayLink()
         }
     }
 
     override func layoutSubviews() {
         super.layoutSubviews()
-        // Native pixels, so that whole-number scaling stays sharp on screens
-        // whose point scale differs from their panel.
-        let scale = window?.windowScene?.screen.nativeScale ?? traitCollection.displayScale
+        followScene()
+        // With an arrangement the drawable has the pixels per point FoldLayout
+        // computed with, so both mean the same pixels (ADR 0006). Without one,
+        // native pixels as in M1, so that whole-number scaling stays sharp on
+        // screens whose point scale differs from their panel.
+        let scale = arrangement.map { CGFloat($0.pixelsPerPoint) }
+            ?? window?.windowScene?.screen.nativeScale ?? traitCollection.displayScale
         let size = CGSize(width: (bounds.width * scale).rounded(), height: (bounds.height * scale).rounded())
         guard size.width > 0, size.height > 0 else { return }
         metalLayer.contentsScale = scale
         if metalLayer.drawableSize != size {
+            let old = metalLayer.drawableSize
+            Self.logger.notice("""
+                Drawable \(Int(old.width))×\(Int(old.height)) → \(Int(size.width))×\(Int(size.height)) px \
+                at \(scale, format: .fixed(precision: 0)) px/pt
+                """)
             metalLayer.drawableSize = size
             needsRedraw = true
             updateLinkState()
+        }
+    }
+
+    /// Notes when the view moves to another scene or screen. On another
+    /// screen the display link starts again with that screen's frame rates:
+    /// whether a link follows its layer from the outer to the inner display
+    /// is unknown, a new one does not depend on it (ADR 0006, section 9).
+    private func followScene() {
+        guard let scene = window?.windowScene else { return }
+        let sceneID = ObjectIdentifier(scene)
+        if sceneID != sceneIdentity {
+            let isFirst = sceneIdentity == nil
+            sceneIdentity = sceneID
+            Self.logger.notice("""
+                Scene \(isFirst ? "shown in" : "changed to", privacy: .public) \
+                \(scene.session.persistentIdentifier, privacy: .public)
+                """)
+        }
+        let traits = ScreenTraits(scene.screen)
+        guard traits != screenTraits else { return }
+        let previous = screenTraits
+        screenTraits = traits
+        Self.logger.notice("""
+            Screen \(previous == nil ? "is" : "changed to", privacy: .public) \(traits.description, privacy: .public)
+            """)
+        // A new screen, or one with other frame rates; a turned screen only
+        // changes its size.
+        if let previous, displayLink != nil,
+           previous.identity != traits.identity || previous.maximumFramesPerSecond != traits.maximumFramesPerSecond {
+            stopDisplayLink()
+            startDisplayLink()
         }
     }
 
@@ -254,16 +324,28 @@ final class GameScreenView: UIView, CAMetalDisplayLinkDelegate {
         let link = CAMetalDisplayLink(metalLayer: metalLayer)
         link.delegate = self
         // 59.73 Hz content: at 120 Hz a frame stays one tick longer about every
-        // 1.84 s for 8.3 ms, at 60 Hz every 3.67 s for 16.7 ms (ADR 0005).
-        link.preferredFrameRateRange = CAFrameRateRange(minimum: 60, maximum: 120, preferred: 120)
+        // 1.84 s for 8.3 ms, at 60 Hz every 3.67 s for 16.7 ms (ADR 0005). The
+        // range follows the screen: 60 Hz in the Simulator, up to 120 Hz on a
+        // ProMotion display.
+        let maximum = Float(screenTraits?.maximumFramesPerSecond ?? 120)
+        let preferred = min(max(maximum, 30), 120)
+        link.preferredFrameRateRange = CAFrameRateRange(minimum: min(60, preferred), maximum: preferred, preferred: preferred)
         link.preferredFrameLatency = 1
         link.add(to: .main, forMode: .common)
         displayLink = link
+        leadTime = 0
+        lastTargetTimestamp = 0
+        Self.logger.notice("Display link started, \(preferred, format: .fixed(precision: 0)) Hz preferred")
         updateLinkState()
     }
 
-    /// Paused, the link stops and the last picture stays; a size change still
-    /// gets one update to draw it again.
+    private func stopDisplayLink() {
+        displayLink?.invalidate()
+        displayLink = nil
+    }
+
+    /// Paused, the link stops and the last picture stays; a size or
+    /// arrangement change still gets one update to draw it again.
     private func updateLinkState() {
         displayLink?.isPaused = isPaused && !needsRedraw
     }
@@ -355,8 +437,14 @@ final class GameScreenView: UIView, CAMetalDisplayLinkDelegate {
     private func draw(_ picture: (upload: UploadTexture, width: Int, height: Int), renderer: PictureRenderer,
                       into drawable: any CAMetalDrawable) {
         guard let commandBuffer = renderer.commandQueue.makeCommandBuffer() else { return }
-        renderer.encode(into: commandBuffer, target: drawable.texture, picture: picture.upload.texture,
-                        format: mailbox.format, width: picture.width, height: picture.height)
+        if let arrangement {
+            renderer.encode(into: commandBuffer, target: drawable.texture, picture: picture.upload.texture,
+                            format: mailbox.format, frameWidth: picture.width, frameHeight: picture.height,
+                            viewports: arrangement.viewports)
+        } else {
+            renderer.encode(into: commandBuffer, target: drawable.texture, picture: picture.upload.texture,
+                            format: mailbox.format, width: picture.width, height: picture.height)
+        }
         let inFlight = picture.upload.inFlight
         inFlight.begin()
         commandBuffer.addCompletedHandler { _ in
@@ -364,5 +452,27 @@ final class GameScreenView: UIView, CAMetalDisplayLinkDelegate {
         }
         commandBuffer.present(drawable)
         commandBuffer.commit()
+    }
+}
+
+/// What the display link and the log care about of a screen. Compared as a
+/// whole, so that a screen object that changes its size counts as a change too.
+private struct ScreenTraits: Equatable {
+    let identity: ObjectIdentifier
+    let size: CGSize
+    let nativeScale: CGFloat
+    let maximumFramesPerSecond: Int
+
+    @MainActor
+    init(_ screen: UIScreen) {
+        identity = ObjectIdentifier(screen)
+        size = screen.bounds.size
+        nativeScale = screen.nativeScale
+        maximumFramesPerSecond = screen.maximumFramesPerSecond
+    }
+
+    var description: String {
+        "\(Int(size.width))×\(Int(size.height)) pt, native scale \(nativeScale), "
+            + "\(maximumFramesPerSecond) Hz maximum, id \(identity.hashValue)"
     }
 }

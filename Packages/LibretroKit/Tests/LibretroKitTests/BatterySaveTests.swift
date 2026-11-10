@@ -91,6 +91,56 @@ struct BatterySaveTests {
         #expect(small.bytes(0..<16).allSatisfy { $0 == 0x41 })
     }
 
+    @Test func withoutASaveTheBlankByteFillsTheMemory() async throws {
+        let folder = try TemporaryFolder()
+        let url = folder.url.appending(path: "battery.sav")
+        // melonDS DS starts its save memory with 0x00 (ADR 0006).
+        let memory = Memory(count: 8_192)
+        memory.write([UInt8](repeating: 0, count: memory.count))
+        let (monitor, _) = makeMonitor(url: url, capacity: memory.count)
+
+        try monitor.load(into: memory.buffer, blankByte: 0xFF)
+
+        #expect(memory.bytes(0..<memory.count).allSatisfy { $0 == 0xFF })
+        // Nothing but 0xFF is still never written while no file exists.
+        monitor.check(memory.readOnly)
+        monitor.check(memory.readOnly)
+        #expect(await saveNow(monitor, memory).isSuccess)
+        monitor.waitUntilWritten()
+        #expect(folder.files.isEmpty)
+    }
+
+    @Test func aSaveFileWinsOverTheBlankByte() throws {
+        let folder = try TemporaryFolder()
+        let url = folder.url.appending(path: "battery.sav")
+        try Data(Array("ARCF".utf8) + [3]).write(to: url)
+        let memory = Memory(count: 16)
+        memory.write([UInt8](repeating: 0, count: memory.count))
+        let (monitor, _) = makeMonitor(url: url, capacity: memory.count)
+
+        try monitor.load(into: memory.buffer, blankByte: 0xFF)
+
+        #expect(memory.bytes(0..<5) == Array("ARCF".utf8) + [3])
+        // Behind a file shorter than the memory, for example after a new core
+        // version gave the game a larger save, the memory reads as blank
+        // EEPROM or flash, not as the 0x00 melonDS DS starts with.
+        #expect(memory.bytes(5..<16).allSatisfy { $0 == 0xFF })
+    }
+
+    @Test func withoutABlankByteTheRestKeepsWhatTheCorePutThere() throws {
+        let folder = try TemporaryFolder()
+        let url = folder.url.appending(path: "battery.sav")
+        try Data(Array("ARCF".utf8) + [3]).write(to: url)
+        let memory = Memory(count: 16)
+        memory.write([UInt8](repeating: 0x5A, count: memory.count))
+        let (monitor, _) = makeMonitor(url: url, capacity: memory.count)
+
+        try monitor.load(into: memory.buffer)
+
+        #expect(memory.bytes(0..<5) == Array("ARCF".utf8) + [3])
+        #expect(memory.bytes(5..<16).allSatisfy { $0 == 0x5A })
+    }
+
     @Test func aMemoryWithOnlyFFIsNeverWrittenWhileNoFileExists() async throws {
         let folder = try TemporaryFolder()
         let url = folder.url.appending(path: "battery.sav")

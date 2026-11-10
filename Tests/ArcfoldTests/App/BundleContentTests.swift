@@ -31,6 +31,26 @@ struct BundleContentTests {
             ("blip_buf", "license.txt", "GNU LESSER GENERAL PUBLIC LICENSE"),
             ("inih", "LICENSE.txt", "Copyright (c) 2009, Ben Hoyt"),
             ("libretro.h", "libretro.h", "Permission is hereby granted, free of charge"),
+            // melonDS DS and its parts (ADR 0006).
+            ("melonDS-DS", "LICENSE", "GNU GENERAL PUBLIC LICENSE"),
+            ("melonDS-DS-notices", "melondsds-LICENSE.txt.in", "SIL OPEN FONT LICENSE Version 1.1"),
+            ("melonDS", "LICENSE", "GNU GENERAL PUBLIC LICENSE"),
+            ("FreeBIOS", "drastic_bios_readme.txt", "Copyright (c) 2013, Gilead Kutnick"),
+            ("FatFs", "LICENSE.txt", "FatFs License"),
+            ("teakra", "LICENSE", "Copyright (c) 2018 Weiyi Wang"),
+            ("tiny-AES-c", "unlicense.txt", "This is free and unencumbered software"),
+            ("xxHash", "xxhash.h", "BSD 2-Clause License"),
+            ("libslirp", "COPYRIGHT", "Danny Gasparovski"),
+            ("libslirp-BSD", "tcp_var.h", "The Regents of the University of California"),
+            ("libslirp-MIT", "util.h", "Copyright (c) 2003-2008 Fabrice Bellard"),
+            ("fmt", "LICENSE", "Victor Zverovich"),
+            ("GLM", "copying.txt", "OpenGL Mathematics (GLM)"),
+            ("pntr", "LICENSE.md", "Zlib License"),
+            ("yamc", "LICENSE", "Copyright (c) 2017-2019 yohhoy"),
+            ("span-lite", "LICENSE.txt", "Boost Software License - Version 1.0"),
+            // date's notice with its authors is a section of the collected notices.
+            ("melonDS-DS-notices", "melondsds-LICENSE.txt.in", "Copyright (c) 2019 Jiangang Zhuang"),
+            ("zlib", "LICENSE", "Jean-loup Gailly and Mark Adler"),
         ]
         for (folder, file, phrase) in texts {
             let url = try #require(

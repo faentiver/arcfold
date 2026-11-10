@@ -7,14 +7,47 @@
     "%@ could not be read: %@" : {
       "comment" : "Import error. The first value is a file name, the second the system's reason."
     },
-    "%@ does not look like a GBA game." : {
-      "comment" : "Import error when the file header does not match. The value is a file name."
+    "%@ does not look like a %@ game." : {
+      "comment" : "Import error when the file header does not match. The first value is a file name, the second a system such as GBA or DS.",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@ does not look like a %2$@ game."
+          }
+        }
+      }
     },
-    "%@ is larger than 32 MB and cannot be a GBA game." : {
-      "comment" : "Import error. The value is a file name."
+    "%@ is an encrypted DS game file. Arcfold cannot start encrypted DS games." : {
+      "comment" : "Import error for a DS game file whose start is encrypted. The value is a file name."
     },
-    "%@ is too small to be a GBA game." : {
-      "comment" : "Import error. The value is a file name."
+    "%@ is not a game file Arcfold can open." : {
+      "comment" : "Import error for a file whose extension belongs to no system. The value is a file name."
+    },
+    "%@ is too large to be a %@ game." : {
+      "comment" : "Import error. The first value is a file name, the second a system such as GBA or DS.",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@ is too large to be a %2$@ game."
+          }
+        }
+      }
+    },
+    "%@ is too small to be a %@ game." : {
+      "comment" : "Import error. The first value is a file name, the second a system such as GBA or DS.",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@ is too small to be a %2$@ game."
+          }
+        }
+      }
+    },
+    "%@ needs a DSi. Arcfold runs DS games only." : {
+      "comment" : "Import error for a game made for the DSi only. The value is a file name."
     },
     "Another game is already running. Quit it before you start this one." : {
       "comment" : "Shown instead of a second game when a game runs in another window."
@@ -22,11 +55,20 @@
     "Close" : {
       "comment" : "Button that leaves a game that could not start."
     },
+    "Copyright 2026 Fatih (faentiver). Source code: https://github.com/faentiver/arcfold. It includes the build recipes and scripts in Scripts/ that build the embedded cores from their sources and apply Arcfold's changes to them." : {
+      "comment" : "Copyright notice of Arcfold and where its source code is, on the Licenses screen. Keep the name, the year, the address and the folder name."
+    },
     "Core Failed to Load" : {
       "comment" : "Title when an embedded libretro core cannot be loaded. The technical reason follows below it."
     },
     "Cores" : {
       "comment" : "Menu item that lists the embedded emulation cores.\nNavigation title of the list of libretro cores embedded in the app."
+    },
+    "Direction pad" : {
+      "comment" : "Accessibility label of the on-screen direction pad."
+    },
+    "Files of libslirp from 4.4BSD are under these terms. They name: Copyright (c) 1982, 1986, 1988, 1990, 1992, 1993, 1994 The Regents of the University of California." : {
+      "comment" : "Copyright holder of libslirp's files from 4.4BSD on the Licenses screen. Keep the name and years."
     },
     "Game controls" : {
       "comment" : "Accessibility label of the on-screen game buttons."
@@ -43,7 +85,7 @@
     "Import Games" : {
       "comment" : "Button in the empty library that opens the file picker."
     },
-    "Import your own GBA game files. Arcfold comes without games." : {
+    "Import your own GBA or DS game files. Arcfold comes without games." : {
       "comment" : "Explanation of the empty library."
     },
     "Info" : {
@@ -64,11 +106,29 @@
     "OK" : {
       "comment" : "Closes the import alert."
     },
+    "Part of mGBA in version 1.1.0; melonDS brings its own copy of the same library without a version number. Copyright (C) 2003-2009 Shay Green." : {
+      "comment" : "Origin of the blip_buf library on the Licenses screen. Keep the version and the name."
+    },
     "Part of mGBA." : {
       "comment" : "Origin of the inih library on the Licenses screen."
     },
-    "Part of mGBA. Copyright (C) 2003-2009 Shay Green." : {
-      "comment" : "Origin of the blip_buf library on the Licenses screen."
+    "Part of melonDS DS." : {
+      "comment" : "Origin of a library on the Licenses screen."
+    },
+    "Part of melonDS DS. Arcfold switches its network emulation off. Further files of libslirp built into Arcfold are under these terms with these copyright lines: Copyright (c) 2013 Guillaume Subiron, Yann Bordenave, Serigne Modou Wagne; Copyright 2016 Thomas Huth, Red Hat Inc.; Copyright Gavin Shan, IBM Corporation 2016; Copyright (C) 2016-2018 IBM Corp." : {
+      "comment" : "Origin and further copyright holders of libslirp on the Licenses screen. Keep the names and years."
+    },
+    "Part of melonDS DS. Of the libraries pntr brings along, Arcfold builds stb_image, stb_image_write, stb_truetype and font8x8 and uses them under their public-domain terms." : {
+      "comment" : "Origin of pntr and the libraries it bundles, on the Licenses screen. Keep the library names."
+    },
+    "Part of melonDS DS. Source code: github.com/melonDS-emu/melonDS, commit 906e9eb. It includes SHA-1 in C by Steve Reid, which is in the public domain. On 7 November 2026 Arcfold removed the DSi's key material from it: the AES key of boot2, the key X of modcrypt and of the key slots, the eMMC keys and the key scrambler constant. Arcfold runs only the DS mode, which needs none of them. The change is in Scripts/cores/melondsds.sh in Arcfold's source code." : {
+      "comment" : "Where the source of melonDS is and how Arcfold changed it, on the Licenses screen. Keep the address, the commit, the date and the file path."
+    },
+    "Part of melonDS." : {
+      "comment" : "Origin of a library on the Licenses screen."
+    },
+    "Part of melonDS: the replacement for the console's BIOS that lets Arcfold start DS games without BIOS files." : {
+      "comment" : "Origin of FreeBIOS on the Licenses screen."
     },
     "Pause" : {
       "comment" : "Button that pauses the game and opens its menu."
@@ -82,17 +142,26 @@
     "Resume" : {
       "comment" : "Button that continues a paused game."
     },
+    "Seven of the files of libslirp built into Arcfold are under this license. Besides the copyright lines below, they name: Copyright (c) 2011 AdaCore; Copyright (c) 2012 Klaus Stengel; Copyright (c) 2004 Magnus Damm; Copyright (c) 2004 and 2004-2008 Fabrice Bellard; Copyright (c) 2010-2016 Red Hat, Inc." : {
+      "comment" : "Copyright holders of libslirp's MIT files on the Licenses screen. Keep the names and years."
+    },
     "Show Debug Overlay" : {
       "comment" : "Button that shows the measurements over the game."
     },
     "Some Files Were Not Imported" : {
       "comment" : "Title of the alert after a failed import."
     },
+    "Source code: github.com/JesseTG/melonds-ds, tag v1.4.0. Arcfold builds it without JIT. On 7 November 2026 Arcfold changed it so that it builds without libpcap, took out DownloadTmd and CacheTmd, which download and store title metadata in the DSi mode, and removed the DSi's key material from melonDS, which is part of it. The changes are in Scripts/cores/melondsds.sh in Arcfold's source code." : {
+      "comment" : "Where the source of the melonDS DS core is and how Arcfold changed it, on the Licenses screen. Keep the address, the tag, the date, the function names and the file path."
+    },
     "Source code: github.com/mgba-emu/mgba, tag 0.10.5" : {
       "comment" : "Where the source of the mGBA core is, on the Licenses screen. Keep the address and tag."
     },
     "The Game Could Not Start" : {
       "comment" : "Title when a game fails to start."
+    },
+    "The core cannot run this game without the console's own system files, which Arcfold does not include." : {
+      "comment" : "Shown when the core accepts a game it cannot run, for example an encrypted DS game."
     },
     "The game could not start: %@" : {
       "comment" : "Shown when a game fails to load. The value is the technical reason."
@@ -108,6 +177,9 @@
     },
     "This build contains no libretro cores." : {
       "comment" : "Explanation when the app contains no libretro cores."
+    },
+    "Two fonts of melonDS DS, embedded for its own error screen, which Arcfold never shows." : {
+      "comment" : "Origin of the Open Sans fonts on the Licenses screen."
     }
   },
   "version" : "1.0"

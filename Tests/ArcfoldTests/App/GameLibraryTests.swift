@@ -55,7 +55,7 @@ struct GameLibraryTests {
         ])
         #expect(results.count == 2)
         if case let .failure(error) = results[0] {
-            #expect(error == .tooSmall(fileName: "short.gba"))
+            #expect(error == .tooSmall(fileName: "short.gba", system: "GBA"))
         } else {
             Issue.record("short.gba was imported")
         }

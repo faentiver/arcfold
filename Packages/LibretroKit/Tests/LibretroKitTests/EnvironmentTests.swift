@@ -278,6 +278,30 @@ struct EnvironmentTests {
         #expect(context.inputState(0, joypad, 0, UInt32(RETRO_DEVICE_ID_JOYPAD_MASK)) == 0)
     }
 
+    @Test func inputStateAnswersThePointerOfPortZero() {
+        let (context, _) = makeContext()
+        let pointer = UInt32(RETRO_DEVICE_POINTER)
+        context.input.setPointer(PointerPosition(x: -7_295, y: 17_237))
+        context.inputPoll()
+
+        #expect(context.inputState(0, pointer, 0, UInt32(RETRO_DEVICE_ID_POINTER_X)) == -7_295)
+        #expect(context.inputState(0, pointer, 0, UInt32(RETRO_DEVICE_ID_POINTER_Y)) == 17_237)
+        #expect(context.inputState(0, pointer, 0, UInt32(RETRO_DEVICE_ID_POINTER_PRESSED)) == 1)
+        #expect(context.inputState(0, pointer, 0, UInt32(RETRO_DEVICE_ID_POINTER_COUNT)) == 1)
+        // One finger only, on port 0 only.
+        #expect(context.inputState(0, pointer, 1, UInt32(RETRO_DEVICE_ID_POINTER_PRESSED)) == 0)
+        #expect(context.inputState(1, pointer, 0, UInt32(RETRO_DEVICE_ID_POINTER_PRESSED)) == 0)
+        // The pointer does not leak into the RetroPad.
+        #expect(context.inputState(0, UInt32(RETRO_DEVICE_JOYPAD), 0, UInt32(RETRO_DEVICE_ID_JOYPAD_MASK)) == 0)
+
+        // The frame keeps its pointer until the next poll.
+        context.input.setPointer(nil)
+        #expect(context.inputState(0, pointer, 0, UInt32(RETRO_DEVICE_ID_POINTER_PRESSED)) == 1)
+        context.inputPoll()
+        #expect(context.inputState(0, pointer, 0, UInt32(RETRO_DEVICE_ID_POINTER_PRESSED)) == 0)
+        #expect(context.inputState(0, pointer, 0, UInt32(RETRO_DEVICE_ID_POINTER_COUNT)) == 0)
+    }
+
     // MARK: Helpers
 
     static let gbaGeometry = VideoGeometry(baseWidth: 240, baseHeight: 160, maxWidth: 240, maxHeight: 160, aspectRatio: 1.5)

@@ -18,7 +18,7 @@ extension CoreSessionTests {
             let session = EmulationSession(configuration: try folder.configuration())
             #expect(session.state == .idle)
 
-            let systemFolder = folder.url.appending(path: "System", directoryHint: .isDirectory)
+            let systemFolder = folder.systemDirectory
             #expect(!FileManager.default.fileExists(atPath: systemFolder.path(percentEncoded: false)))
 
             let info = try await session.load()

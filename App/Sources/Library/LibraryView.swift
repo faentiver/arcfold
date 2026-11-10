@@ -1,16 +1,15 @@
 import SwiftUI
 
 /// The imported games. Import adds files through the system file picker; a
-/// tap starts a game full screen. Licenses and cores sit in the info menu.
+/// tap starts a game, which takes the library's place in the window
+/// (`RootView`). Licenses and cores sit in the info menu.
 struct LibraryView: View {
+    /// Shows a game, or in debug builds a test pattern, in place of the library.
+    let open: (RootView.Stage) -> Void
     @Environment(GameLibrary.self) private var library
     @State private var path = NavigationPath()
     @State private var isImporting = false
     @State private var importProblems: [ImportError] = []
-    @State private var playing: Game?
-    #if DEBUG
-    @State private var showsTestPattern = false
-    #endif
 
     var body: some View {
         NavigationStack(path: $path) {
@@ -74,14 +73,6 @@ struct LibraryView: View {
             guard case let .success(urls) = result else { return }
             Task { await importGames(from: urls) }
         }
-        .fullScreenCover(item: $playing) { game in
-            GameView(game: game, library: library)
-        }
-        #if DEBUG
-        .fullScreenCover(isPresented: $showsTestPattern) {
-            TestPatternView()
-        }
-        #endif
         .alert(
             Text("Some Files Were Not Imported", comment: "Title of the alert after a failed import."),
             isPresented: Binding(get: { !importProblems.isEmpty }, set: { if !$0 { importProblems = [] } })
@@ -113,7 +104,7 @@ struct LibraryView: View {
                         Image(systemName: "square.stack")
                     }
                 } description: {
-                    Text("Import your own GBA game files. Arcfold comes without games.",
+                    Text("Import your own GBA or DS game files. Arcfold comes without games.",
                          comment: "Explanation of the empty library.")
                 } actions: {
                     Button {
@@ -129,7 +120,7 @@ struct LibraryView: View {
         } else {
             List(library.games) { game in
                 Button {
-                    playing = game
+                    open(.game(game))
                 } label: {
                     LabeledContent {
                         Text(verbatim: GameSystem.system(id: game.system)?.name ?? game.system)
@@ -138,7 +129,8 @@ struct LibraryView: View {
                     }
                 }
                 .tint(.primary)
-                .accessibilityIdentifier("game-\(game.name)")
+                // With the system, because a GBA and a DS game may share a name.
+                .accessibilityIdentifier("game-\(game.system)-\(game.name)")
             }
         }
     }
@@ -159,10 +151,12 @@ struct LibraryView: View {
         case let .importGame(url, start)?:
             let results = await importGames(from: [url])
             if start, case let .success(outcome)? = results.first {
-                playing = outcome.game
+                open(.game(outcome.game))
             }
         case .testPattern?:
-            showsTestPattern = true
+            open(.testPattern)
+        case let .layoutTestPattern(systemID)?:
+            open(.layoutTestPattern(systemID: systemID))
         case nil:
             break
         }
@@ -176,7 +170,7 @@ private enum InfoPage: Hashable {
 }
 
 #Preview("Games") {
-    LibraryView()
+    LibraryView { _ in }
         .environment(GameLibrary(previewing: [
             Game(id: "1", name: "Selftest", system: "gba", originalFileName: "selftest.gba",
                  size: 864, importedAt: .now),
@@ -186,6 +180,6 @@ private enum InfoPage: Hashable {
 }
 
 #Preview("Empty") {
-    LibraryView()
+    LibraryView { _ in }
         .environment(GameLibrary(previewing: []))
 }

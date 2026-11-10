@@ -29,6 +29,16 @@ public struct SessionConfiguration: Sendable {
     /// defaults, for example `["mgba_use_bios": "OFF"]`.
     public var coreOptions: [String: String]
     public var pacing: Pacing
+    /// The byte the save memory is filled with before the first frame while
+    /// the game has no battery save yet; nil keeps what the core put there.
+    /// The DS uses 0xFF, like erased EEPROM and flash: melonDS DS starts with
+    /// 0x00 (ADR 0006). A memory that holds nothing but 0xFF is never written
+    /// while no file exists.
+    public var blankSaveMemoryByte: UInt8?
+    /// The core accepts games it cannot run and shows its own error screen
+    /// instead, reporting no system RAM (melonDS DS without BIOS files). With
+    /// this set, `load()` fails with `SessionError.gameNotRunnable` then.
+    public var requiresSystemMemory: Bool
 
     public init(
         coreName: String,
@@ -38,7 +48,9 @@ public struct SessionConfiguration: Sendable {
         systemDirectory: URL,
         saveDirectory: URL,
         coreOptions: [String: String] = [:],
-        pacing: Pacing = .realTime
+        pacing: Pacing = .realTime,
+        blankSaveMemoryByte: UInt8? = nil,
+        requiresSystemMemory: Bool = false
     ) {
         self.coreName = coreName
         self.bundle = bundle
@@ -48,6 +60,8 @@ public struct SessionConfiguration: Sendable {
         self.saveDirectory = saveDirectory
         self.coreOptions = coreOptions
         self.pacing = pacing
+        self.blankSaveMemoryByte = blankSaveMemoryByte
+        self.requiresSystemMemory = requiresSystemMemory
     }
 }
 
@@ -92,6 +106,10 @@ public enum SessionError: Error, Sendable, Hashable, CustomStringConvertible {
     case unreadableGame(path: String, reason: String)
     /// `retro_load_game` returned false.
     case gameRejected
+    /// The core accepted the game but cannot run it and shows its own error
+    /// screen instead (melonDS DS with an encrypted game and no BIOS files).
+    /// Only with `SessionConfiguration.requiresSystemMemory`.
+    case gameNotRunnable
     /// The core uses a pixel format Arcfold cannot show.
     case unsupportedPixelFormat(PixelFormat)
     /// Reading or writing the battery save failed.
@@ -109,6 +127,8 @@ public enum SessionError: Error, Sendable, Hashable, CustomStringConvertible {
             "The game at \(path) could not be read: \(reason)"
         case .gameRejected:
             "The core did not accept the game"
+        case .gameNotRunnable:
+            "The core cannot run the game without files Arcfold does not include"
         case let .unsupportedPixelFormat(format):
             "The core uses the unsupported pixel format \(format)"
         case let .batterySave(reason):

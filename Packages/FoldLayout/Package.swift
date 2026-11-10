@@ -12,13 +12,20 @@ let swiftSettings: [SwiftSetting] = [
 
 let package = Package(
     name: "FoldLayout",
-    platforms: [.iOS(.v27)],
+    // macOS only so that the pure layout tests also run with `swift test` on
+    // the Mac; the app uses the package on iOS (ADR 0006).
+    platforms: [.iOS(.v27), .macOS(.v27)],
     products: [
         .library(name: "FoldLayout", targets: ["FoldLayout"]),
     ],
     targets: [
         .target(
             name: "FoldLayout",
+            swiftSettings: swiftSettings
+        ),
+        .testTarget(
+            name: "FoldLayoutTests",
+            dependencies: ["FoldLayout"],
             swiftSettings: swiftSettings
         ),
     ],

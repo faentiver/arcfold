@@ -53,9 +53,10 @@ targets:
         excludes:
           # Merged into the generated Info.plist (INFOPLIST_FILE), not a resource
           - Info.plist
-      # License texts for the Licenses screen (plan, hard rules; ADR 0005),
-      # copied from their originals into Arcfold.app/Licenses/<component>/.
-      # A core added later brings its texts here as well.
+      # License texts for the Licenses screen (plan, hard rules; ADR 0005 and
+      # 0006), copied from their originals into Arcfold.app/Licenses/<folder>/.
+      # A core added later brings its texts here as well; LicenseCatalog lists
+      # them and BundleContentTests checks that they arrive.
       - path: LICENSE
         buildPhase:
           copyFiles:
@@ -81,6 +82,96 @@ targets:
           copyFiles:
             destination: resources
             subpath: Licenses/libretro.h
+      # melonDS DS and the parts built into it (ADR 0006). melondsds-LICENSE.txt.in
+      # holds the notices melonDS DS collects itself; the app shows only the
+      # sections of libretro-common, date and Open Sans from it, because the
+      # file also names parts Arcfold does not build (Dolphin, pcap) and lacks
+      # blip_buf, which the mGBA entry covers.
+      - path: Cores/melonds-ds/LICENSE
+        buildPhase:
+          copyFiles:
+            destination: resources
+            subpath: Licenses/melonDS-DS
+      - path: Cores/melonds-ds/cmake/melondsds-LICENSE.txt.in
+        buildPhase:
+          copyFiles:
+            destination: resources
+            subpath: Licenses/melonDS-DS-notices
+      - path: Cores/melonds-ds-deps/melonDS/LICENSE
+        buildPhase:
+          copyFiles:
+            destination: resources
+            subpath: Licenses/melonDS
+      - path: Cores/melonds-ds-deps/melonDS/freebios/drastic_bios_readme.txt
+        buildPhase:
+          copyFiles:
+            destination: resources
+            subpath: Licenses/FreeBIOS
+      - path: Cores/melonds-ds-deps/melonDS/src/fatfs/LICENSE.txt
+        buildPhase:
+          copyFiles:
+            destination: resources
+            subpath: Licenses/FatFs
+      - path: Cores/melonds-ds-deps/melonDS/src/teakra/LICENSE
+        buildPhase:
+          copyFiles:
+            destination: resources
+            subpath: Licenses/teakra
+      - path: Cores/melonds-ds-deps/melonDS/src/tiny-AES-c/unlicense.txt
+        buildPhase:
+          copyFiles:
+            destination: resources
+            subpath: Licenses/tiny-AES-c
+      - path: Cores/melonds-ds-deps/melonDS/src/xxhash/xxhash.h
+        buildPhase:
+          copyFiles:
+            destination: resources
+            subpath: Licenses/xxHash
+      - path: Cores/melonds-ds-deps/libslirp/COPYRIGHT
+        buildPhase:
+          copyFiles:
+            destination: resources
+            subpath: Licenses/libslirp
+      - path: Cores/melonds-ds-deps/libslirp/src/tcp_var.h
+        buildPhase:
+          copyFiles:
+            destination: resources
+            subpath: Licenses/libslirp-BSD
+      - path: Cores/melonds-ds-deps/libslirp/src/util.h
+        buildPhase:
+          copyFiles:
+            destination: resources
+            subpath: Licenses/libslirp-MIT
+      - path: Cores/melonds-ds-deps/fmt/LICENSE
+        buildPhase:
+          copyFiles:
+            destination: resources
+            subpath: Licenses/fmt
+      - path: Cores/melonds-ds-deps/glm/copying.txt
+        buildPhase:
+          copyFiles:
+            destination: resources
+            subpath: Licenses/GLM
+      - path: Cores/melonds-ds-deps/pntr/LICENSE.md
+        buildPhase:
+          copyFiles:
+            destination: resources
+            subpath: Licenses/pntr
+      - path: Cores/melonds-ds-deps/yamc/LICENSE
+        buildPhase:
+          copyFiles:
+            destination: resources
+            subpath: Licenses/yamc
+      - path: Cores/melonds-ds-deps/span-lite/LICENSE.txt
+        buildPhase:
+          copyFiles:
+            destination: resources
+            subpath: Licenses/span-lite
+      - path: Cores/melonds-ds-deps/zlib/LICENSE
+        buildPhase:
+          copyFiles:
+            destination: resources
+            subpath: Licenses/zlib
     dependencies:
       - package: LibretroKit
       - package: FoldLayout
@@ -98,6 +189,9 @@ targets:
       - framework: Cores/Build/mgba_libretro.xcframework
         embed: true
         link: false
+      - framework: Cores/Build/melondsds_libretro.xcframework
+        embed: true
+        link: false
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.faentiver.arcfold
@@ -107,7 +201,7 @@ targets:
         CURRENT_PROJECT_VERSION: "1"
         GENERATE_INFOPLIST_FILE: YES
         # Keys without a build setting: frame rates above 60 Hz, Game Mode and
-        # the imported file type for GBA games (ADR 0005)
+        # the imported file types for GBA and DS games (ADR 0005, ADR 0006)
         INFOPLIST_FILE: App/Info.plist
         INFOPLIST_KEY_LSApplicationCategoryType: public.app-category.games
         INFOPLIST_KEY_UILaunchScreen_Generation: YES
@@ -146,6 +240,10 @@ targets:
         includes:
           - "*.gba"
         buildPhase: resources
+      - path: Tests/Fixtures/ds
+        includes:
+          - "*.nds"
+        buildPhase: resources
     dependencies:
       - target: Arcfold
       - package: LibretroKit
@@ -166,6 +264,10 @@ targets:
       - path: Tests/Fixtures/gba
         includes:
           - "*.gba"
+        buildPhase: resources
+      - path: Tests/Fixtures/ds
+        includes:
+          - "*.nds"
         buildPhase: resources
     dependencies:
       - target: Arcfold
@@ -189,6 +291,7 @@ schemes:
       targets:
         - ArcfoldTests
         - package: LibretroKit/LibretroKitTests
+        - package: FoldLayout/FoldLayoutTests
         - package: Renderer/RendererTests
         # The UI is the same in both builds, so only Store runs the UI tests.
         - ArcfoldUITests
@@ -210,6 +313,7 @@ schemes:
       targets:
         - ArcfoldTests
         - package: LibretroKit/LibretroKitTests
+        - package: FoldLayout/FoldLayoutTests
         - package: Renderer/RendererTests
     profile:
       config: Release-JIT

@@ -6,7 +6,8 @@
   - CADisableMinimumFrameDurationOnPhone: lets the game screen ask ProMotion
     displays for more than 60 Hz (ADR 0005).
   - LSSupportsGameMode: makes Game Mode available while Arcfold runs.
-  - UTImportedTypeDeclarations: the file type .fileImporter offers for GBA games.
+  - UTImportedTypeDeclarations: the file types .fileImporter offers for GBA and
+    DS games (ADR 0006).
 -->
 <plist version="1.0">
 <dict>
@@ -30,6 +31,23 @@
 				<key>public.filename-extension</key>
 				<array>
 					<string>gba</string>
+				</array>
+			</dict>
+		</dict>
+		<dict>
+			<key>UTTypeIdentifier</key>
+			<string>com.faentiver.arcfold.nds-rom</string>
+			<key>UTTypeDescription</key>
+			<string>DS ROM</string>
+			<key>UTTypeConformsTo</key>
+			<array>
+				<string>public.data</string>
+			</array>
+			<key>UTTypeTagSpecification</key>
+			<dict>
+				<key>public.filename-extension</key>
+				<array>
+					<string>nds</string>
 				</array>
 			</dict>
 		</dict>

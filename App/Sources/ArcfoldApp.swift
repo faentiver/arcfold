@@ -7,7 +7,7 @@ struct ArcfoldApp: App {
 
     var body: some Scene {
         WindowGroup {
-            LibraryView()
+            RootView()
                 .environment(library)
         }
     }
