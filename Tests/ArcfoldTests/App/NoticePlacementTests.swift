@@ -28,8 +28,17 @@ struct NoticePlacementTests {
                                occlusions: [PixelRect(x: 87, y: 87, width: 112, height: 112),
                                             PixelRect(x: 0, y: 0, width: 252, height: 246)]))
 
+    /// The same with the bar on top, as the GBA asks for it.
+    nonisolated static let measuredSidewaysBarOnTop = DuoGeometries.Case(
+        name: "closed, sideways with the bar on top as measured",
+        geometry: FoldGeometry(container: DuoGeometries.outerLandscape, safeArea: PixelInsets(top: 246, bottom: 102),
+                               occlusions: [PixelRect(x: 88, y: 87, width: 111, height: 112),
+                                            PixelRect(x: 0, y: 0, width: 252, height: 246)]))
+
     nonisolated static let cases = OverlayPlacementTests.cases + DuoGeometries.systems.flatMap { system in
-        [true, false].map { Case(system: system.system, geometry: measuredSideways, showsControls: $0) }
+        [measuredSideways, measuredSidewaysBarOnTop].flatMap { geometry in
+            [true, false].map { Case(system: system.system, geometry: geometry, showsControls: $0) }
+        }
     }
 
     /// The height of the stack as SwiftUI lays it out in a column of `width`
@@ -82,7 +91,7 @@ struct NoticePlacementTests {
 
     /// The chip sits above the notice in the stack, whatever the size of the
     /// text: the stack is as high as both and their spacing, at every size.
-    @Test(arguments: [DynamicTypeSize.xSmall, .large, .xxxLarge, .accessibility1, .accessibility3, .accessibility5])
+    @Test(arguments: [DynamicTypeSize.xSmall, .large, .xxxLarge, .accessibility1, .accessibility2])
     func theChipMovesUpWithAGrowingNotice(_ size: DynamicTypeSize) {
         for width: CGFloat in [232, 320, 400] {
             let notice = Self.stackHeight(width: width, notice: Self.longNotice, audioProblem: nil, size: size)
@@ -106,18 +115,22 @@ struct NoticePlacementTests {
         #expect(height <= column.height + 0.5, "\(size): \(height) pt in a column of \(column.height) pt")
     }
 
-    /// A stack too high for its column, as with the largest text on a low
-    /// picture, stays inside the column: the notice gives way, the chip
-    /// keeps its height, and nothing beside the column is covered.
+    /// With the largest text the stack takes the largest size at which the
+    /// chip and the whole notice fit the column, so it never leaves the
+    /// column and nothing beside it is covered: on the upper DS screen
+    /// sideways it is as high as at one of the smaller sizes.
     @Test(arguments: cases)
     func theStackNeverLeavesItsColumn(_ testCase: Case) {
         let column = testCase.placement.noticeColumn
-        let chip = Self.stackHeight(width: column.width, notice: nil, audioProblem: Self.audioProblem, size: .accessibility5)
-        guard column.height >= chip + OverlayPlacement.spacing + 40 else { return }
+        guard column.height >= OverlayPlacement.heightForNoticeAndChip else { return }
         let height = Self.stackHeight(width: column.width, offering: column.height, notice: Self.longNotice,
                                       audioProblem: Self.audioProblem, size: .accessibility5)
         #expect(height <= column.height + 0.5, "\(height) pt in a column of \(column.height) pt")
-        #expect(height >= chip + OverlayPlacement.spacing, "the chip lost its place: \(height) pt, chip \(chip) pt")
+        let whole = NoticeStack.sizeLimits.map {
+            Self.stackHeight(width: column.width, notice: Self.longNotice, audioProblem: Self.audioProblem, size: $0)
+        }
+        #expect(whole.contains { abs($0 - height) <= 0.5 },
+                "\(height) pt is no whole stack at any size: \(whole) in a column of \(column.width) × \(column.height) pt")
     }
 
     /// The free rectangles the column is chosen from.

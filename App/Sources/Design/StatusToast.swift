@@ -3,9 +3,9 @@ import SwiftUI
 
 /// The status chip above a notice, where `OverlayPlacement.noticeColumn`
 /// puts them: one stack in one glass container (rule R4), aligned to the
-/// bottom of the column. A notice shows its whole text at every size and
-/// grows upwards; the chip moves up with it, so the two never overlap. They
-/// never take a touch (rule R6).
+/// bottom of the column. A notice shows its whole text and grows upwards;
+/// the chip moves up with it, so the two never overlap. They never take a
+/// touch (rule R6), and VoiceOver announces a notice.
 struct NoticeStack: View {
     /// A problem that stays, such as a missing audio output.
     let audioProblem: String?
@@ -13,14 +13,38 @@ struct NoticeStack: View {
 
     @Environment(\.prefersFades) private var prefersFades
 
+    /// The largest text sizes the stack is tried with, in this order: it
+    /// takes the first at which the chip and the whole notice fit the
+    /// column. Up to the default size nothing changes; with larger text a
+    /// low picture, such as the upper DS screen sideways, gets a smaller
+    /// size rather than a notice cut off after its first words.
+    nonisolated static let sizeLimits: [DynamicTypeSize] = [.accessibility2, .accessibility1, .xxxLarge, .xLarge, .large]
+
     var body: some View {
+        ViewThatFits(in: .vertical) {
+            stack(upTo: Self.sizeLimits[0])
+            stack(upTo: Self.sizeLimits[1])
+            stack(upTo: Self.sizeLimits[2])
+            stack(upTo: Self.sizeLimits[3])
+            // Too high even at the default size: the notice gives way.
+            stack(upTo: Self.sizeLimits[4])
+        }
+        .animation(Motion.appear(reduceMotion: prefersFades), value: notice)
+        .allowsHitTesting(false)
+        .task(id: notice) {
+            if let notice {
+                AccessibilityNotification.Announcement(notice).post()
+            }
+        }
+    }
+
+    private func stack(upTo limit: DynamicTypeSize) -> some View {
         // Spacing 0: the chip and the notice stay two shapes.
         GlassEffectContainer(spacing: 0) {
             VStack(spacing: OverlayPlacement.spacing) {
                 if let audioProblem {
                     StatusChip(text: audioProblem)
                         .frame(maxWidth: OverlayPlacement.chipMaxWidth)
-                        // In a column too low for both, the notice gives way.
                         .layoutPriority(1)
                 }
                 if let notice {
@@ -29,13 +53,11 @@ struct NoticeStack: View {
                 }
             }
         }
-        .animation(Motion.appear(reduceMotion: prefersFades), value: notice)
-        .allowsHitTesting(false)
+        .dynamicTypeSize(...limit)
     }
 }
 
-/// A short notice over the game picture, in in-game glass. VoiceOver
-/// announces it.
+/// A short notice over the game picture, in in-game glass.
 struct StatusToast: View {
     let text: String
 
@@ -51,14 +73,10 @@ struct StatusToast: View {
         // and a limit cut real messages off where the picture is narrow, as
         // on the upper DS screen sideways (256 pt).
         .multilineTextAlignment(.leading)
-        .dynamicTypeSize(...DynamicTypeSize.accessibility2)
         .padding(.horizontal, 14)
         .padding(.vertical, 9)
         .gameGlass(in: RoundedRectangle(cornerRadius: 20, style: .continuous), isSmallLabel: true)
         .glassEffectTransition(.materialize)
-        .task(id: text) {
-            AccessibilityNotification.Announcement(text).post()
-        }
     }
 
     /// How a notice comes and goes: rising 8 pt, or a fade only with Reduce
@@ -81,9 +99,6 @@ struct StatusChip: View {
         }
         .font(.caption2)
         .foregroundStyle(.white)
-        // Like a notice, it stops growing at accessibility2, so it stays
-        // inside the picture area upright.
-        .dynamicTypeSize(...DynamicTypeSize.accessibility2)
         .padding(.horizontal, 10)
         .padding(.vertical, 6)
         // A capsule as long as it is one line at the usual sizes; with
