@@ -71,7 +71,13 @@ struct GameGrid: View {
             }
         }
         .padding(.leading, layout.columns[0].x)
-        .frame(maxWidth: .infinity, alignment: .leading)
+        // As wide as the room offered, never as wide as the columns ask:
+        // they have fixed widths for the room measured last. A scroll view
+        // grows with content that is wider than itself, so when its window
+        // got narrower it stayed as wide as the old columns, and the room
+        // measured on it never changed (closing the Duo left the columns of
+        // the inner display on the outer one).
+        .frame(minWidth: 0, maxWidth: .infinity, alignment: .leading)
         .animation(Motion.appear(reduceMotion: prefersFades), value: games.map(\.id))
     }
 }

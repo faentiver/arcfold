@@ -361,4 +361,25 @@ struct LibraryColumnsTests {
         let space = LibraryColumns.Space(width: 594, margins: SystemMargins(leading: 0, trailing: 20))
         #expect(LibraryColumns(space: space, typeSize: .accessibility5).columns.count == 1)
     }
+
+    /// The grid takes the width it is offered, whatever room its columns
+    /// were laid out for. A scroll view grows with content wider than
+    /// itself: when the Duo closed, the scroll view of the library stayed as
+    /// wide as the columns of the inner display, the room measured on it
+    /// stayed that of the inner display too, and so did the columns.
+    @MainActor @Test func theGridNeverAsksForMoreWidthThanItIsOffered() {
+        let games = (1...8).map { index in
+            Game(id: "\(index)", name: "Game \(index)", system: "gba", originalFileName: "game.gba", size: 1024, importedAt: .now)
+        }
+        // The columns of the inner display, open: four up to 867 pt.
+        let inner = LibraryColumns.Space(width: 867, margins: SystemMargins(leading: 20, trailing: 0))
+        #expect(abs((LibraryColumns(space: inner, typeSize: .large).columns.last?.maxX ?? 0) - 867) < 0.01)
+        let host = UIHostingController(rootView: GameGrid(games: games, space: inner) { _ in })
+        // Offered the width beside the bar of the outer display.
+        let narrow = host.sizeThatFits(in: CGSize(width: 382, height: 10_000))
+        #expect(narrow.width <= 382.5, "the grid asks for \(narrow.width) pt of 382")
+        // In its own room it still fills the width.
+        let wide = host.sizeThatFits(in: CGSize(width: 867, height: 10_000))
+        #expect(abs(wide.width - 867) < 0.5, "the grid takes \(wide.width) pt of 867")
+    }
 }
