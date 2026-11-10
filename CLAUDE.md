@@ -13,7 +13,7 @@
   - Builds Store und JIT ohne Warnung im eigenen Code, Tests grün (Store 249, JIT 229),
   - ADR 0006 angenommen, Belege in den Abschnitten „Umsetzung in M2“, „Nachbesserungen nach der Prüfung“ und „Posenprüfung per Software“.
 
-  Die Liquid-Glass-Oberfläche (ADR 0007, aus M4 vorgezogen, vorgeschlagen) folgt als eigener Pull Request, Branch `m4/liquid-glass` (10. November 2026). Die Architektur von M2 gilt, Glas liefert das Aussehen: Bibliothek als Raster, Glastasten in den Zonen von FoldLayout in jeder Pose und für GBA und DS, Pause-Knopf aus Glas an der Stelle aus `GameLayout`, Pausenmenü als System-Sheet auch nach dem Zuklappen außen, Hinweise und Chip auf dem Bild (`OverlayPlacement` aus `GameLayout`). Kein Zoom von der Kachel ins Spiel, weil ein Spiel die Bibliothek ersetzt. Geprüft in jeder echten Pose mit dem privaten Posen-Werkzeug und der Bildschirmfoto-Tour (`Scripts/screenshot-tour.sh`, ADR 0007, Abschnitt „Zusammenführung mit M2“); Builds ohne Warnung im eigenen Code, Tests grün. Die Oberfläche wartet auf die Abnahme.
+  Die Liquid-Glass-Oberfläche (ADR 0007, aus M4 vorgezogen, vorgeschlagen) folgt als eigener Pull Request, Branch `m4/liquid-glass` (10. November 2026). Die Architektur von M2 gilt, Glas liefert das Aussehen: Bibliothek als Raster, Glastasten in den Zonen von FoldLayout in jeder Pose und für GBA und DS, Pause-Knopf aus Glas an der Stelle aus `GameLayout`, Pausenmenü als System-Sheet auch nach dem Zuklappen außen, Hinweise und Chip auf dem Bild (`OverlayPlacement` aus `GameLayout`). Kein Zoom von der Kachel ins Spiel, weil ein Spiel die Bibliothek ersetzt. Geprüft in jeder echten Pose mit dem privaten Posen-Werkzeug und der Bildschirmfoto-Tour (`Scripts/screenshot-tour.sh`, ADR 0007, Abschnitt „Zusammenführung mit M2“); Builds ohne Warnung im eigenen Code, Tests grün (Store 327 bestanden, 32 übersprungen; JIT 288). Die Tour deckt in jeder Pose und Variante Spiel, Bibliothek, Menü, Suche, Lizenzen, Hinweise und Fehleransicht ab; offen sind Befunde zur Gestaltung (Kante der Tasten über dem Bild mit Kontrast erhöhen knapp unter 3 : 1, Audit der Bibliothek zugeklappt quer und im Buch), Einzelheiten in `docs/wissen/oberflaeche.md`, „Tour in jeder Pose“. Die Oberfläche wartet auf die Abnahme.
 - **Nächster Schritt:** Abnahme der Liquid-Glass-Oberfläche durch Fatih anhand des Pull Requests von `m4/liquid-glass`; M3 · PSP (Plan, Abschnitt 10) darf beginnen. Offen bleibt der Gerätetest auf dem Duo für M1, M2 und ADR 0002 (`docs/wissen/geraetetest.md`). Die CI läuft vorerst nur auf manuellen Start (`workflow_dispatch`, `docs/wissen/bauen-und-ci.md`).
 - **Datum:** 10. November 2026
 
@@ -107,9 +107,10 @@ POSE_CHECK_POSTURE_TOOL=<Werkzeug> Scripts/pose-check.sh ds    # danach gba
 Scripts/pose-check.sh ds
 
 # Bildschirmfoto-Tour der Oberfläche (ADR 0007): Varianten hell, dunkel, Kontrast, große Schrift
-# und mit poses jede echte Pose des Duo, eingestellt mit dem privaten Posen-Werkzeug
+# und mit poses jede echte Pose des Duo (Spiel, Bibliothek, Menü, Suche, Lizenzen, Hinweise,
+# Fehleransicht, je in allen vier Varianten), eingestellt mit dem privaten Posen-Werkzeug
 # (POSE_CHECK_POSTURE_TOOL wie bei pose-check.sh; ohne die Variable überspringt der Teil poses
-# mit einem Hinweis); ohne Argumente alles
+# mit einem Hinweis); ohne Argumente alles, ARCFOLD_DERIVED_DATA wählt den Build-Ordner
 POSE_CHECK_POSTURE_TOOL=<Werkzeug> Scripts/screenshot-tour.sh <UDID> <Ordner> [light dark contrast large poses]
 
 # CI-Workflow prüfen (optional, braucht actionlint)

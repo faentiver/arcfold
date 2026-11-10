@@ -68,7 +68,7 @@ Bedienung mit Glas am Gerät. G1 bis G3 sind seit dem Merge mit M2 auch im Simul
 | --- | --- | --- | --- |
 | G1 | R quer | Duo quer halten, R antippen | Overlay „last R“, „presses“ steigt um 1; kein Pausenmenü |
 | G2 | Pause quer | Pause-Knopf in der Menüzeile rechts unten (zwischen Select und Start) antippen | Sheet geht auf; Inhalt lesbar, nichts unter der Systemspalte abgeschnitten (Bildschirmfoto) |
-| G3 | L durch das Debug-Overlay | quer im Debug-Build L dort antippen, wo das Debug-Overlay darüberliegt | „last L“, das Overlay nimmt keine Berührung an |
+| G3 | L neben dem Debug-Overlay | quer im Debug-Build L antippen; das Overlay liegt auf keiner Taste (`OverlayPlacement.debugArea`, belegt in jeder echten Pose von `GameOverlayUITests.testTheDebugOverlayCoversNoControl`), ein Test „L unter dem Overlay“ entfällt deshalb | „last L“, „presses“ steigt um 1; das Overlay deckt weder L noch eine andere Taste und nimmt keine Berührung an |
 | G4 | Zwei Finger mit Glas | hochkant und quer: Steuerkreuz und A gleichzeitig halten, dann A und B, dann L und R | „Input held“ zeigt beide Tasten; beide leuchten sofort, nichts hinkt nach |
 | G5 | Zug über die Tasten | hochkant mit zwei Fingern auf den Tasten nach unten ziehen | Das Spiel bleibt, Tasten melden den Zug; ein Schließen per Zoom gibt es seit dem Merge nicht mehr (`RootView`) |
 | G6 | Sheet nach dem Zuklappen | im Spiel zuklappen, außen „Resume“, dann wieder zu und auf | Zuklappen zeigt das Sheet außen; „Resume“ spielt außen weiter; Aufklappen schließt das Sheet und setzt fort |

@@ -91,7 +91,7 @@ Weitere Maße:
 
 ## Abnahme und Messwerte
 
-Bildschirmfoto-Tour: `Scripts/screenshot-tour.sh <UDID> <Ordner> [light dark contrast large poses]`. Sie stellt Erscheinungsbild, Kontrast und Schriftgröße des Simulators um, führt `ScreenshotTour` aus und exportiert die Anhänge als `<Variante>-<nn>-<Zustand>.png` und `<Variante>-metrics.txt`. Ohne Variante überspringt `ScreenshotTour` jeden Zustand, damit der normale Testlauf schnell bleibt. Seit M2 hat sie einen Teil `poses`: Das Skript stellt jede echte Pose des Duo mit dem privaten Posen-Werkzeug außerhalb des Repos ein, das `POSE_CHECK_POSTURE_TOOL` benennt wie bei `Scripts/pose-check.sh` (zu hochkant, zu quer, offen, Buch, Tabletop, flach hochkant), hell und dunkel, und führt darin die Zustände 30 (DS) und 31 (GBA) mit Pausen-Sheet aus, quer dazu 12 (Sheet quer) und `GlassUITests/testSidewaysTheRButtonIsFree`; danach startet es den DS offen, klappt zu, fotografiert das Sheet außen und klappt wieder auf (40 bis 42). Ohne Argumente laufen alle vier Varianten und die Posen; ohne `POSE_CHECK_POSTURE_TOOL` überspringt sich der Teil `poses` mit einem Hinweis (Exit 0), die Varianten laufen.
+Bildschirmfoto-Tour: `Scripts/screenshot-tour.sh <UDID> <Ordner> [light dark contrast large poses]`. Sie stellt Erscheinungsbild, Kontrast und Schriftgröße des Simulators um, führt `ScreenshotTour` aus und exportiert die Anhänge als `<Variante>-<nn>-<Zustand>.png` und `<Variante>-metrics.txt`. Ohne Variante überspringt `ScreenshotTour` jeden Zustand, damit der normale Testlauf schnell bleibt. Seit M2 hat sie einen Teil `poses`: Das Skript stellt jede echte Pose des Duo mit dem privaten Posen-Werkzeug außerhalb des Repos ein, das `POSE_CHECK_POSTURE_TOOL` benennt wie bei `Scripts/pose-check.sh` (zu hochkant, zu quer, offen, Buch, Tabletop, flach hochkant), in allen vier Varianten (jede Pose einmal eingestellt, darin Variante für Variante), und führt darin die Zustände 30 (DS) und 31 (GBA) mit Pausen-Sheet, 32 (Bibliothek), 33 (Menü), 34 (Suche), 35 (Lizenzen), 36 (langer Hinweis mit Ton-Chip über einem laufenden Spiel) und 37 (Fehleransicht) aus, quer dazu 12 (Sheet quer) und `GlassUITests/testSidewaysTheRButtonIsFree`, in hell zusätzlich `GameOverlayUITests` und `LibraryLayoutUITests` (im Buch mit dem Falz von 455,5 bis 495,5 pt über `ARCFOLD_LIBRARY_FOLD`); danach startet es den DS offen, klappt zu, fotografiert das Sheet außen und klappt wieder auf (40 bis 42). Ohne Argumente laufen alle vier Varianten und die Posen; ohne `POSE_CHECK_POSTURE_TOOL` überspringt sich der Teil `poses` mit einem Hinweis (Exit 0), die Varianten laufen.
 
 Ergebnisse vom 7. November 2026 vor dem Merge mit M2 (Simulator „Arcfold Glass Duo“, zugeklappt, iOS 27.1, die feste Tastenlage aus M1); die Messwerte nach dem Merge stehen im Abschnitt „Mit M2 zusammengeführt“:
 
@@ -255,6 +255,45 @@ Teil `poses` der Tour am 7. November 2026, hell und dunkel, jede Pose mit dem pr
 | offen | GBA | 59,71 (59,61–59,76), 45–49 Hz, 32,0 % | 59,77 (59,65–59,90), 45–48 Hz, 30,1 % | 49 / 47 Hz, 31,2 / 28,9 % |
 
 In allen Läufen `resync` 0, Aussetzer 0, „GPU busy“ 0, „late“ der Anzeige beim GBA 0, beim DS 4 bis 22 mit und ohne Glas. Die Emulation hält die Rate von M2 (DS 59,8, GBA 59,7 Bilder/s) mit Glas wie flach. Übersprungen liegt Glas 0,9 bis 4,5 Prozentpunkte über flach, wie vor dem Merge (+1,6 im Mittel) über der Grenze von einem Prozentpunkt; die Anzeige läuft im Simulator mit 44 bis 52 Hz und streut zwischen zwei Läufen um bis zu 2,5 Prozentpunkte. Ein erster Lauf zugeklappt unmittelbar nach der Posenprüfung, bei Last 31 bis 42, ergab für den GBA mit Glas 58,93 Bilder/s und 28,9 % gegen flach 59,92 und 26,3 %; bei Last 3 bis 4 wiederholt, lag Glas bei 59,92. Die Entscheidung bleibt beim Gerätetest (`geraetetest.md`, Teil 1b).
+
+## Tour in jeder Pose (10. November 2026)
+
+Nach den Nachbesserungen an Spielansicht und Bibliothek (Hinweis-Stapel, Fehleransicht, Debug-Overlay, Pause-Sheet, Titelkante, Spalten, Falz im Buch) zeigt die Tour in jeder echten Pose und jeder Variante (hell, dunkel, Kontrast erhöhen, große Schrift) den ganzen Umfang: Spiel DS und GBA mit Pausen-Sheet (30, 31), Bibliothek (32), Menü (33), Suche (34), Lizenzen (35), langer Hinweis mit Ton-Chip (36) und Fehleransicht (37). 24 Läufe (sechs Posen mal vier Varianten) auf dem Duo-Simulator, iOS 27.1, jede Pose mit dem privaten Posen-Werkzeug eingestellt. Auslöser für Hinweis, Chip und Fehleransicht sind `DebugRemote` (`notice.long`, `chip.show`) und `-ArcfoldFailStart YES` (Debug-Build). Gemessen in jeder Pose, wo es Sinn hat: Kante des großen Titels gegen die erste Kachel, Ränder des Sheets, Größe des Pause-Knopfs und seine Lage zu den Tasten, Kontrast der Beschriftungen und Kanten der Tasten, Weiß auf dem Akzent, Hinweis und Chip im Fenster, ohne Überschneidung und ohne Taste darunter.
+
+| Pose | Fenster (pt) | Bibliothek | Titelkante, Kachel | Ränder des Sheets | Pause-Knopf | „Resume“ / „Close“ |
+| --- | --- | --- | --- | --- | --- | --- |
+| zu hochkant | 466 × 678 | 2 Spalten | 20 / 20 pt | 20 / 20 pt | 44 × 44, keine Taste darunter | 5,09 / 4,68–4,73 : 1 |
+| zu quer | 678 × 466 | 3 Spalten | 84 / 84 pt | 96 / 96 pt | 44 × 44, keine Taste darunter | 5,09 / 4,68–4,69 : 1 |
+| offen | 951 × 669 | 4 Spalten | 20 / 20 pt | 20 / 20 pt | 44 × 44, keine Taste darunter | 5,09 / 4,74 : 1 |
+| Buch | 951 × 669 | 2 + 2 Spalten (Falz 455,5 bis 495,5 pt) | 20 / 20 pt | 20 / 20,3 pt | 44 × 44, keine Taste darunter | 5,09 / 4,74 : 1 |
+| Tabletop | 669 × 951 | 3 Spalten | 20 / 20 pt | 20 / 20 pt | 44 × 44, keine Taste darunter | 5,09 / 4,73–4,74 : 1 |
+| flach hochkant | 669 × 951 | 3 Spalten | 20 / 20 pt | 20 / 20 pt | 44 × 44, keine Taste darunter | 5,09 / 4,73–4,74 : 1 |
+
+Hinweis und Chip stehen in jeder Pose, DS und GBA, im Fenster, ohne Überschneidung und ohne Taste darunter (Rahmen in `*-metrics.txt`). Zu hochkant: Chip (42, 104, 297 × 26) über dem Hinweis (31, 135, 320 × 52) beim DS.
+
+**Kante der Tasten mit Kontrast erhöhen** (Grenze 3 : 1), kleinster Wert je Pose und System: zu hochkant DS 2,90 (L und R), GBA 3,62; zu quer DS 3,71, GBA 2,92 (Steuerkreuz; B, L und R 2,96); offen und Buch DS 3,71, GBA 3,50; Tabletop und flach hochkant DS 3,61, GBA 3,74. Unter der Grenze liegen genau die Tasten, die über dem Spielbild statt über dem Deck liegen (L und R des DS zugeklappt, die GBA-Tasten zugeklappt quer); das Deck erreicht überall mindestens 3,50.
+
+**Offene Befunde** (nicht behoben, weil es Gestaltung ist; siehe ADR 0007, „Folgen“):
+
+1. Zugeklappt hochkant, DS, mit Kontrast erhöhen: Kante von L und R 2,90 : 1 über dem Spielbild (`contrast-closed/contrast-30-closed-ds.png`).
+2. Zugeklappt quer, GBA, mit Kontrast erhöhen: Kante von B, L, R 2,96 und des Steuerkreuzes 2,92 : 1 über dem Spielbild (`contrast-closed-landscape/contrast-31-closed-landscape-gba.png`).
+3. Zugeklappt quer, Bibliothek, hell, Audit in `LibraryLayoutUITests`: „Text clipped“ für die Namen „Arc-Light“, „fold_runner“ und „Homebrew Demo“ (Rahmen 18 pt hoch, 3 Spalten zu 181 pt) bei der Standardgröße, bei accessibility-large für „fold_runner“ und „Arc-Light“. Reproduziert auf einem zweiten Gerät (`light-closed-landscape/light-32-closed-landscape-library.png`). In zu hochkant, offen, Tabletop und flach hochkant besteht das Audit.
+4. Im Buch läuft das Audit der Bibliothek in `LibraryLayoutUITests` in die Zeitgrenze („Audit failed to complete in time“, Code −56): in der Tour und in einem Einzellauf, auf zwei Geräten. Die übrigen 20 Tests im Buch bestehen; auf einem früheren Stand bestand das Audit im Buch in 35 s.
+
+Die Fotos der Tour sind die Bitmaps der Anzeige; zugeklappt quer liegen sie im Bild um 90° gedreht.
+
+**Leistung, Glas gegen flach** (`test98MeasureGlassAgainstFlat`, je 60 s nach dem Anlauf, nacheinander auf einem ruhigen Mac, eigenes Duo-Gerät): Emulation überall 59,95 bis 59,96 Bilder/s, `resync` 0, Aussetzer 0, „GPU busy“ 0, „late“ der Anzeige 0.
+
+| Pose | System | Glas: Hz, übersprungen | flach: Hz, übersprungen |
+| --- | --- | --- | --- |
+| zu hochkant | DS | 50 Hz, 25,2 % | 52 Hz, 24,6 % |
+| zu hochkant | GBA | 51 Hz, 24,3 % | 51 Hz, 22,4 % |
+| offen | DS | 52 Hz, 24,5 % | 49 Hz, 23,6 % |
+| offen | GBA | 46 Hz, 28,0 % | 51 Hz, 24,3 % |
+
+Übersprungen liegt Glas 0,6 bis 3,7 Prozentpunkte über flach, die Emulation hält die Rate wie flach.
+
+**Tests und Posenprüfung:** Store 359 (327 bestanden, 32 übersprungen, 0 fehlgeschlagen: ArcfoldTests 154, LibretroKitTests 64, FoldLayoutTests 31, RendererTests 39, ArcfoldUITests 71 mit 39 bestanden), JIT 288 bestanden. `Scripts/pose-check.sh gba` ohne Lücke in einem Fenster eines Wechsels, nur eine Neusynchronisation nach einem Bildschirmfoto; `ds` beim dritten Lauf ohne Lücke und ohne Neusynchronisation (59,78 bis 60,00 Bilder/s, Zuklappen „Paused: folded“, Aufklappen „Resumed“). Zwei frühere Läufe des DS bei fremder Last von 20 bis 35 zeigten Lücken von 57 bis 66 ms in den Fenstern von Wechseln.
 
 ## Stolperfallen
 
