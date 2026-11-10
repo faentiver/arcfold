@@ -1,0 +1,276 @@
+import XCTest
+
+/// The library in the window the device gives it, whatever the pose: the
+/// grid begins at the large title, a tile keeps its name in view at every
+/// text size, and nothing lies on a fold that divides the window from top to
+/// bottom. The tests take the pose as it is, so they run closed in a normal
+/// test run and again in every real pose of the Duo.
+///
+/// A real fold reaches a test only from outside: `ARCFOLD_LIBRARY_FOLD`
+/// (through `TEST_RUNNER_ARCFOLD_LIBRARY_FOLD`) names its left and right edge
+/// in points of the window, for example `455.5,495.5` for the book in the
+/// Simulator. Without it the tests of the fold use the artificial fold of
+/// debug builds (`-ArcfoldFoldOverride book`), 16 pt down the middle.
+final class LibraryLayoutUITests: XCTestCase {
+    /// Text sizes from the standard one to the largest accessibility size.
+    private static let textSizes = [
+        "UICTContentSizeCategoryL", "UICTContentSizeCategoryXXXL", "UICTContentSizeCategoryAccessibilityM",
+        "UICTContentSizeCategoryAccessibilityL", "UICTContentSizeCategoryAccessibilityXXXL",
+    ]
+
+    override func setUp() {
+        continueAfterFailure = true
+    }
+
+    /// The library with the eight games of the gallery.
+    @MainActor
+    private func launchLibraryShelf(textSize: String = "UICTContentSizeCategoryL", arguments: [String] = []) -> XCUIApplication {
+        let app = XCUIApplication()
+        app.launchArguments = ["-ArcfoldGallery", "library-shelf", "-UIPreferredContentSizeCategoryName", textSize] + arguments
+        app.launch()
+        XCTAssertTrue(app.buttons["game-gba-Arc-Light"].waitForExistence(timeout: 15), "The library shows no games (\(textSize))")
+        return app
+    }
+
+    /// The tiles on screen, in reading order.
+    @MainActor
+    private func libraryTiles(in app: XCUIApplication) -> [CGRect] {
+        app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'game-'")).allElementsBoundByIndex
+            .map(\.frame)
+            .filter { !$0.isEmpty }
+            .sorted { ($0.minY, $0.minX) < ($1.minY, $1.minX) }
+    }
+
+    /// The fold named from outside, or nil.
+    private static var namedFold: ClosedRange<CGFloat>? {
+        guard let text = ProcessInfo.processInfo.environment["ARCFOLD_LIBRARY_FOLD"] else { return nil }
+        let edges = text.split(separator: ",").compactMap { Double($0) }
+        guard edges.count == 2, edges[0] < edges[1] else { return nil }
+        return CGFloat(edges[0])...CGFloat(edges[1])
+    }
+
+    private func note(_ text: String) {
+        print("LibraryLayout: \(text)")
+    }
+
+    @MainActor
+    func testTheGridBeginsAtTheLargeTitle() {
+        for textSize in ["UICTContentSizeCategoryL", "UICTContentSizeCategoryAccessibilityL"] {
+            let app = launchLibraryShelf(textSize: textSize)
+            let title = app.navigationBars["Library"].staticTexts["Library"]
+            XCTAssertTrue(title.waitForExistence(timeout: 5), "The library shows no title (\(textSize))")
+            let tile = app.buttons["game-gba-Arc-Light"].frame
+            let window = app.windows.firstMatch.frame
+            note("title \(title.frame.minX) tile \(tile.minX) window \(window.width) x \(window.height) \(textSize)")
+            XCTAssertEqual(tile.minX, title.frame.minX, accuracy: 1,
+                           "The grid does not begin at the large title (\(textSize), window \(window.size))")
+            app.terminate()
+        }
+    }
+
+    @MainActor
+    func testATileKeepsItsNameInViewAtEveryTextSize() {
+        for textSize in Self.textSizes {
+            let app = launchLibraryShelf(textSize: textSize)
+            let window = app.windows.firstMatch.frame
+            let tiles = libraryTiles(in: app)
+            guard let first = tiles.first else {
+                XCTFail("No tile (\(textSize))")
+                continue
+            }
+            // A tile is its artwork, its name and its system; the first row
+            // ends above the lower edge of the window.
+            let row = tiles.filter { abs($0.minY - first.minY) < 1 }
+            let bottom = row.map(\.maxY).max() ?? 0
+            note("first row \(row.count) tiles of \(first.width) x \(first.height), ends at \(bottom) of \(window.height) \(textSize)")
+            XCTAssertLessThanOrEqual(bottom, window.maxY,
+                                     "The first row ends below the window (\(textSize), window \(window.size))")
+            XCTAssertGreaterThanOrEqual(first.minX, window.minX)
+            XCTAssertLessThanOrEqual(row.map(\.maxX).max() ?? 0, window.maxX)
+            app.terminate()
+        }
+    }
+
+    /// The fold the app lays out for: the one named from outside, or the
+    /// artificial one down the middle of the window.
+    private func fold(in window: CGRect) -> ClosedRange<CGFloat> {
+        Self.namedFold ?? (window.midX - 8)...(window.midX + 8)
+    }
+
+    /// With a fold named from outside the app measures it itself.
+    private static var foldArguments: [String] {
+        namedFold == nil ? ["-ArcfoldFoldOverride", "book"] : []
+    }
+
+    @MainActor
+    func testNoTileLiesOnAFoldThatDividesTheWindow() {
+        for textSize in ["UICTContentSizeCategoryL", "UICTContentSizeCategoryAccessibilityL"] {
+            let app = launchLibraryShelf(textSize: textSize, arguments: Self.foldArguments)
+            let window = app.windows.firstMatch.frame
+            let fold = fold(in: window)
+            let tiles = libraryTiles(in: app)
+            let before = tiles.filter { $0.maxX <= fold.lowerBound + 0.5 }
+            let after = tiles.filter { $0.minX >= fold.upperBound - 0.5 }
+            note("fold \(fold.lowerBound)-\(fold.upperBound): \(before.count) tiles before, \(after.count) after, "
+                + "edges \(Set(tiles.map(\.minX)).sorted()) width \(tiles.first?.width ?? 0) \(textSize)")
+            XCTAssertEqual(before.count + after.count, tiles.count,
+                           "A tile lies on the fold \(fold) (\(textSize), window \(window.size))")
+            XCTAssertFalse(before.isEmpty, "No tile before the fold (\(textSize))")
+            XCTAssertFalse(after.isEmpty, "No tile after the fold (\(textSize))")
+            // The first page still begins at the large title.
+            let title = app.navigationBars["Library"].staticTexts["Library"]
+            if title.exists, let first = tiles.first {
+                XCTAssertEqual(first.minX, title.frame.minX, accuracy: 1)
+            }
+            app.terminate()
+        }
+    }
+
+    /// Keeps a picture of the screen with the test, for the record.
+    @MainActor
+    private func keepLibraryScreenshot(of app: XCUIApplication, named name: String) {
+        let attachment = XCTAttachment(screenshot: app.screenshot())
+        attachment.name = name
+        attachment.lifetime = .keepAlways
+        add(attachment)
+        // XCTest captures the outer display only. A script that photographs
+        // the inner one asks for time with ARCFOLD_LIBRARY_HOLD (seconds).
+        if let hold = ProcessInfo.processInfo.environment["ARCFOLD_LIBRARY_HOLD"].flatMap(Double.init) {
+            note("holding \(name)")
+            Thread.sleep(forTimeInterval: hold)
+        }
+    }
+
+    /// The texts on screen that lie on `fold`, with their frames.
+    @MainActor
+    private func textsOnTheFold(_ fold: ClosedRange<CGFloat>, in app: XCUIApplication) -> [String] {
+        app.staticTexts.allElementsBoundByIndex
+            .filter { $0.exists && !$0.frame.isEmpty && $0.frame.maxX > fold.lowerBound + 0.5 && $0.frame.minX < fold.upperBound - 0.5 }
+            .map { "\($0.label) \($0.frame)" }
+    }
+
+    @MainActor
+    func testTheEmptyLibraryStaysBesideAFold() {
+        let app = XCUIApplication()
+        app.launchArguments = ["-ArcfoldGallery", "library-empty"] + Self.foldArguments
+        app.launch()
+        let importGames = app.buttons["Import Games"]
+        XCTAssertTrue(importGames.waitForExistence(timeout: 15))
+        let fold = fold(in: app.windows.firstMatch.frame)
+        note("empty library: button \(importGames.frame), fold \(fold.lowerBound)-\(fold.upperBound)")
+        // The glass button and the texts lie on the first page.
+        XCTAssertLessThanOrEqual(importGames.frame.maxX, fold.lowerBound + 0.5, "Import Games lies on or after the fold")
+        XCTAssertEqual(textsOnTheFold(fold, in: app), [])
+        keepLibraryScreenshot(of: app, named: "library-empty")
+    }
+
+    @MainActor
+    func testASearchWithoutResultsStaysBesideAFold() {
+        let app = launchLibraryShelf(arguments: Self.foldArguments)
+        let fold = fold(in: app.windows.firstMatch.frame)
+        let search = app.buttons["Search"]
+        XCTAssertTrue(search.waitForExistence(timeout: 5), "The library shows no search button")
+        search.tap()
+        let field = app.searchFields.firstMatch
+        XCTAssertTrue(field.waitForExistence(timeout: 5))
+        field.typeText("zzz")
+        XCTAssertTrue(app.staticTexts.matching(NSPredicate(format: "label CONTAINS 'zzz'")).firstMatch.waitForExistence(timeout: 5),
+                      "No message for a search without results")
+        note("search: field \(field.frame), fold \(fold.lowerBound)-\(fold.upperBound)")
+        XCTAssertEqual(textsOnTheFold(fold, in: app), [])
+        // The system keeps its search field off a real fold.
+        if Self.namedFold != nil {
+            XCTAssertTrue(field.frame.maxX <= fold.lowerBound + 0.5 || field.frame.minX >= fold.upperBound - 0.5,
+                          "The search field \(field.frame) lies on the fold")
+        }
+        keepLibraryScreenshot(of: app, named: "library-search-empty")
+    }
+
+    @MainActor
+    func testCoresStayBesideAFold() {
+        let app = launchLibraryShelf(arguments: Self.foldArguments)
+        let fold = fold(in: app.windows.firstMatch.frame)
+
+        app.buttons["info-menu"].tap()
+        let cores = app.buttons["Cores"]
+        XCTAssertTrue(cores.waitForExistence(timeout: 5))
+        cores.tap()
+        XCTAssertTrue(app.navigationBars["Cores"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["mGBA"].waitForExistence(timeout: 10), "The list of cores is empty")
+        XCTAssertEqual(textsOnTheFold(fold, in: app), [])
+        // Name and version of a core both lie on the first page.
+        for text in app.cells.staticTexts.allElementsBoundByIndex where text.exists {
+            XCTAssertLessThanOrEqual(text.frame.maxX, fold.lowerBound + 0.5, "\(text.label) lies after the fold")
+        }
+        keepLibraryScreenshot(of: app, named: "cores")
+    }
+
+    /// The list and the text share the window only at a real fold; the
+    /// artificial one of debug builds does not reach the system.
+    @MainActor
+    func testLicensesShareTheWindowAtAFold() throws {
+        try XCTSkipIf(Self.namedFold == nil, "Needs a real fold, named by ARCFOLD_LIBRARY_FOLD")
+        let app = launchLibraryShelf()
+        let fold = fold(in: app.windows.firstMatch.frame)
+        app.buttons["info-menu"].tap()
+        let licenses = app.buttons["Licenses"]
+        XCTAssertTrue(licenses.waitForExistence(timeout: 5))
+        licenses.tap()
+        XCTAssertTrue(app.navigationBars["Licenses"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["GPL-3.0-or-later"].firstMatch.waitForExistence(timeout: 5))
+        XCTAssertEqual(textsOnTheFold(fold, in: app), [])
+        // The list on the first page, the text of Arcfold on the second.
+        let row = app.buttons.matching(NSPredicate(format: "label BEGINSWITH 'mGBA 0.10.5'")).firstMatch
+        XCTAssertTrue(row.exists, "The list of licenses has no row for mGBA")
+        XCTAssertLessThanOrEqual(row.frame.maxX, fold.lowerBound + 0.5)
+        let names = app.staticTexts.matching(identifier: "Arcfold").allElementsBoundByIndex.map(\.frame)
+        note("licenses: Arcfold at \(names), fold \(fold.lowerBound)-\(fold.upperBound)")
+        XCTAssertTrue(names.contains { $0.minX >= fold.upperBound - 0.5 }, "No license text on the second page")
+        keepLibraryScreenshot(of: app, named: "licenses")
+
+        // Another component: its text takes the second page.
+        row.tap()
+        let heading = app.staticTexts.matching(identifier: "mGBA").allElementsBoundByIndex.map(\.frame)
+        XCTAssertTrue(heading.contains { $0.minX >= fold.upperBound - 0.5 }, "The text of mGBA is not on the second page")
+        XCTAssertEqual(textsOnTheFold(fold, in: app), [])
+        keepLibraryScreenshot(of: app, named: "licenses-mgba")
+    }
+
+    /// The system's accessibility audit of what the app shows. The system's
+    /// secondary labels (the system under a tile, the license under a
+    /// component) rate "nearly passed", as in the system's own apps; besides
+    /// them only the tiles that leave the window may report.
+    @MainActor
+    private func auditLibraryScreen(_ app: XCUIApplication, named screen: String) throws {
+        try app.performAccessibilityAudit(for: [.contrast, .hitRegion, .sufficientElementDescription, .textClipped, .dynamicType]) { issue in
+            // Rows below the first leave the window while the audit enlarges
+            // the text, so it rates their Dynamic Type "partially unsupported".
+            let allowed = (issue.auditType == .contrast && issue.compactDescription == "Contrast nearly passed"
+                && issue.element?.label != "Import Games")
+                || (issue.auditType == .dynamicType && issue.compactDescription.contains("partially"))
+            self.note("audit \(screen)\(allowed ? " (allowed)" : ""): \(issue.compactDescription) "
+                + "\(issue.element?.label ?? "no element") \(issue.element?.frame ?? .zero)")
+            return allowed
+        }
+    }
+
+    /// The audit in the window as it is: the grid at the standard size and
+    /// with large text, and Licenses, which at a real fold shows the list
+    /// and a text side by side.
+    @MainActor
+    func testTheLibraryPassesTheAccessibilityAuditInItsWindow() throws {
+        for textSize in ["UICTContentSizeCategoryL", "UICTContentSizeCategoryAccessibilityL"] {
+            let app = launchLibraryShelf(textSize: textSize)
+            try auditLibraryScreen(app, named: "library \(textSize)")
+            app.terminate()
+        }
+        let app = launchLibraryShelf()
+        app.buttons["info-menu"].tap()
+        let licenses = app.buttons["Licenses"]
+        XCTAssertTrue(licenses.waitForExistence(timeout: 5))
+        licenses.tap()
+        XCTAssertTrue(app.navigationBars["Licenses"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["GPL-3.0-or-later"].firstMatch.waitForExistence(timeout: 5))
+        try auditLibraryScreen(app, named: "licenses")
+    }
+}
