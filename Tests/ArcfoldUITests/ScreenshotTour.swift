@@ -12,11 +12,12 @@ import XCTest
 /// whole app in it, once per variant: the game (30 and 31, with the pause
 /// sheet), the library (32), the menu (33), the search (34), the licenses
 /// (35), a long notice with the status chip (36) and the failure view (37),
-/// and 12 sideways; the pose comes as `ARCFOLD_TOUR_POSE`. Every
-/// measurement of the variants that makes sense in a pose is taken there too:
-/// the edge of the large title, the margins of the sheet, the contrast of the
-/// keys and of the accent buttons, the overlap of the pause button and the
-/// notices with the keys.
+/// and 12 sideways; in light and dark also the game without the debug
+/// overlay (38), the pictures for the documents. The pose comes as
+/// `ARCFOLD_TOUR_POSE`. Every measurement of the variants that makes sense
+/// in a pose is taken there too: the edge of the large title, the margins
+/// and the height of the sheet, the contrast of the keys and of the accent
+/// buttons, the overlap of the pause button and the notices with the keys.
 final class ScreenshotTour: GlassUITestCase {
     /// The variant the script set up. Without it, as in a plain test run of
     /// the Store scheme, the tour skips every state.
@@ -55,6 +56,19 @@ final class ScreenshotTour: GlassUITestCase {
     @MainActor
     func shoot(_ app: XCUIApplication, _ number: Int, _ state: String) {
         keep(app.displayScreenshot(), named: "\(Self.variant)-\(String(format: "%02d", number))-\(state)")
+    }
+
+    /// Keeps a screenshot the way the view shows it, upright in every pose,
+    /// for pictures that go into the documents. `shoot` keeps the bitmap of
+    /// the display, which lies on its side while the Duo is held open like
+    /// a book.
+    @MainActor
+    func shootUpright(_ app: XCUIApplication, _ number: Int, _ state: String) throws {
+        let image = try XCTUnwrap(app.displayScreenshot().uprightImage, "The screenshot cannot be drawn upright")
+        let attachment = XCTAttachment(image: UIImage(cgImage: image), quality: .original)
+        attachment.name = "\(Self.variant)-\(String(format: "%02d", number))-\(state)"
+        attachment.lifetime = .keepAlways
+        add(attachment)
     }
 
     @MainActor
@@ -684,6 +698,31 @@ final class ScreenshotTour: GlassUITestCase {
             XCTAssertTrue(window.insetBy(dx: -1, dy: -1).contains(close.frame), "\(Self.pose) \(system): Close leaves the window")
             try measureAccentButton(close, named: "close-\(Self.pose)-\(system)", in: app)
             shoot(app, 37, "\(Self.pose)-\(system)-failure")
+            app.terminate()
+        }
+    }
+
+    /// The running games as a player sees them, without the debug overlay
+    /// that every other picture of a game shows: DS and GBA in the pose, in
+    /// light and dark, named `<variant>-38-<pose>-<system>-clean` and upright
+    /// in every pose, for the documents. The overlay is hidden the way the
+    /// pose tests hide it (`DebugRemote`), once the game has run its first
+    /// frames, and comes back afterwards.
+    @MainActor
+    func test38CleanGamesInThePose() throws {
+        try onlyInAPose()
+        try XCTSkipUnless(["light", "dark"].contains(Self.variant), "The clean pictures are taken in light and dark")
+        for (system, fileExtension) in [("ds", "nds"), ("gba", "gba")] {
+            let app = XCUIApplication()
+            app.launchArguments = ["-ArcfoldAutorun", try fixturePath("selftest", fileExtension)]
+            app.launch()
+            let overlay = overlayWithLayout(in: app)
+            XCTAssertTrue(waitUntil(overlay, framesBeyond: 120), "\(Self.pose) \(system): the game does not run")
+            XCTAssertTrue(app.buttons["pause"].waitForExistence(timeout: 5), "\(Self.pose) \(system): no pause button")
+            try withOverlayHidden(in: app) {
+                XCTAssertFalse(overlay.exists, "\(Self.pose) \(system): the debug overlay is still shown")
+                try shootUpright(app, 38, "\(Self.pose)-\(system)-clean")
+            }
             app.terminate()
         }
     }

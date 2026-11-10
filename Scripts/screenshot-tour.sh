@@ -20,8 +20,14 @@
 # sheet, the library (32), the menu (33), the search (34), the licenses (35),
 # a long notice with the status chip over a game (36) and the failure view
 # (37); in closed-landscape also 12 (the sheet sideways) and
-# GlassUITests/testSidewaysTheRButtonIsFree. In the variant light it also runs
-# GameOverlayUITests and LibraryLayoutUITests, which take the pose as it is.
+# GlassUITests/testSidewaysTheRButtonIsFree. In the variants light and dark it
+# also photographs the running DS and GBA without the debug overlay (38), the
+# pictures for the documents: <variant>-38-<pose>-ds-clean.png and
+# <variant>-38-<pose>-gba-clean.png, upright in every pose. In the variant
+# light it also runs GameOverlayUITests and LibraryLayoutUITests, which take
+# the pose as it is, and PoseUITests/testBothTestProgramsStartFromTheLibrary,
+# which starts both test programs through their tiles ("ds started from the
+# library.png", "gba started from the library.png").
 # Then it starts selftest.nds open, closes the device and photographs the pause
 # sheet on the outer display, and opens it again (40 to 42), for light and
 # dark. Each pose and variant leaves <output>/<variant>-<pose>/ and
@@ -216,8 +222,12 @@ if [[ $runs_poses == 1 ]]; then
             if [[ $pose == closed-landscape ]]; then
                 tests+=(ScreenshotTour/test12PauseLandscape)
             fi
+            # The games without the debug overlay, the pictures for the documents.
+            if [[ $variant == light || $variant == dark ]]; then
+                tests+=(ScreenshotTour/test38CleanGamesInThePose)
+            fi
             if [[ $variant == light ]]; then
-                tests+=(GameOverlayUITests LibraryLayoutUITests)
+                tests+=(GameOverlayUITests LibraryLayoutUITests PoseUITests/testBothTestProgramsStartFromTheLibrary)
                 if [[ $pose == closed-landscape ]]; then
                     tests+=(GlassUITests/testSidewaysTheRButtonIsFree)
                 fi
