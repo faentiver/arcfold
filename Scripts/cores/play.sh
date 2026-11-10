@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
 # Play! (PlayStation 2), BSD-2-Clause. Uses the upstream libretro target in
 # Source/ui_libretro, which renders through OpenGL ES 3 (GSH_OpenGL with
 # GLES_COMPATIBILITY) and asks the frontend for a RETRO_HW_CONTEXT_OPENGLES3

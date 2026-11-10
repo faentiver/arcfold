@@ -7,3 +7,39 @@
 [submodule "Cores/play"]
 	path = Cores/play
 	url = https://github.com/jpd002/Play-.git
+[submodule "Cores/melonds-ds"]
+	path = Cores/melonds-ds
+	url = https://github.com/JesseTG/melonds-ds.git
+[submodule "Cores/melonds-ds-deps/melonDS"]
+	path = Cores/melonds-ds-deps/melonDS
+	url = https://github.com/melonDS-emu/melonDS.git
+[submodule "Cores/melonds-ds-deps/libretro-common"]
+	path = Cores/melonds-ds-deps/libretro-common
+	url = https://github.com/libretro/libretro-common.git
+[submodule "Cores/melonds-ds-deps/embed-binaries"]
+	path = Cores/melonds-ds-deps/embed-binaries
+	url = https://github.com/andoalon/embed-binaries.git
+[submodule "Cores/melonds-ds-deps/glm"]
+	path = Cores/melonds-ds-deps/glm
+	url = https://github.com/g-truc/glm.git
+[submodule "Cores/melonds-ds-deps/libslirp"]
+	path = Cores/melonds-ds-deps/libslirp
+	url = https://github.com/JesseTG/libslirp-mirror.git
+[submodule "Cores/melonds-ds-deps/pntr"]
+	path = Cores/melonds-ds-deps/pntr
+	url = https://github.com/robloach/pntr.git
+[submodule "Cores/melonds-ds-deps/fmt"]
+	path = Cores/melonds-ds-deps/fmt
+	url = https://github.com/fmtlib/fmt.git
+[submodule "Cores/melonds-ds-deps/yamc"]
+	path = Cores/melonds-ds-deps/yamc
+	url = https://github.com/yohhoy/yamc.git
+[submodule "Cores/melonds-ds-deps/span-lite"]
+	path = Cores/melonds-ds-deps/span-lite
+	url = https://github.com/nonstd-lite/span-lite.git
+[submodule "Cores/melonds-ds-deps/date"]
+	path = Cores/melonds-ds-deps/date
+	url = https://github.com/HowardHinnant/date.git
+[submodule "Cores/melonds-ds-deps/zlib"]
+	path = Cores/melonds-ds-deps/zlib
+	url = https://github.com/madler/zlib.git

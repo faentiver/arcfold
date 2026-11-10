@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
 # PPSSPP (PlayStation Portable), GPL-2.0-or-later. Uses the upstream libretro
 # target. The core draws through a hardware context the host provides
 # (OpenGL ES or Vulkan), see docs/adr/0001-psp-grafik.md.
