@@ -53,14 +53,8 @@ nonisolated struct LibraryColumns: Sendable, Equatable {
             let scale = CGFloat(max(1, geometry.scale))
             let safe = geometry.safeBounds
             self.init(width: CGFloat(safe.width) / scale, margins: margins, visibleHeight: CGFloat(safe.height) / scale)
-            // The book: active, and higher than wide. The geometry counts
-            // from the left, the grid from its leading edge.
-            if geometry.isFoldActive, let fold = geometry.fold, fold.height > fold.width,
-               fold.minX > safe.minX, fold.maxX < safe.maxX {
-                let left = CGFloat(fold.minX - safe.minX) / scale
-                let right = CGFloat(fold.maxX - safe.minX) / scale
-                self.fold = isRightToLeft ? (width - right)...(width - left) : left...right
-            }
+            // The book divides the grid.
+            fold = FoldDivision.range(in: geometry, isRightToLeft: isRightToLeft)
         }
     }
 

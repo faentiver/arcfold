@@ -145,6 +145,8 @@ struct LibraryView: View {
                     .buttonStyle(.glassProminent)
                     .controlSize(.large)
                 }
+                // Held like a book: beside the fold, not on it.
+                .onFirstFoldPage()
             } else {
                 ProgressView()
             }
@@ -169,6 +171,7 @@ struct LibraryView: View {
             .overlay {
                 if games.isEmpty {
                     ContentUnavailableView.search(text: query)
+                        .onFirstFoldPage()
                 }
             }
         }
