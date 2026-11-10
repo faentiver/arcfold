@@ -93,6 +93,12 @@ struct GameView: View {
                 session.hingeChanged(from: change.old, to: change.new)
             }
         }
+        // A notice or a status chip on request (DebugRemote).
+        .onChange(of: DebugRemote.shared.sampleRequest) { _, request in
+            if let request {
+                session.show(request.sample)
+            }
+        }
         #endif
         .onChange(of: readings) { _, readings in
             if let readings {

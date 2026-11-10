@@ -34,11 +34,28 @@ final class DebugRemote {
         var number: Int
     }
 
+    /// Something the running game shows on request, so that acceptance runs
+    /// and UI tests see it in every pose: `….debug.notice.long` shows the
+    /// longest notice the app knows, a failed battery save with its reason,
+    /// through the session's own path; `….debug.chip.show` and `….chip.hide`
+    /// set and clear the status chip of a missing audio output.
+    enum Sample: Equatable {
+        case longNotice
+        case audioProblem(shown: Bool)
+    }
+
+    /// A sample request, numbered like a hinge change.
+    struct SampleRequest: Equatable {
+        var sample: Sample
+        var number: Int
+    }
+
     /// What a notification asks for.
     private enum Action {
         case fold(FoldOverride?)
         case hinge(HingeState)
         case overlay(hidden: Bool)
+        case sample(Sample)
     }
 
     static let shared = DebugRemote()
@@ -54,6 +71,9 @@ final class DebugRemote {
         ("hinge.open", .hinge(.fullyOpen)),
         ("overlay.hide", .overlay(hidden: true)),
         ("overlay.show", .overlay(hidden: false)),
+        ("notice.long", .sample(.longNotice)),
+        ("chip.show", .sample(.audioProblem(shown: true))),
+        ("chip.hide", .sample(.audioProblem(shown: false))),
     ]
 
     private static let logger = Logger(subsystem: "com.faentiver.arcfold", category: "fold")
@@ -64,6 +84,8 @@ final class DebugRemote {
     private(set) var hingeChange: HingeChange?
     /// The debug overlay stays hidden, whatever the game menu says.
     private(set) var hidesOverlay = false
+    /// The latest sample request, for the game view.
+    private(set) var sampleRequest: SampleRequest?
     /// The hinge as the game saw it last, real or simulated.
     @ObservationIgnored private var hinge: HingeState?
     @ObservationIgnored private var changes = 0
@@ -105,6 +127,10 @@ final class DebugRemote {
         case let .overlay(hidden):
             hidesOverlay = hidden
             Self.logger.notice("Debug overlay \(hidden ? "hidden" : "shown", privacy: .public) by notification")
+        case let .sample(sample):
+            changes += 1
+            sampleRequest = SampleRequest(sample: sample, number: changes)
+            Self.logger.notice("Sample \(name, privacy: .public) by notification")
         }
     }
 
