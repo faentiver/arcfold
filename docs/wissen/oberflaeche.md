@@ -315,6 +315,12 @@ Im Durchsehen der Fotos (hell in jeder Pose, dazu dunkel, Kontrast und große Sc
 
 **Tests und Posenprüfung:** Stand nach der zweiten Runde (Abweichungen 33 bis 38): Store 380 (348 bestanden, 32 übersprungen, 0 fehlgeschlagen: ArcfoldTests 171, LibretroKitTests 64, FoldLayoutTests 31, RendererTests 39, ArcfoldUITests 75 mit 43 bestanden), JIT 305 bestanden (ArcfoldTests 171, LibretroKitTests 64, FoldLayoutTests 31, RendererTests 39). `Scripts/pose-check.sh ds` und `gba` am Stand der zweiten Runde: je sieben Schritte ohne Lücke und ohne Neusynchronisation, eine Szene über alle Wechsel, „Paused: folded“ beim Zuklappen, „Resumed“ beim Aufklappen, DS 59,75 bis 59,87, GBA 59,67 bis 59,78 Bilder/s. Davor (Stand nach der ersten Gegenprüfung): Store 365 (333 bestanden, 32 übersprungen, ArcfoldTests 159, ArcfoldUITests 72 mit 40 bestanden), JIT 293. `Scripts/pose-check.sh gba` ohne Lücke in einem Fenster eines Wechsels, nur eine Neusynchronisation nach einem Bildschirmfoto; `ds` beim dritten Lauf ohne Lücke und ohne Neusynchronisation (59,78 bis 60,00 Bilder/s, Zuklappen „Paused: folded“, Aufklappen „Resumed“). Zwei frühere Läufe des DS bei fremder Last von 20 bis 35 zeigten Lücken von 57 bis 66 ms in den Fenstern von Wechseln.
 
+**Bekannt und offen:**
+
+- `GlassUITests.testAccessibilityAudit` besteht zugeklappt hochkant, in der Pose des vollen Testlaufs. Zugeklappt quer meldet es „Text clipped“ am Hinweis der Galerie-Seite `notices`, im Buch läuft es in die Zeitgrenze wie das Audit der Lizenzseite (Abweichung 38). Beides trat schon vor der zweiten Runde auf und betrifft die Galerie des Debug-Builds; Hinweis und Chip der Spielansicht misst die Tour in diesen Posen (Zustand 36).
+- Einzelne UI-Tests warten bei laufendem Spiel bis zu 60 s, bevor sie tippen („App animations complete notification not received“). Sie bestehen, dauern dann aber 80 bis 210 s; die Ursache ist nicht untersucht.
+- Die Messung Glas gegen flach ist nach der zweiten Runde nicht wiederholt; die Tabelle oben gilt für den Stand davor.
+
 ## Stolperfallen
 
 - **`accessibilityIdentifier` auf einem Container.** **Warum:** Ohne `.accessibilityElement(children: .contain)` ersetzt die Kennung die Kennungen aller Kinder; im Sheet fand der UI-Test `resume` nicht mehr, nur noch `pause-menu`. **Anwenden:** Container-Kennung immer nach `.accessibilityElement(children: .contain)`.
