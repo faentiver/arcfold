@@ -120,6 +120,15 @@ Die 15 Commits wurden am 7. November 2026 unter drei Gesichtspunkten geprüft (G
 
 Nicht geändert, weil es kein Mangel ist: die Messung wie in M1 (kein Rückschritt, siehe Tabelle) und die grünen UI-Tests für Pause, Fortsetzen, Debug-Overlay und Beenden. Offen blieben damals Querformat und Mehrfachberührung mit Glas: Das Fenster des zugeklappten Duo drehte im Simulator nicht (seit E8 erreichbar), zwei Finger gehen dort nur von Hand. Beides steht als G1 bis G5 im Gerätetest (`docs/wissen/geraetetest.md`, Teil 1b), ebenso Glas gegen flach. `CLAUDE.md` und `docs/wissen/app.md` wurden mit M2 zusammengeführt.
 
+## Nachbesserungen nach der Prüfung der Gestaltung
+
+Am 10. November 2026 wurden die Befunde der Prüfung der Gestaltung auf dem Stand dieses Branches behoben, als zwei Pakete (Spielansicht, Bibliothek), je mit Unit-Test über alle Geometrien des Duo und UI-Test in den echten Posen (Einzelheiten und Tests: `docs/wissen/oberflaeche.md`, Abweichungen 30 bis 33):
+
+- **Spielansicht:** Fehleransicht auf einem Bildschirm außerhalb des Falzes; Hinweis und Ton-Chip als ein Stapel in einem Glascontainer, bei großer Schrift mit der größten passenden Schriftgröße; Debug-Overlay aus freien Rechtecken, nie auf einer Taste; Pausen-Sheet mit gleichen Rändern; Glas des Pause-Knopfs im Container der Tasten.
+- **Bibliothek:** Raster an den Systemrändern in jeder Pose (20 / 20 pt, zu quer 84 / 84 pt), Spaltenzahl nach Breite und Höhe, im Buch zwei Seiten links und rechts des Falzes, Lizenzen mit Liste und Text nebeneinander.
+- **Tour:** läuft jetzt in jeder echten Pose und jeder Variante über alle Zustände, auch Bibliothek, Menü, Suche, Lizenzen, langer Hinweis mit Ton-Chip und Fehleransicht (24 Läufe, Ergebnis und offene Befunde in `oberflaeche.md`, „Tour in jeder Pose“).
+- **Entfallen:** Der Test mit dem Debug-Overlay über L, weil das Overlay keine Taste mehr deckt.
+
 ## Zusammenführung mit M2
 
 Stand 10. November 2026. Die Oberfläche (Stand vom 7. November 2026, zusammengeführt mit dem damaligen Stand von M2) liegt ohne ihren früheren Verlauf auf `m2/ds-falz` (M2 · DS am Falz, ADR 0006, im Duo-Simulator geprüft, Abnahme ausstehend): Branch `m4/liquid-glass`, wenige Commits nach Thema, kein Merge-Commit; die Konflikte sind nach E1 bis E5 gelöst. „Zusammenführung“ heißt in diesem Abschnitt, dass Glas auf der Architektur von M2 sitzt. Der bereinigte Verlauf von M2 brachte Änderungen, die hier einflossen: die Lizenztexte, das private Posen-Werkzeug nur über `POSE_CHECK_POSTURE_TOOL` und die fensterbezogenen Test-Helfer für das Innendisplay (`app.gameWindow`, `app.viewOrigin`, `app.displayScreenshot()`, `XCUIScreenshot.uprightImage`), die auch die Glas-Tests und die Tour nutzen. Geprüft auf einem Duo-Simulator (iPhone Duo, iOS 27.1) mit Xcode 27.2 auf dem Mac mini M4 Pro; die Messwerte der Tour in den echten Posen stammen vom Stand vor dem Auflegen (der Code der Oberfläche ist derselbe, geändert sind Test-Helfer und Skripte), dazu eine Stichprobe nach dem Auflegen in den Belegen. Einzelheiten, was übernommen, geändert und entfallen ist, und die Messwerte stehen in `docs/wissen/oberflaeche.md`, Abschnitt „Mit M2 zusammengeführt“.
