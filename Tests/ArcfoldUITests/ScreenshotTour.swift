@@ -95,21 +95,32 @@ final class ScreenshotTour: GlassUITestCase {
     /// Measures every key of a panel: the label against its plate (limit 3,
     /// Select and Start 4.5) and the edge against what lies around it (limit
     /// 3 with Increase Contrast, which promises a border, where the keys have
-    /// their real size; a gallery scaled down thins the 1 pt border).
+    /// their real size; a gallery scaled down thins the 1 pt border). With
+    /// Increase Contrast every key carries the same edge, over the picture
+    /// and over the deck: none measures less than half of the strongest. The
+    /// lighter edge the deck once had measured a third of it.
     @MainActor
     func measureKeys(_ keys: [(String, CGRect)], named name: String, in pixels: Pixels, scale: CGFloat,
                      checksEdges: Bool) {
         var labels = "contrast \(name)"
         var edges = "edge \(name)"
+        var measured: [(key: String, edge: Double)] = []
         for (key, frame) in keys {
             let rect = Self.pixelRect(frame, scale: scale)
             let label = key == "Pad" ? pixels.padArrowContrast(in: rect) : pixels.labelContrast(in: rect)
             let edge = pixels.edgeContrast(in: rect, scale: scale)
+            measured.append((key, edge))
             labels += " \(key) \(Self.format(label))"
             edges += " \(key) \(Self.format(edge))"
             XCTAssertGreaterThanOrEqual(label, ["Select", "Start"].contains(key) ? 4.5 : 3, "label of \(key), \(name)")
             if checksEdges, Self.variant == "contrast" {
                 XCTAssertGreaterThanOrEqual(edge, 3, "edge of \(key), \(name)")
+            }
+        }
+        if checksEdges, Self.variant == "contrast", let strongest = measured.map(\.edge).max() {
+            for (key, edge) in measured {
+                XCTAssertGreaterThanOrEqual(edge, strongest / 2,
+                                            "the edge of \(key) is lighter than that of its neighbours, \(name)")
             }
         }
         record(labels)
