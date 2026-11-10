@@ -19,12 +19,14 @@ struct GameOverlays: View {
     var body: some View {
         ZStack(alignment: .topLeading) {
             if let debugReadings {
+                // In the free area OverlayPlacement names: the card wraps its
+                // lines to the width and never reaches a button, the pad or
+                // the touch screen; what does not fit even in its smallest
+                // type is cut off rather than laid over a control.
                 DebugOverlay(read: debugReadings)
-                    // The lines wrap before they reach a pause button beside them.
-                    .frame(maxWidth: placement.debugMaxWidth, alignment: .leading)
-                    .offset(x: placement.debugOrigin.x, y: placement.debugOrigin.y)
-                    // Over the controls in some poses; it must not take their
-                    // touches (rule R6).
+                    .frame(width: placement.debugArea.width, height: placement.debugArea.height, alignment: .topLeading)
+                    .clipped()
+                    .offset(x: placement.debugArea.minX, y: placement.debugArea.minY)
                     .allowsHitTesting(false)
             }
 

@@ -261,26 +261,66 @@ struct DebugOverlay: View {
     @Environment(\.colorSchemeContrast) private var contrast
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
 
+    /// The sizes of the type, largest first: the card takes the first one
+    /// at which its lines fit the height on offer.
+    nonisolated static let fontSizes: [CGFloat] = [10, 9, 8, 7, 6]
+
     var body: some View {
         TimelineView(.periodic(from: .now, by: 0.25)) { _ in
             let readings = read()
-            VStack(alignment: .leading, spacing: 2) {
-                ForEach(readings.lines, id: \.self) { line in
-                    Text(verbatim: line)
-                }
+            // Where the area on offer is low, as between the shoulder buttons
+            // above the touch screen of the DS sideways, a smaller type
+            // keeps every line in it.
+            ViewThatFits(in: .vertical) {
+                card(readings, fontSize: Self.fontSizes[0])
+                card(readings, fontSize: Self.fontSizes[1])
+                card(readings, fontSize: Self.fontSizes[2])
+                card(readings, fontSize: Self.fontSizes[3])
+                card(readings, fontSize: Self.fontSizes[4])
             }
-            .font(.system(size: 10, design: .monospaced))
-            .foregroundStyle(.white)
-            .padding(6)
-            // A measuring tool over the picture: a plain card, no glass, so it
-            // costs the compositor nothing extra while it measures.
-            .background(.black.opacity(contrast == .increased || reduceTransparency ? 0.85 : 0.6),
-                        in: RoundedRectangle(cornerRadius: 8, style: .continuous))
-            .accessibilityElement(children: .combine)
-            .accessibilityValue(Text(verbatim: readings.accessibilityValue))
-            .accessibilityIdentifier("debug-overlay")
         }
         .allowsHitTesting(false)
+    }
+
+    private func card(_ readings: DebugReadings, fontSize: CGFloat) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            ForEach(readings.lines, id: \.self) { line in
+                Text(verbatim: line)
+            }
+        }
+        .font(.system(size: fontSize, design: .monospaced))
+        .foregroundStyle(.white)
+        .padding(6)
+        // A measuring tool over the picture: a plain card, no glass, so it
+        // costs the compositor nothing extra while it measures.
+        .background(.black.opacity(contrast == .increased || reduceTransparency ? 0.85 : 0.6),
+                    in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+        .accessibilityElement(children: .combine)
+        .accessibilityValue(Text(verbatim: readings.accessibilityValue))
+        .accessibilityIdentifier("debug-overlay")
+    }
+
+    /// The height the card needs for `lines` in `width` at `fontSize`, with
+    /// every line wrapped at words: an estimate for the tests of
+    /// `OverlayPlacement`, a little above what SwiftUI lays out.
+    nonisolated static func estimatedHeight(of lines: [String], width: CGFloat, fontSize: CGFloat) -> CGFloat {
+        let columns = max(1, Int(((width - 12) / (fontSize * 0.602)).rounded(.down)))
+        var rows = 0
+        for line in lines {
+            var column = 0
+            rows += 1
+            for word in line.split(separator: " ") {
+                if column > 0, column + 1 + word.count > columns {
+                    rows += 1
+                    column = 0
+                }
+                column += (column > 0 ? 1 : 0) + word.count
+                // A word longer than a row breaks inside.
+                rows += (column - 1) / columns
+                column = (column - 1) % columns + 1
+            }
+        }
+        return CGFloat(rows) * (fontSize * 1.2).rounded() + CGFloat(lines.count - 1) * 2 + 12
     }
 
     /// On in debug builds, off in release builds; the game menu switches it.

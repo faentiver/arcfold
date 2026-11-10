@@ -17,11 +17,12 @@ nonisolated struct OverlayPlacement: Sendable, Hashable {
     var pauseButton: CGRect?
     /// Where the pause button takes touches: at least 44 × 44 pt around it.
     var pauseTarget: CGRect?
-    /// The top leading corner of the debug overlay, inside the safe area.
-    var debugOrigin: CGPoint
-    /// The widest the debug overlay may become, so that its lines wrap
-    /// before a pause button in the upper half beside it.
-    var debugMaxWidth: CGFloat
+    /// The area the debug overlay is laid out in, from its top leading
+    /// corner: inside the safe area and free of everything that takes
+    /// touches and of the fold, so that its card covers no button, no pad
+    /// and no touch screen in any pose. The card wraps its lines to the
+    /// width and takes a smaller type where the height is short.
+    var debugArea: CGRect
     /// The screen that notices and the chip stay on: the upper or only
     /// screen, never the touch screen.
     var pictureArea: CGRect
@@ -42,11 +43,14 @@ nonisolated struct OverlayPlacement: Sendable, Hashable {
     static let chipHeight: CGFloat = 40
     /// The widest the status chip may become.
     static let chipMaxWidth: CGFloat = 320
-    /// How far down the debug overlay reaches at most from its corner, for
-    /// the touch screen it must stay beside.
-    static let debugReach: CGFloat = 200
-    /// The narrowest the debug overlay becomes beside a touch screen.
-    static let debugMinWidth: CGFloat = 200
+    /// The measurements of the debug overlay at its largest type: about
+    /// 900 characters with the room that wrapping at words wastes, in a
+    /// monospaced type of 10 pt (6.02 × 12 pt a character) with 2 pt between
+    /// the lines and 6 pt around them. An area that holds as many is large
+    /// enough; among those the one nearest the top leading corner wins.
+    static let debugCharacters: CGFloat = 900
+    static let debugCharacterSize = CGSize(width: 6.02, height: 14)
+    static let debugPadding: CGFloat = 6
     /// The narrowest column for a notice: sideways the upper DS screen is
     /// 256 pt wide, and the shoulder buttons or the reach of the pad take a
     /// few points off its sides.
@@ -70,22 +74,6 @@ nonisolated struct OverlayPlacement: Sendable, Hashable {
         pauseButton = pause
         pauseTarget = pause.map(Self.target(around:))
 
-        // The debug overlay at the top leading corner of the safe area. Its
-        // lines wrap before a pause button in the upper half beside it, and
-        // before a touch screen that begins beside it, as in the book pose,
-        // so that its card never darkens the touch screen.
-        let origin = CGPoint(x: safe.minX + inset, y: safe.minY + inset)
-        debugOrigin = origin
-        var debugRight = safe.maxX - inset
-        if let target = pauseTarget, target.minY < points(geometry.bounds).midY, target.minX > origin.x {
-            debugRight = min(debugRight, target.minX - inset)
-        }
-        if let touch = layout.touchScreen.map({ points($0.destination) }),
-           touch.minY < origin.y + Self.debugReach, touch.minX > origin.x + Self.debugMinWidth {
-            debugRight = min(debugRight, touch.minX - inset)
-        }
-        debugMaxWidth = max(0, debugRight - origin.x)
-
         failureArea = Self.failureArea(in: geometry)
 
         // Notices and the chip stay on the picture, clear of everything
@@ -95,6 +83,28 @@ nonisolated struct OverlayPlacement: Sendable, Hashable {
         let picture = layout.screens.isEmpty ? safe : points(layout.screens[pictureIndex].destination)
         pictureArea = picture
         noticeColumn = Self.noticeColumn(in: picture, inset: inset, obstacles: obstacles)
+        debugArea = Self.debugArea(in: safe, inset: inset, obstacles: obstacles)
+    }
+
+    /// The area of the debug overlay in the safe area `safe`: the free
+    /// rectangle that holds the most of its text, and among those that hold
+    /// all of it the one nearest the top, then the leading edge, then the
+    /// widest, where the fewest lines wrap.
+    static func debugArea(in safe: CGRect, inset: CGFloat, obstacles: [CGRect]) -> CGRect {
+        let area = safe.insetBy(dx: inset, dy: inset)
+        func score(_ rect: CGRect) -> [CGFloat] {
+            [min(debugCapacity(of: rect.size), debugCharacters), -rect.minY, -rect.minX, rect.width]
+        }
+        let free = freeRects(in: area, obstacles: obstacles, gap: spacing)
+        return free.max { score($0).lexicographicallyPrecedes(score($1)) }
+            ?? CGRect(x: area.minX, y: area.minY, width: 0, height: 0)
+    }
+
+    /// How many characters of the debug overlay's largest type fit `size`.
+    static func debugCapacity(of size: CGSize) -> CGFloat {
+        let columns = ((size.width - 2 * debugPadding) / debugCharacterSize.width).rounded(.down)
+        let rows = ((size.height - 2 * debugPadding) / debugCharacterSize.height).rounded(.down)
+        return max(0, columns) * max(0, rows)
     }
 
     /// The column of the status chip and the notices in `picture`: as wide

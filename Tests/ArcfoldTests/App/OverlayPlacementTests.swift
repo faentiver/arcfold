@@ -7,9 +7,9 @@ import Testing
 /// GBA and the DS in every geometry of `LayoutInvariantTests`, with touch
 /// controls and with a controller: the pause button sits where GameLayout
 /// puts it and takes touches on at least 44 × 44 pt below the top edge
-/// guard; the debug overlay stays clear of a pause button beside it. The
-/// notices and the status chip have `NoticePlacementTests`, the failure
-/// message `FailurePlacementTests`.
+/// guard. The notices and the status chip have `NoticePlacementTests`, the
+/// debug overlay `DebugPlacementTests`, the failure message
+/// `FailurePlacementTests`.
 struct OverlayPlacementTests {
     struct Case: Sendable, CustomTestStringConvertible {
         let system: GameSystem
@@ -101,34 +101,6 @@ struct OverlayPlacementTests {
         let geometry = testCase.geometry.geometry
         if geometry.isFoldActive, let fold = geometry.fold {
             #expect(!target.intersects(testCase.points(fold)), "the pause button lies on the active fold")
-        }
-    }
-
-    @Test(arguments: cases)
-    func theDebugOverlayStartsInTheSafeAreaAndWrapsBeforeThePauseButton(_ testCase: Case) {
-        let placement = testCase.placement
-        let safe = testCase.points(testCase.geometry.geometry.safeBounds)
-        #expect(safe.contains(placement.debugOrigin))
-        #expect(placement.debugMaxWidth >= 0)
-        #expect(placement.debugOrigin.x + placement.debugMaxWidth <= safe.maxX - placement.inset + 0.001)
-        if let target = placement.pauseTarget, target.minY < CGFloat(testCase.geometry.geometry.container.height)
-            / CGFloat(testCase.geometry.geometry.scale) / 2, target.minX > placement.debugOrigin.x {
-            #expect(placement.debugOrigin.x + placement.debugMaxWidth + placement.inset <= target.minX + 0.001,
-                    "the debug overlay runs into the pause button")
-        }
-    }
-
-    /// The card of the debug overlay never darkens the touch screen: where
-    /// the touch screen begins beside its corner, as in the book pose of the
-    /// DS, its lines wrap before it.
-    @Test(arguments: cases)
-    func theDebugOverlayStaysOffTheTouchScreen(_ testCase: Case) {
-        let placement = testCase.placement
-        guard let touch = testCase.layout.touchScreen.map({ testCase.points($0.destination) }) else { return }
-        let card = CGRect(x: placement.debugOrigin.x, y: placement.debugOrigin.y,
-                          width: placement.debugMaxWidth, height: OverlayPlacement.debugReach)
-        if touch.minX > placement.debugOrigin.x + OverlayPlacement.debugMinWidth {
-            #expect(!card.intersects(touch), "the debug overlay \(card) runs onto the touch screen \(touch)")
         }
     }
 
