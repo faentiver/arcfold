@@ -42,7 +42,7 @@ Optional, für genaue Zahlen: Konsole.app am Mac → das Duo wählen → Filter 
 
 ## Teil 1b: Glas gegen flach (ADR 0007)
 
-Die Tasten aus Liquid Glass kosten den Render-Server Arbeit; zugeklappt quer liegen die des GBA alle über dem Spielbild, in den anderen Posen liegen die meisten auf dem Deck neben oder unter den Bildschirmen (seit dem Merge mit M2, `docs/wissen/oberflaeche.md`). Der Simulator misst das nur relativ; entscheidend ist das Duo. Etwa zwei Stunden, mit dem Debug-Build aus Xcode; die Läufe lassen sich auf mehrere Tage verteilen.
+Die Tasten aus Liquid Glass kosten den Render-Server Arbeit; zugeklappt quer liegen beim GBA das Steuerkreuz sowie L und R auf dem Spielbild (B, A, Select und Start daneben auf dem Deck), in den anderen Posen liegen die meisten auf dem Deck neben oder unter den Bildschirmen (seit dem Merge mit M2, `docs/wissen/oberflaeche.md`). Der Simulator misst das nur relativ; entscheidend ist das Duo. Etwa zwei Stunden, mit dem Debug-Build aus Xcode; die Läufe lassen sich auf mehrere Tage verteilen.
 
 1. Das Scheme **Store** → Edit Scheme → Run → Arguments: `-ArcfoldControlSurface glass` eintragen. Für den Gegenlauf den Wert auf `flat` ändern. Ohne das Argument entscheidet das System (flach, solange iOS `systemPrefersReducedResourceUsage` meldet).
 2. Je 10 Minuten `selftest.gba` laufen lassen, jeweils mit Glas und flach: zugeklappt hochkant und quer, einmal mit 120 Hz und einmal mit Stromsparmodus (60 Hz). Das sind acht Läufe. Dazu je 10 Minuten `selftest.nds` mit Glas und flach, aufgeklappt (offen).
