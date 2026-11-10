@@ -125,6 +125,19 @@ final class ScreenshotTour: GlassUITestCase {
         XCTAssertGreaterThanOrEqual(contrast, 4.5, "white on the accent of \(name)")
     }
 
+    /// The pause sheet is as high as its content: no more than the margin
+    /// of the safe area lies below Quit Game (34 pt on the Duo). Less than
+    /// that, or Quit Game below the sheet, means larger text makes the
+    /// content scroll.
+    @MainActor
+    func measureTheSheetBelowQuit(in app: XCUIApplication, named name: String) {
+        let sheet = app.descendants(matching: .any)["pause-menu"].firstMatch.frame
+        let quit = app.buttons["quit"].frame
+        let below = sheet.maxY - quit.maxY
+        record("\(name): sheet height \(Self.format(sheet.height)), below Quit Game \(Self.format(below))")
+        XCTAssertLessThanOrEqual(below, 40, "\(name): the sheet \(sheet) is higher than its content, Quit Game \(quit)")
+    }
+
     /// The number of columns of tiles: tiles in the first row share their top edge.
     @MainActor
     func columns(in app: XCUIApplication) -> Int {
@@ -284,6 +297,7 @@ final class ScreenshotTour: GlassUITestCase {
         let right = sheet.frame.maxX - resume.frame.maxX
         record("sheet margins left \(Self.format(left)) right \(Self.format(right))")
         XCTAssertEqual(left, right, accuracy: 2, "the content of the sheet sits off centre")
+        measureTheSheetBelowQuit(in: app, named: "sheet upright")
         try measureAccentButton(resume, named: "resume", in: app)
         shoot(app, 10, "pause-menu")
     }
@@ -326,6 +340,7 @@ final class ScreenshotTour: GlassUITestCase {
         Thread.sleep(forTimeInterval: 1)
         let sheet = app.descendants(matching: .any)["pause-menu"].firstMatch
         record("sheet sideways \(sheet.frame)")
+        measureTheSheetBelowQuit(in: app, named: "sheet sideways")
         try measureAccentButton(resume, named: "resume-sideways", in: app)
         shoot(app, 12, "pause-landscape")
     }
@@ -521,6 +536,7 @@ final class ScreenshotTour: GlassUITestCase {
             : (resume.frame.minY - sheet.frame.minY, sheet.frame.maxY - resume.frame.maxY)
         record("pose \(Self.pose) \(system): sheet margins \(Self.format(margins.0)) \(Self.format(margins.1))")
         XCTAssertEqual(margins.0, margins.1, accuracy: 2, "\(Self.pose) \(system): the content of the sheet sits off centre")
+        measureTheSheetBelowQuit(in: app, named: "pose \(Self.pose) \(system)")
         try measureAccentButton(resume, named: "resume-\(Self.pose)-\(system)", in: app)
         shoot(app, number, "\(Self.pose)-\(system)-sheet")
         resume.tap()

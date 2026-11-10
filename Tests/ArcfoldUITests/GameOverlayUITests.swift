@@ -2,9 +2,9 @@ import XCTest
 
 /// What lies over a running game, in the pose the device is in when the
 /// tests run (ADR 0007): the status chip above a notice, the debug overlay
-/// clear of them and of every control, the pause sheet with equal margins,
-/// the pause button in the row of the controls, and the failure message on
-/// one screen.
+/// clear of them and of every control, the pause sheet with equal margins
+/// and as high as its content, the pause button in the row of the controls,
+/// and the failure message on one screen.
 /// A UI test cannot change the real pose, so the tests are run once per
 /// pose, with the device brought into it beforehand. Everything here is
 /// measured against the elements of the app, so each test holds in every
@@ -172,6 +172,63 @@ final class GameOverlayUITests: XCTestCase {
             let gone = XCTNSPredicateExpectation(predicate: NSPredicate(format: "exists == false"), object: sheet)
             XCTAssertEqual(XCTWaiter().wait(for: [gone], timeout: 10), .completed, "\(system): Resume did not close the sheet")
             app.terminate()
+        }
+    }
+
+    /// The most that may lie between Quit Game and the lower edge of the
+    /// sheet: the safe area at the bottom of the sheet, 34 pt on the Duo.
+    private static let sheetBottomMargin: CGFloat = 40
+
+    /// The lower edge of a fold that lies bent across the window, in points,
+    /// from the values of the debug overlay; nil in every other pose.
+    @MainActor
+    private func overlayBentFoldAcross(_ app: XCUIApplication) -> CGFloat? {
+        let values = OverlayValues(app.descendants(matching: .any)["debug-overlay"].firstMatch)
+        let parts = (values["fold"] ?? "").split(separator: ",")
+        let numbers = parts.compactMap { Double($0) }
+        guard parts.last == "active", numbers.count == 4, numbers[2] > numbers[3] else { return nil }
+        return CGFloat(numbers[1] + numbers[3]) / CGFloat(values.scale)
+    }
+
+    /// The pause sheet is as high as its content: below Quit Game lies the
+    /// margin of the safe area, not empty glass. Where the content is higher
+    /// than the sheet may become, as with the largest text in a low window
+    /// or below the fold of the tabletop pose, Quit Game ends in that margin
+    /// or below it: the sheet is as high as it may be and scrolls. It never
+    /// leaves the window and never lies on a fold that is bent across it.
+    @MainActor
+    func testThePauseSheetIsAsHighAsItsContent() throws {
+        for system in ["gba", "ds"] {
+            for (size, arguments) in [("default", []), ("largest", Self.largestText)] {
+                let app = try overlayLaunch(system, arguments: arguments)
+                overlayWaitForTheGame(app)
+                let fold = overlayBentFoldAcross(app)
+                let pause = app.buttons["pause"]
+                XCTAssertTrue(pause.waitForExistence(timeout: 10))
+                pause.tap()
+                let sheet = app.descendants(matching: .any)["pause-menu"].firstMatch
+                XCTAssertTrue(sheet.waitForExistence(timeout: 10), "\(system) \(size): the pause button opened no sheet")
+                let quit = app.buttons["quit"]
+                XCTAssertTrue(quit.waitForExistence(timeout: 5))
+                Thread.sleep(forTimeInterval: 1.5)
+                let window = app.gameWindow.frame
+                let sheetFrame = sheet.frame
+                let quitFrame = quit.frame
+                overlayKeep(app, named: "pause-sheet-height-\(system)-\(size)")
+                let name = "\(system) \(size): the sheet \(sheetFrame) with Quit Game \(quitFrame) in the window \(window)"
+                XCTAssertTrue(window.insetBy(dx: -1, dy: -1).contains(sheetFrame), "\(name) leaves the window")
+                let below = sheetFrame.maxY - quitFrame.maxY
+                XCTAssertLessThanOrEqual(below, Self.sheetBottomMargin, "\(name) is higher than its content")
+                if below < 19 {
+                    // The content scrolls: the sheet has grown as far as it may.
+                    XCTAssertLessThanOrEqual(sheetFrame.minY, (fold ?? window.minY) + 12,
+                                             "\(name) scrolls though it could be higher")
+                }
+                if let fold {
+                    XCTAssertGreaterThanOrEqual(sheetFrame.minY, fold - 1, "\(name) lies on the fold that ends at \(fold)")
+                }
+                app.terminate()
+            }
         }
     }
 
