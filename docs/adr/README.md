@@ -9,7 +9,7 @@ Jede größere technische Entscheidung bekommt eine Datei `NNNN-kurzer-titel.md`
 | [0003](0003-kerne-als-eingebettete-frameworks.md) | Kerne als eingebettete, nicht gelinkte Frameworks | Angenommen |
 | [0004](0004-xcode-projekt-per-xcodegen.md) | Xcode-Projekt per XcodeGen | Angenommen |
 | [0005](0005-laufzeit-fuer-software-kerne.md) | Laufzeit für Software-Kerne: Takt, Callbacks, Bild, Ton, Eingabe, Spielstände | Angenommen |
-| [0006](0006-ds-und-falz-layouts.md) | DS und Falz-Layouts: melonDS DS, zwei Bildschirme, Touch, FoldLayout, Pause beim Zuklappen | Angenommen, Abnahme von M2 steht aus |
+| [0006](0006-ds-und-falz-layouts.md) | DS und Falz-Layouts: melonDS DS, zwei Bildschirme, Touch, FoldLayout, Pause beim Zuklappen | Angenommen, M2 abgenommen |
 
 Aufbau jeder Datei:
 

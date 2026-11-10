@@ -2,7 +2,7 @@
 
 A multi-system emulator front end for iPhone, written in SwiftUI and designed around the fold of the iPhone Duo.
 
-> **Status:** early development. Milestone M1 is done in the Simulator, and M2 is built and checked there: Game Boy Advance and Nintendo DS homebrew run with picture, sound, touch and controller input and battery saves. The DS shows both screens at the fold with pixel-exact touch, and both systems have a layout for every posture of the iPhone Duo. Real posture changes have been checked in the Simulator as well; M2 awaits acceptance. In progress: a Liquid Glass interface. Not yet tested on a device.
+> **Status:** early development. Milestone M1 is done in the Simulator, and M2 is done and checked there: Game Boy Advance and Nintendo DS homebrew run with picture, sound, touch and controller input and battery saves. The DS shows both screens at the fold with pixel-exact touch, and both systems have a layout for every posture of the iPhone Duo. Real posture changes have been checked in the Simulator as well; M2 is accepted. In progress: a Liquid Glass interface. Not yet tested on a device.
 
 ## Idea
 

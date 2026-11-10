@@ -3,17 +3,17 @@
 ## Status
 
 - **Ziel:** Eine offene SwiftUI-App, die mehrere Konsolen emuliert und jedes System für den Falz des iPhone Duo auslegt.
-- **Stand:** M0 (Fundament) und M1 (GBA läuft) sind abgenommen und auf `main`; ADR 0005 ist angenommen. Das Repo ist seit 7. November 2026 öffentlich.
+- **Stand:** M0 (Fundament), M1 (GBA läuft) und M2 (DS am Falz) sind abgenommen und auf `main`; ADR 0005 und ADR 0006 sind angenommen. M2 wurde am 10. November 2026 anhand des Pull Requests abgenommen. Das Repo ist seit 7. November 2026 öffentlich.
 
-  M2 · DS am Falz (Plan, Abschnitt 10) ist im Duo-Simulator geprüft, auch mit echten Posen, und wartet auf die Abnahme (7. November 2026), Branch `m2/ds-falz`, mit den Nachbesserungen nach der Prüfung:
+  M2 · DS am Falz (Plan, Abschnitt 10) ist im Duo-Simulator geprüft, auch mit echten Posen, mit den Nachbesserungen nach der Prüfung:
   - melonDS DS 1.4.0 als eingebettetes Framework ohne JIT, ohne Schlüsselmaterial des DSi und ohne Download von Nintendos Servern (Patch und Ersetzungen im Rezept ohne einen Schlüsselwert im Repo, Prüfung nach jedem Bau mit den Werten aus der unveränderten Quelle, Beleg aus dem Store-Bundle), DNS-Option so gesetzt, dass die erzeugte Firmware keinen Server nennt, Testprogramm `selftest.nds`, Lizenzbildschirm mit 24 Einträgen, allen Urhebern, Urhebervermerk und Quellort von Arcfold und Arcfolds Änderungen an melonDS DS und melonDS mit Datum,
   - FoldLayout mit Pose aus der Division-Region und Layouts für alle Posen, ein Mechanismus für DS und GBA, Schutzrand oben von 64 pt für alles, was Berührungen nimmt; Renderer mit einem Viewport je Bildschirm aus einer Textur,
   - Touchscreen pixelgenau über den libretro-Zeiger, Pause beim Zuklappen, Fortsetzen auf dem Außendisplay; ein Spiel ersetzt die Bibliothek im Fenster (`RootView`), weil ein Vollbild über ihr oben Berührungen verschluckte,
   - echte Posen im Simulator per Software (privates Werkzeug außerhalb des Repos, eingebunden über `POSE_CHECK_POSTURE_TOOL`): `Scripts/pose-check.sh` für DS und GBA ohne Lücke, Neusynchronisation oder Pause beim Wechsel, Zuklappen pausiert, Aufklappen läuft weiter, eine Szene für beide Displays; für UI-Tests zusätzlich eingespeiste Posen über `DebugRemote` (Debug-Build),
   - Builds Store und JIT ohne Warnung im eigenen Code, Tests grün (Store 249, JIT 229),
   - ADR 0006 angenommen, Belege in den Abschnitten „Umsetzung in M2“, „Nachbesserungen nach der Prüfung“ und „Posenprüfung per Software“.
-- **Nächster Schritt:** Abnahme von M2 durch Fatih anhand des Pull Requests von `m2/ds-falz`, danach M3 · PSP (Plan, Abschnitt 10). Die Liquid-Glass-Oberfläche aus M4 ist vorgezogen und folgt als eigener Pull Request auf M2. Offen bleibt der Gerätetest auf dem Duo für M1, M2 und ADR 0002 (`docs/wissen/geraetetest.md`). Die CI läuft vorerst nur auf manuellen Start (`workflow_dispatch`, `docs/wissen/bauen-und-ci.md`).
-- **Datum:** 7. November 2026
+- **Nächster Schritt:** M3 · PSP (Plan, Abschnitt 10). Die Liquid-Glass-Oberfläche aus M4 ist vorgezogen und folgt als eigener Pull Request. Offen bleibt der Gerätetest auf dem Duo für M1, M2 und ADR 0002 (`docs/wissen/geraetetest.md`). Die CI läuft vorerst nur auf manuellen Start (`workflow_dispatch`, `docs/wissen/bauen-und-ci.md`).
+- **Datum:** 10. November 2026
 
 ## Arbeitsregeln
 
