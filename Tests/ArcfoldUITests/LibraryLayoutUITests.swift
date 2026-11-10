@@ -187,6 +187,32 @@ final class LibraryLayoutUITests: XCTestCase {
         XCTAssertTrue(app.staticTexts["GPL-3.0-or-later"].firstMatch.waitForExistence(timeout: 5))
     }
 
+    /// Opens Cores from the More menu and waits for the list.
+    @MainActor
+    private func openCores(in app: XCUIApplication) {
+        app.buttons["info-menu"].tap()
+        let cores = app.buttons["Cores"]
+        XCTAssertTrue(cores.waitForExistence(timeout: 5))
+        cores.tap()
+        XCTAssertTrue(app.navigationBars["Cores"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["mGBA"].waitForExistence(timeout: 10), "The list of cores is empty")
+    }
+
+    /// Searches for a name no game has. Returns the search field and the
+    /// message that nothing was found.
+    @MainActor
+    private func searchWithoutResults(in app: XCUIApplication) -> (field: XCUIElement, message: XCUIElement) {
+        let search = app.buttons["Search"]
+        XCTAssertTrue(search.waitForExistence(timeout: 5), "The library shows no search button")
+        search.tap()
+        let field = app.searchFields.firstMatch
+        XCTAssertTrue(field.waitForExistence(timeout: 5))
+        field.typeText("zzz")
+        let message = app.staticTexts.matching(NSPredicate(format: "label CONTAINS 'zzz'")).firstMatch
+        XCTAssertTrue(message.waitForExistence(timeout: 5), "No message for a search without results")
+        return (field, message)
+    }
+
     /// The texts on screen that lie on `fold` or closer to it than the
     /// margin, with their frames.
     @MainActor
@@ -210,21 +236,13 @@ final class LibraryLayoutUITests: XCTestCase {
         XCTAssertLessThanOrEqual(importGames.frame.maxX, fold.lowerBound - Self.foldMargin + 0.5,
                                  "Import Games lies at or after the fold")
         XCTAssertEqual(textsAtTheFold(fold, in: app), [])
-        keepLibraryScreenshot(of: app, named: "library-empty")
     }
 
     @MainActor
     func testASearchWithoutResultsStaysBesideAFold() {
         let app = launchLibraryShelf(arguments: Self.foldArguments)
         let fold = fold(in: app.gameWindow.frame)
-        let search = app.buttons["Search"]
-        XCTAssertTrue(search.waitForExistence(timeout: 5), "The library shows no search button")
-        search.tap()
-        let field = app.searchFields.firstMatch
-        XCTAssertTrue(field.waitForExistence(timeout: 5))
-        field.typeText("zzz")
-        XCTAssertTrue(app.staticTexts.matching(NSPredicate(format: "label CONTAINS 'zzz'")).firstMatch.waitForExistence(timeout: 5),
-                      "No message for a search without results")
+        let field = searchWithoutResults(in: app).field
         note("search: field \(field.frame), fold \(fold.lowerBound)-\(fold.upperBound)")
         XCTAssertEqual(textsAtTheFold(fold, in: app), [])
         // The system keeps its search field off a real fold.
@@ -232,20 +250,13 @@ final class LibraryLayoutUITests: XCTestCase {
             XCTAssertTrue(field.frame.maxX <= fold.lowerBound + 0.5 || field.frame.minX >= fold.upperBound - 0.5,
                           "The search field \(field.frame) lies on the fold")
         }
-        keepLibraryScreenshot(of: app, named: "library-search-empty")
     }
 
     @MainActor
     func testCoresStayBesideAFold() {
         let app = launchLibraryShelf(arguments: Self.foldArguments)
         let fold = fold(in: app.gameWindow.frame)
-
-        app.buttons["info-menu"].tap()
-        let cores = app.buttons["Cores"]
-        XCTAssertTrue(cores.waitForExistence(timeout: 5))
-        cores.tap()
-        XCTAssertTrue(app.navigationBars["Cores"].waitForExistence(timeout: 5))
-        XCTAssertTrue(app.staticTexts["mGBA"].waitForExistence(timeout: 10), "The list of cores is empty")
+        openCores(in: app)
         XCTAssertEqual(textsAtTheFold(fold, in: app), [])
         // Name and version of a core both lie on the first page, and the
         // rows end the margin before the fold.
@@ -257,6 +268,50 @@ final class LibraryLayoutUITests: XCTestCase {
         XCTAssertFalse(rows.isEmpty, "The list of cores has no rows")
         for row in rows {
             XCTAssertLessThanOrEqual(row.maxX, fold.lowerBound - Self.foldMargin + 0.5, "A row \(row) of the cores lies at the fold")
+        }
+    }
+
+    /// The empty library, a search without results and the cores in the
+    /// window as it is, each with a picture for the record. Without a real
+    /// fold the tests above lay these screens out for the artificial one,
+    /// so their pictures would not show what the pose looks like.
+    @MainActor
+    func testTheScreensBesideTheGridShowWholeInTheWindow() {
+        var app = XCUIApplication()
+        app.launchArguments = ["-ArcfoldGallery", "library-empty"]
+        app.launch()
+        let importGames = app.buttons["Import Games"]
+        XCTAssertTrue(importGames.waitForExistence(timeout: 15))
+        var window = app.gameWindow.frame.insetBy(dx: -1, dy: -1)
+        XCTAssertTrue(window.contains(importGames.frame), "Import Games \(importGames.frame) leaves the window \(window)")
+        let explanation = app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH 'Import your own'")).firstMatch
+        XCTAssertTrue(explanation.exists && window.contains(explanation.frame),
+                      "The explanation of the empty library \(explanation.frame) leaves the window \(window)")
+        keepLibraryScreenshot(of: app, named: "library-empty")
+        app.terminate()
+
+        app = launchLibraryShelf()
+        window = app.gameWindow.frame.insetBy(dx: -1, dy: -1)
+        let search = searchWithoutResults(in: app)
+        XCTAssertTrue(window.contains(search.message.frame), "The message \(search.message.frame) leaves the window \(window)")
+        XCTAssertTrue(window.contains(search.field.frame), "The search field \(search.field.frame) leaves the window \(window)")
+        XCTAssertFalse(search.message.frame.intersects(search.field.frame), "The message lies under the search field")
+        let keyboard = app.keyboards.firstMatch
+        if keyboard.exists {
+            XCTAssertFalse(search.message.frame.intersects(keyboard.frame),
+                           "The message \(search.message.frame) lies under the keyboard \(keyboard.frame)")
+        }
+        keepLibraryScreenshot(of: app, named: "library-search-empty")
+        app.terminate()
+
+        app = launchLibraryShelf()
+        window = app.gameWindow.frame.insetBy(dx: -1, dy: -1)
+        openCores(in: app)
+        let rows = app.cells.allElementsBoundByIndex.filter(\.exists).map(\.frame)
+        note("cores in the window: rows \(rows), window \(window.width - 2) x \(window.height - 2)")
+        XCTAssertGreaterThanOrEqual(rows.count, 2, "The list of cores shows no row per core")
+        for row in rows {
+            XCTAssertTrue(window.contains(row), "A row \(row) of the cores leaves the window \(window)")
         }
         keepLibraryScreenshot(of: app, named: "cores")
     }
