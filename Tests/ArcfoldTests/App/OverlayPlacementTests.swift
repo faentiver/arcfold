@@ -7,10 +7,9 @@ import Testing
 /// GBA and the DS in every geometry of `LayoutInvariantTests`, with touch
 /// controls and with a controller: the pause button sits where GameLayout
 /// puts it and takes touches on at least 44 × 44 pt below the top edge
-/// guard; notices and the status chip stay on the picture and cover no
-/// button with its slop, no reach of the pad, no pause button, no touch
-/// screen and no fold; the debug overlay stays clear of a pause button
-/// beside it.
+/// guard; the debug overlay stays clear of a pause button beside it. The
+/// notices and the status chip have `NoticePlacementTests`, the failure
+/// message `FailurePlacementTests`.
 struct OverlayPlacementTests {
     struct Case: Sendable, CustomTestStringConvertible {
         let system: GameSystem
@@ -106,34 +105,6 @@ struct OverlayPlacementTests {
     }
 
     @Test(arguments: cases)
-    func noticesStayOnThePictureAndCoverNothing(_ testCase: Case) {
-        let placement = testCase.placement
-        let toast = placement.toastAnchor
-        Self.checkClear(toast, named: "notice", in: testCase)
-        // Only a picture too low for the notice and the chip one above the
-        // other gives the notice less than its height.
-        let isLow = placement.pictureArea.height < OverlayPlacement.heightForNoticeAndChip(inset: placement.inset)
-        #expect(toast.height == OverlayPlacement.toastHeight || (isLow && toast.height >= 40),
-                "the notice is \(toast.height) pt high in a picture of \(placement.pictureArea.height) pt")
-        let available = placement.pictureArea.width - 2 * placement.inset
-        #expect(toast.width >= min(OverlayPlacement.toastMinWidth, available) - 0.001, "too narrow for a notice: \(toast)")
-        // The picture is the upper or only screen, never the touch screen.
-        let pictureIndex = testCase.layout.touchScreenIndex == 0 ? 1 : 0
-        #expect(placement.pictureArea == testCase.points(testCase.layout.screens[pictureIndex].destination))
-    }
-
-    @Test(arguments: cases)
-    func theStatusChipStaysOnThePictureAboveTheNotices(_ testCase: Case) {
-        let placement = testCase.placement
-        let chip = placement.chipAnchor
-        Self.checkClear(chip, named: "chip", in: testCase)
-        #expect(!chip.intersects(placement.toastAnchor), "the chip covers the notices")
-        #expect(chip.maxY <= placement.toastAnchor.minY + 0.001, "the chip lies below the notices")
-        #expect(chip.height == OverlayPlacement.chipHeight)
-        #expect(chip.width >= min(placement.toastAnchor.width, OverlayPlacement.chipMaxWidth) - 0.001, "too narrow: \(chip)")
-    }
-
-    @Test(arguments: cases)
     func theDebugOverlayStartsInTheSafeAreaAndWrapsBeforeThePauseButton(_ testCase: Case) {
         let placement = testCase.placement
         let safe = testCase.points(testCase.geometry.geometry.safeBounds)
@@ -173,7 +144,7 @@ struct OverlayPlacementTests {
         for index in [0, 1] {
             let upright = Case(system: .gba, geometry: DuoGeometries.cases[index], showsControls: true)
             for (label, area) in Self.buttonAreas(upright.controls) where ["Select", "Start"].contains(label) {
-                #expect(!upright.placement.toastAnchor.intersects(area), "upright a notice covers \(label)")
+                #expect(!upright.placement.noticeColumn.intersects(area), "upright a notice covers \(label)")
             }
         }
     }

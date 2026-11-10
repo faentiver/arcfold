@@ -5,8 +5,8 @@ import FoldLayout
 /// coordinates of `GameStage`: the pause button, the debug overlay, notices,
 /// the status chip and the message of a failed start (ADR 0007). A pure function of `GameLayout` (ADR 0006)
 /// and the touch controls built from it, so tests check it against every
-/// system and pose: no overlay covers a touch button with its slop, the reach
-/// of the pad, the pause button, the DS touch screen or the fold.
+/// system and pose: no overlay of glass covers a touch button with its slop,
+/// the reach of the pad, the pause button, the DS touch screen or the fold.
 ///
 /// Keeps the two faults of M1 fixed: sideways the pause button covered R,
 /// upright a notice lay over Select and Start and took their touches.
@@ -25,20 +25,20 @@ nonisolated struct OverlayPlacement: Sendable, Hashable {
     /// The screen that notices and the chip stay on: the upper or only
     /// screen, never the touch screen.
     var pictureArea: CGRect
-    /// The area a notice is laid out in, aligned to its bottom edge.
-    var toastAnchor: CGRect
-    /// The area the status chip is laid out in, aligned to its bottom edge:
-    /// just above the notices.
-    var chipAnchor: CGRect
+    /// The column the status chip and a notice are stacked in, the chip
+    /// above the notice, aligned to its bottom edge: free of everything that
+    /// takes touches and of the fold over its whole height, so that a notice
+    /// of any length grows upwards in it and moves the chip along.
+    var noticeColumn: CGRect
     /// Where the message of a game that could not start and its button are
     /// centred: the safe area of one screen, never across the fold.
     var failureArea: CGRect
     /// Distance of the overlays from the edges.
     var inset: CGFloat
 
-    /// The height a notice of up to three lines needs at the default size.
+    /// The height a notice of three lines needs at the default size.
     static let toastHeight: CGFloat = 72
-    /// The height a status chip of up to two lines needs at the default size.
+    /// The height a status chip of two lines needs at the default size.
     static let chipHeight: CGFloat = 40
     /// The widest the status chip may become.
     static let chipMaxWidth: CGFloat = 320
@@ -47,8 +47,10 @@ nonisolated struct OverlayPlacement: Sendable, Hashable {
     static let debugReach: CGFloat = 200
     /// The narrowest the debug overlay becomes beside a touch screen.
     static let debugMinWidth: CGFloat = 200
-    /// The narrowest a notice may become before it moves up instead.
-    static let toastMinWidth: CGFloat = 240
+    /// The narrowest column for a notice: sideways the upper DS screen is
+    /// 256 pt wide, and the shoulder buttons or the reach of the pad take a
+    /// few points off its sides.
+    static let toastMinWidth: CGFloat = 200
     /// Space between the bottom of the picture and a notice, and between
     /// overlays.
     static let toastBottomMargin: CGFloat = 12
@@ -92,29 +94,38 @@ nonisolated struct OverlayPlacement: Sendable, Hashable {
         let pictureIndex = layout.screens.indices.first { $0 != layout.touchScreenIndex } ?? 0
         let picture = layout.screens.isEmpty ? safe : points(layout.screens[pictureIndex].destination)
         pictureArea = picture
-        let toastWidth = max(0, min(Metrics.toastMaxWidth(for: picture.width), picture.width - 2 * inset))
-        let toast = Self.freeBand(in: picture, inset: inset, height: Self.toastHeight,
-                                  bottom: picture.maxY - Self.toastBottomMargin, width: toastWidth,
-                                  minimumWidth: min(Self.toastMinWidth, toastWidth), obstacles: obstacles)
-        let chipWidth = min(toast.width, Self.chipMaxWidth)
-        let chipBottom = toast.minY - Self.spacing
-        if chipBottom - Self.chipHeight >= picture.minY + inset - 0.001 {
-            toastAnchor = toast
-            chipAnchor = Self.freeBand(in: picture, inset: inset, height: Self.chipHeight, bottom: chipBottom,
-                                       width: chipWidth, minimumWidth: chipWidth, obstacles: obstacles + [toast],
-                                       around: toast.midX)
-        } else {
-            // A picture too low for both, such as the DS sideways on an
-            // iPhone (128 pt): the chip at its top, the notice below it, as
-            // high as the rest; the notice grows upwards from its bottom.
-            let chip = Self.freeBand(in: picture, inset: inset, height: Self.chipHeight,
-                                     bottom: picture.minY + inset + Self.chipHeight, width: chipWidth,
-                                     minimumWidth: chipWidth, obstacles: obstacles, around: toast.midX)
-            chipAnchor = chip
-            let top = min(chip.maxY + Self.spacing, toast.maxY)
-            toastAnchor = CGRect(x: toast.minX, y: top, width: toast.width, height: toast.maxY - top)
-        }
+        noticeColumn = Self.noticeColumn(in: picture, inset: inset, obstacles: obstacles)
     }
+
+    /// The column of the status chip and the notices in `picture`: as wide
+    /// as a notice may become, on the free rectangle that holds the chip and
+    /// a notice of three lines and reaches lowest, the largest of those;
+    /// where none is that high, on the highest one. A rectangle too narrow
+    /// for a notice only wins when there is no wider one.
+    static func noticeColumn(in picture: CGRect, inset: CGFloat, obstacles: [CGRect]) -> CGRect {
+        let area = CGRect(x: picture.minX + inset, y: picture.minY + inset, width: max(0, picture.width - 2 * inset),
+                          height: max(0, picture.height - inset - toastBottomMargin))
+        let width = min(Metrics.toastMaxWidth(for: picture.width), area.width)
+        let minimumWidth = min(toastMinWidth, width)
+        let full = heightForNoticeAndChip
+        func score(_ rect: CGRect) -> [CGFloat] {
+            let height = min(rect.height, full)
+            let centred = -abs(rect.midX - area.midX)
+            return rect.width >= minimumWidth - 0.001
+                ? [1, height, rect.maxY, min(rect.width, width) * rect.height, centred]
+                : [0, rect.width, height, rect.maxY, centred]
+        }
+        let free = freeRects(in: area, obstacles: obstacles, gap: spacing)
+        guard let best = free.max(by: { score($0).lexicographicallyPrecedes(score($1)) }) else {
+            return CGRect(x: area.midX, y: area.maxY, width: 0, height: 0)
+        }
+        let columnWidth = min(width, best.width)
+        return CGRect(x: best.midX - columnWidth / 2, y: best.minY, width: columnWidth, height: best.height)
+    }
+
+    /// The height of the status chip above a notice of three lines at the
+    /// default size.
+    static let heightForNoticeAndChip = chipHeight + spacing + toastHeight
 
     /// Where the message of a failed start is centred: the safe area, and
     /// with a fold the part of it above the fold, or left of a fold from top
@@ -142,12 +153,6 @@ nonisolated struct OverlayPlacement: Sendable, Hashable {
             area = parts.max { $0.width * $0.height < $1.width * $1.height } ?? area
         }
         return area
-    }
-
-    /// The lowest picture that holds the notice and the chip one above the
-    /// other.
-    static func heightForNoticeAndChip(inset: CGFloat) -> CGFloat {
-        2 * inset + chipHeight + spacing + toastHeight + toastBottomMargin - inset
     }
 
     /// The square that takes touches for a pause button drawn in `frame`.
@@ -183,60 +188,32 @@ nonisolated struct OverlayPlacement: Sendable, Hashable {
         return obstacles
     }
 
-    /// A band of `height` inside `area` whose bottom is at most `bottom`,
-    /// as wide as `width` and centred under `around` (the middle of the
-    /// free stretch by default), on the widest stretch of the band that no
-    /// obstacle covers. When that stretch is narrower than `minimumWidth`,
-    /// the band moves up above the obstacles in its way; when it reaches
-    /// the top of `area`, the widest stretch there wins.
-    static func freeBand(in area: CGRect, inset: CGFloat, height: CGFloat, bottom: CGFloat, width: CGFloat,
-                         minimumWidth: CGFloat, obstacles: [CGRect], around: CGFloat? = nil) -> CGRect {
-        let left = area.minX + inset
-        let right = area.maxX - inset
-        let top = area.minY + inset
-        var bottom = min(bottom, area.maxY - inset)
-        var best: CGRect?
-        while bottom - height >= top - 0.001 {
-            let band = CGRect(x: left, y: bottom - height, width: max(0, right - left), height: height)
-            let blockers = obstacles.filter { $0.intersects(band) }
-            let stretch = widestFreeStretch(of: band, without: blockers)
-            if best.map({ stretch.width > $0.width }) ?? true {
-                best = stretch
+    /// The largest rectangles inside `area` that keep `gap` from every
+    /// obstacle: for every stretch across between two edges, every run down
+    /// that nothing blocks. Each free rectangle of `area` lies inside one of
+    /// them.
+    static func freeRects(in area: CGRect, obstacles: [CGRect], gap: CGFloat) -> [CGRect] {
+        guard area.width > 0, area.height > 0 else { return [] }
+        let blockers = obstacles.map { $0.insetBy(dx: -gap, dy: -gap) }
+            .filter { $0.minX < area.maxX && $0.maxX > area.minX && $0.minY < area.maxY && $0.maxY > area.minY }
+        let lefts = [area.minX] + blockers.map(\.maxX).filter { $0 > area.minX && $0 < area.maxX }
+        let rights = [area.maxX] + blockers.map(\.minX).filter { $0 > area.minX && $0 < area.maxX }
+        var rects: [CGRect] = []
+        for left in lefts {
+            for right in rights where right > left {
+                let inTheWay = blockers.filter { $0.minX < right && $0.maxX > left }.sorted { $0.minY < $1.minY }
+                var top = area.minY
+                for blocker in inTheWay {
+                    if blocker.minY > top {
+                        rects.append(CGRect(x: left, y: top, width: right - left, height: min(blocker.minY, area.maxY) - top))
+                    }
+                    top = max(top, blocker.maxY)
+                }
+                if area.maxY > top {
+                    rects.append(CGRect(x: left, y: top, width: right - left, height: area.maxY - top))
+                }
             }
-            if stretch.width >= minimumWidth {
-                return centred(width: width, in: stretch, around: around)
-            }
-            // Above the highest obstacle in the way.
-            guard let next = blockers.map(\.minY).min(), next - Self.spacing < bottom else { break }
-            bottom = next - Self.spacing
         }
-        return centred(width: width, in: best ?? CGRect(x: left, y: top, width: 0, height: height), around: around)
-    }
-
-    /// The widest stretch of `band` across which none of `blockers` lies.
-    static func widestFreeStretch(of band: CGRect, without blockers: [CGRect]) -> CGRect {
-        let covered = blockers.map { ($0.minX, $0.maxX) }.sorted { $0.0 < $1.0 }
-        var start = band.minX
-        var widest = CGRect(x: band.minX, y: band.minY, width: 0, height: band.height)
-        for (minX, maxX) in covered {
-            let end = min(minX, band.maxX)
-            if end - start > widest.width {
-                widest = CGRect(x: start, y: band.minY, width: end - start, height: band.height)
-            }
-            start = max(start, maxX)
-        }
-        if band.maxX - start > widest.width {
-            widest = CGRect(x: start, y: band.minY, width: band.maxX - start, height: band.height)
-        }
-        return widest
-    }
-
-    /// A rectangle of `width`, at most the stretch's, centred under `around`
-    /// as far as the stretch allows.
-    static func centred(width: CGFloat, in stretch: CGRect, around: CGFloat?) -> CGRect {
-        let width = max(0, min(width, stretch.width))
-        let middle = around ?? stretch.midX
-        let x = min(max(middle - width / 2, stretch.minX), stretch.maxX - width)
-        return CGRect(x: x, y: stretch.minY, width: width, height: stretch.height)
+        return rects
     }
 }

@@ -16,8 +16,6 @@ struct GameOverlays: View {
     let failure: String?
     let close: () -> Void
 
-    @Environment(\.prefersFades) private var prefersFades
-
     var body: some View {
         ZStack(alignment: .topLeading) {
             if let debugReadings {
@@ -33,22 +31,9 @@ struct GameOverlays: View {
             // On the picture, clear of every button, the touch screen and the
             // fold, and without hit testing, so neither ever takes a touch
             // meant for the game (rule R6; M1 fault).
-            if let audioProblem {
-                StatusChip(text: audioProblem)
-                    .frame(width: placement.chipAnchor.width, height: placement.chipAnchor.height, alignment: .bottom)
-                    .position(x: placement.chipAnchor.midX, y: placement.chipAnchor.midY)
-            }
-
-            Group {
-                if let notice {
-                    StatusToast(text: notice)
-                        .transition(StatusToast.transition(prefersFades: prefersFades))
-                }
-            }
-            .frame(width: placement.toastAnchor.width, height: placement.toastAnchor.height, alignment: .bottom)
-            .position(x: placement.toastAnchor.midX, y: placement.toastAnchor.midY)
-            .animation(Motion.appear(reduceMotion: prefersFades), value: notice)
-            .allowsHitTesting(false)
+            NoticeStack(audioProblem: audioProblem, notice: notice)
+                .frame(width: placement.noticeColumn.width, height: placement.noticeColumn.height, alignment: .bottom)
+                .position(x: placement.noticeColumn.midX, y: placement.noticeColumn.midY)
 
             if let failure {
                 GameFailureView(message: failure, area: placement.failureArea, close: close)
