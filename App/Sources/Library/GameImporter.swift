@@ -5,10 +5,6 @@ import Foundation
 /// looks like a game of the system, names it by its SHA-256 and copies it
 /// atomically. Runs off the main actor.
 nonisolated enum GameImporter {
-    /// GBA ROMs: at least the header, at most the 32 MiB cartridge space.
-    static let minimumSize = 192
-    static let maximumSize = 32 * 1024 * 1024
-
     /// Imports one file. A file that is already in the library is not copied
     /// again; its record and battery save stay as they are.
     ///
@@ -25,8 +21,8 @@ nonisolated enum GameImporter {
             }
         }
 
-        if let size = try? url.resourceValues(forKeys: [.fileSizeKey]).fileSize, size > maximumSize {
-            throw .tooLarge(fileName: fileName)
+        if let size = try? url.resourceValues(forKeys: [.fileSizeKey]).fileSize, size > maximumSize(of: system) {
+            throw .tooLarge(fileName: fileName, system: system.name)
         }
         let data: Data
         do {
@@ -34,7 +30,7 @@ nonisolated enum GameImporter {
         } catch {
             throw .unreadable(fileName: fileName, reason: error.localizedDescription)
         }
-        try check(data, fileName: fileName)
+        try check(data, system: system, fileName: fileName)
 
         let id = SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined()
         let record = Game(
@@ -86,14 +82,19 @@ nonisolated enum GameImporter {
         return try result.get()
     }
 
-    /// The checks of mGBA's GBAIsROM: byte 3 is 0xEA (the branch over the
-    /// header), byte 0xB2 is 0x96 (the fixed value of the header).
-    static func check(_ data: Data, fileName: String) throws(ImportError) {
-        guard data.count >= minimumSize else { throw .tooSmall(fileName: fileName) }
-        guard data.count <= maximumSize else { throw .tooLarge(fileName: fileName) }
-        let start = data.startIndex
-        guard data[start + 3] == 0xEA, data[start + 0xB2] == 0x96 else {
-            throw .notAGame(fileName: fileName)
+    /// Whether `data` looks like a game of `system`.
+    static func check(_ data: Data, system: GameSystem, fileName: String) throws(ImportError) {
+        switch system.header {
+        case .gba: try GBAHeader.check(data, fileName: fileName)
+        case .nds: try NDSHeader.check(data, fileName: fileName)
+        }
+    }
+
+    /// The largest file the import reads for `system`.
+    static func maximumSize(of system: GameSystem) -> Int {
+        switch system.header {
+        case .gba: GBAHeader.maximumSize
+        case .nds: NDSHeader.maximumSize
         }
     }
 
@@ -104,24 +105,55 @@ nonisolated enum GameImporter {
     }
 }
 
+/// The header checks of a GBA game file, as in mGBA's GBAIsROM.
+nonisolated enum GBAHeader {
+    /// At least the header, at most the 32 MiB cartridge space.
+    static let minimumSize = 192
+    static let maximumSize = 32 * 1024 * 1024
+
+    /// Byte 3 is 0xEA (the branch over the header), byte 0xB2 is 0x96 (the
+    /// fixed value of the header).
+    static func check(_ data: Data, fileName: String) throws(ImportError) {
+        let system = GameSystem.gba.name
+        guard data.count >= minimumSize else { throw .tooSmall(fileName: fileName, system: system) }
+        guard data.count <= maximumSize else { throw .tooLarge(fileName: fileName, system: system) }
+        let start = data.startIndex
+        guard data[start + 3] == 0xEA, data[start + 0xB2] == 0x96 else {
+            throw .notAGame(fileName: fileName, system: system)
+        }
+    }
+}
+
 nonisolated struct ImportOutcome: Sendable, Hashable {
     let game: Game
     /// The same file was imported before; nothing was copied.
     let wasAlreadyInLibrary: Bool
 }
 
-/// Why a file could not be imported.
+/// Why a file could not be imported. `system` is the name of the system the
+/// file was taken for, as the library shows it.
 nonisolated enum ImportError: Error, Sendable, Hashable {
     case unreadable(fileName: String, reason: String)
-    case tooSmall(fileName: String)
-    case tooLarge(fileName: String)
-    case notAGame(fileName: String)
+    /// The extension belongs to no system Arcfold runs.
+    case unknownType(fileName: String)
+    case tooSmall(fileName: String, system: String)
+    case tooLarge(fileName: String, system: String)
+    case notAGame(fileName: String, system: String)
+    /// A DS game whose secure area is still encrypted. melonDS DS starts such
+    /// games only with the console's own BIOS files, which Arcfold does not
+    /// include (ADR 0006).
+    case encryptedGame(fileName: String)
+    /// A retail title for the DSi only or retail DSiWare (modcrypt flag and a
+    /// game code of capital letters and digits), as melonDS DS rejects it in
+    /// DS mode; DSi homebrew starts on the DS (ADR 0006). Arcfold runs the DS.
+    case needsDSi(fileName: String)
     case writeFailed(fileName: String, reason: String)
 
     var fileName: String {
         switch self {
-        case let .unreadable(fileName, _), let .tooSmall(fileName), let .tooLarge(fileName),
-             let .notAGame(fileName), let .writeFailed(fileName, _):
+        case let .unreadable(fileName, _), let .unknownType(fileName), let .tooSmall(fileName, _),
+             let .tooLarge(fileName, _), let .notAGame(fileName, _), let .encryptedGame(fileName),
+             let .needsDSi(fileName), let .writeFailed(fileName, _):
             fileName
         }
     }
@@ -132,15 +164,24 @@ nonisolated enum ImportError: Error, Sendable, Hashable {
         case let .unreadable(fileName, reason):
             String(localized: "\(fileName) could not be read: \(reason)",
                    comment: "Import error. The first value is a file name, the second the system's reason.")
-        case let .tooSmall(fileName):
-            String(localized: "\(fileName) is too small to be a GBA game.",
-                   comment: "Import error. The value is a file name.")
-        case let .tooLarge(fileName):
-            String(localized: "\(fileName) is larger than 32 MB and cannot be a GBA game.",
-                   comment: "Import error. The value is a file name.")
-        case let .notAGame(fileName):
-            String(localized: "\(fileName) does not look like a GBA game.",
-                   comment: "Import error when the file header does not match. The value is a file name.")
+        case let .unknownType(fileName):
+            String(localized: "\(fileName) is not a game file Arcfold can open.",
+                   comment: "Import error for a file whose extension belongs to no system. The value is a file name.")
+        case let .tooSmall(fileName, system):
+            String(localized: "\(fileName) is too small to be a \(system) game.",
+                   comment: "Import error. The first value is a file name, the second a system such as GBA or DS.")
+        case let .tooLarge(fileName, system):
+            String(localized: "\(fileName) is too large to be a \(system) game.",
+                   comment: "Import error. The first value is a file name, the second a system such as GBA or DS.")
+        case let .notAGame(fileName, system):
+            String(localized: "\(fileName) does not look like a \(system) game.",
+                   comment: "Import error when the file header does not match. The first value is a file name, the second a system such as GBA or DS.")
+        case let .encryptedGame(fileName):
+            String(localized: "\(fileName) is an encrypted DS game file. Arcfold cannot start encrypted DS games.",
+                   comment: "Import error for a DS game file whose start is encrypted. The value is a file name.")
+        case let .needsDSi(fileName):
+            String(localized: "\(fileName) needs a DSi. Arcfold runs DS games only.",
+                   comment: "Import error for a game made for the DSi only. The value is a file name.")
         case let .writeFailed(fileName, reason):
             String(localized: "\(fileName) could not be copied into the library: \(reason)",
                    comment: "Import error. The first value is a file name, the second the system's reason.")

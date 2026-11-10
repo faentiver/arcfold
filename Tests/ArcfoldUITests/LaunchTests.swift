@@ -7,12 +7,9 @@ final class LaunchTests: XCTestCase {
         continueAfterFailure = false
     }
 
-    /// selftest.gba from this UI test bundle. The Simulator lets the app read it
-    /// by path, which is what the debug launch arguments need.
+    /// selftest.gba from this UI test bundle.
     private func selftestPath() throws -> String {
-        let url = try XCTUnwrap(Bundle(for: Self.self).url(forResource: "selftest", withExtension: "gba"),
-                                "selftest.gba is not in the UI test bundle; check project.yml")
-        return url.path(percentEncoded: false)
+        try fixturePath("selftest", "gba")
     }
 
     /// Keeps a screenshot in the result bundle as evidence of the run.
@@ -46,8 +43,17 @@ final class LaunchTests: XCTestCase {
         XCTAssertTrue(app.buttons["info-menu"].exists)
     }
 
+    /// Swipes the list up until `element` exists; long lists lay out lazily.
     @MainActor
-    func testLicensesListsFiveComponentsWithTheirTexts() {
+    private func scroll(to element: XCUIElement, in app: XCUIApplication, attempts: Int = 12) -> Bool {
+        for _ in 0..<attempts where !element.exists {
+            app.swipeUp()
+        }
+        return element.waitForExistence(timeout: 2)
+    }
+
+    @MainActor
+    func testLicensesListsTheComponentsWithTheirTexts() {
         let app = XCUIApplication()
         app.launch()
 
@@ -59,16 +65,19 @@ final class LaunchTests: XCTestCase {
         licenses.tap()
 
         XCTAssertTrue(app.navigationBars["Licenses"].waitForExistence(timeout: 5))
-        let names = ["Arcfold", "mGBA 0.10.5", "blip_buf 1.1.0", "inih", "libretro.h"]
-        for name in names {
+        // The list starts with Arcfold and mGBA with its parts (ADR 0005).
+        for name in ["Arcfold", "mGBA 0.10.5", "blip_buf 1.1.0", "inih", "libretro.h"] {
             XCTAssertTrue(app.staticTexts[name].exists, "\(name) is missing on the Licenses screen")
         }
-        XCTAssertEqual(app.cells.count, names.count)
         keepScreenshot(of: app, named: "Licenses")
 
         app.staticTexts["Arcfold"].tap()
         XCTAssertTrue(app.staticTexts.containing(NSPredicate(format: "label CONTAINS %@", "GNU GENERAL PUBLIC LICENSE"))
             .firstMatch.waitForExistence(timeout: 10))
+        // The copyright notice and where the source code is (GPL-3.0, sections 5 and 6).
+        XCTAssertTrue(app.staticTexts.containing(NSPredicate(format: "label CONTAINS %@", "https://github.com/faentiver/arcfold"))
+            .firstMatch.exists)
+        keepScreenshot(of: app, named: "Arcfold")
         goBack(in: app)
 
         XCTAssertTrue(app.staticTexts["mGBA 0.10.5"].waitForExistence(timeout: 5))
@@ -80,11 +89,64 @@ final class LaunchTests: XCTestCase {
         goBack(in: app)
 
         XCTAssertTrue(app.staticTexts["libretro.h"].waitForExistence(timeout: 5))
-
         app.staticTexts["libretro.h"].tap()
         XCTAssertTrue(app.staticTexts.containing(NSPredicate(format: "label CONTAINS %@", "Permission is hereby granted"))
             .firstMatch.waitForExistence(timeout: 10))
         keepScreenshot(of: app, named: "libretro.h")
+        goBack(in: app)
+
+        // melonDS DS with its source, and the last entry, the fonts it embeds (ADR 0006).
+        let melonDSDS = app.staticTexts["melonDS DS 1.4.0"]
+        XCTAssertTrue(scroll(to: melonDSDS, in: app), "melonDS DS is missing on the Licenses screen")
+        melonDSDS.tap()
+        XCTAssertTrue(app.staticTexts.containing(NSPredicate(format: "label CONTAINS %@", "github.com/JesseTG/melonds-ds"))
+            .firstMatch.waitForExistence(timeout: 10))
+        goBack(in: app)
+
+        let fonts = app.staticTexts["Open Sans"]
+        XCTAssertTrue(scroll(to: fonts, in: app), "Open Sans is missing on the Licenses screen")
+        keepScreenshot(of: app, named: "Licenses, end of the list")
+        fonts.tap()
+        XCTAssertTrue(app.staticTexts.containing(NSPredicate(format: "label CONTAINS %@", "SIL OPEN FONT LICENSE"))
+            .firstMatch.waitForExistence(timeout: 10))
+    }
+
+    /// The Licenses screen lists every component of the app and of both
+    /// cores with its license, in the order of `LicenseCatalog`: Arcfold,
+    /// mGBA with what it builds in, libretro.h, and melonDS DS with every part
+    /// it builds in (ADR 0005, section 9; ADR 0006, section 3), 24 entries.
+    @MainActor
+    func testLicensesListEveryComponentOfBothCores() {
+        let app = XCUIApplication()
+        app.launch()
+        let info = app.buttons["info-menu"]
+        XCTAssertTrue(info.waitForExistence(timeout: 20))
+        info.tap()
+        let licenses = app.buttons["Licenses"]
+        XCTAssertTrue(licenses.waitForExistence(timeout: 5))
+        licenses.tap()
+        XCTAssertTrue(app.navigationBars["Licenses"].waitForExistence(timeout: 5))
+
+        let entries: [(name: String, license: String)] = [
+            ("Arcfold", "GPL-3.0-or-later"), ("mGBA 0.10.5", "MPL-2.0"), ("blip_buf 1.1.0", "LGPL-2.1-or-later"),
+            ("inih", "BSD-3-Clause"), ("libretro.h", "MIT"), ("melonDS DS 1.4.0", "GPL-3.0-or-later"),
+            ("melonDS", "GPL-3.0-or-later"), ("FreeBIOS", "BSD-2-Clause"), ("FatFs", "BSD-1-Clause"), ("teakra", "MIT"),
+            ("Tiny AES in C", "Unlicense"), ("xxHash", "BSD-2-Clause"), ("libretro-common", "MIT"),
+            ("libslirp", "BSD-3-Clause"), ("libslirp, parts from 4.4BSD", "BSD-3-Clause"),
+            ("libslirp, MIT parts", "MIT"), ("{fmt}", "MIT"),
+            ("OpenGL Mathematics (GLM)", "MIT"), ("pntr", "Zlib"), ("yamc", "MIT"), ("span lite", "BSL-1.0"),
+            ("date", "MIT"), ("zlib", "Zlib"), ("Open Sans", "OFL-1.1"),
+        ]
+        XCTAssertEqual(entries.count, 24)
+        for (index, entry) in entries.enumerated() {
+            let row = app.staticTexts[entry.name]
+            XCTAssertTrue(scroll(to: row, in: app), "\(entry.name) is missing on the Licenses screen")
+            let license = app.staticTexts.matching(NSPredicate(format: "label == %@", entry.license))
+            XCTAssertGreaterThan(license.count, 0, "No \(entry.license) next to \(entry.name)")
+            if index == 0 || index == 11 || index == entries.count - 1 {
+                keepScreenshot(of: app, named: "Licenses at \(entry.name)")
+            }
+        }
     }
 
     @MainActor
@@ -94,7 +156,7 @@ final class LaunchTests: XCTestCase {
         app.launch()
 
         XCTAssertTrue(app.navigationBars["Library"].waitForExistence(timeout: 20))
-        XCTAssertTrue(app.buttons["game-selftest"].waitForExistence(timeout: 10))
+        XCTAssertTrue(app.buttons["game-gba-selftest"].waitForExistence(timeout: 10))
         keepScreenshot(of: app, named: "Library after the debug import")
     }
 
@@ -113,7 +175,7 @@ final class LaunchTests: XCTestCase {
         expectation(for: shown, evaluatedWith: stats)
         waitForExpectations(timeout: 10)
 
-        let screenshot = XCUIScreen.main.screenshot()
+        let screenshot = app.displayScreenshot()
         let attachment = XCTAttachment(screenshot: screenshot)
         attachment.name = "Test pattern"
         attachment.lifetime = .keepAlways
@@ -123,8 +185,8 @@ final class LaunchTests: XCTestCase {
         // everything around it is black. Then check that it sits centred in
         // the screen view at a whole-number scale, and sample the middle of
         // each of the eight bars in the upper third.
-        let image = try XCTUnwrap(screenshot.image.cgImage)
-        let scale = CGFloat(image.width) / app.frame.width
+        let image = try XCTUnwrap(screenshot.uprightImage)
+        let scale = screenshot.image.scale
         let pixels = try Pixels(image)
         let frame = screen.frame
         let area = (left: Int(frame.minX * scale), top: Int(frame.minY * scale),
@@ -202,73 +264,22 @@ final class LaunchTests: XCTestCase {
     func testTouchButtonsReachTheSession() throws {
         let app = XCUIApplication()
         let overlay = try launchTheSelftest(app)
-        let controls = app.descendants(matching: .any)["touch-controls"].firstMatch
-        XCTAssertTrue(controls.waitForExistence(timeout: 10))
+        let buttonA = app.descendants(matching: .any)["touch-button-A"].firstMatch
+        let buttonB = app.descendants(matching: .any)["touch-button-B"].firstMatch
+        XCTAssertTrue(buttonA.waitForExistence(timeout: 10))
+        XCTAssertTrue(buttonB.exists)
         let label = overlay.label
         let match = try XCTUnwrap(label.firstMatch(of: /presses ([0-9]+)/), "No press count in: \(label)")
         let before = try XCTUnwrap(Int(match.1))
 
-        // TouchLayout, upright: A at (0.84, 0.40), B at (0.67, 0.54) of the controls.
-        let a = controls.coordinate(withNormalizedOffset: CGVector(dx: 0.84, dy: 0.40))
-        let b = controls.coordinate(withNormalizedOffset: CGVector(dx: 0.67, dy: 0.54))
+        // The buttons draw without taking touches; the surface below them does.
+        let a = buttonA.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
+        let b = buttonB.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
         a.press(forDuration: 1)
         waitUntil(overlay, shows: "Input held – · last A · presses \(before + 1)")
 
         a.press(forDuration: 1, thenDragTo: b, withVelocity: .slow, thenHoldForDuration: 1)
         waitUntil(overlay, shows: "Input held – · last B · presses \(before + 3)")
         keepScreenshot(of: app, named: "After holding A and sliding to B")
-    }
-}
-
-/// A screenshot that could not be drawn into a bitmap.
-private struct UnreadableScreenshot: Error {}
-
-/// RGBA bytes of a screenshot.
-private struct Pixels {
-    let bytes: [UInt8]
-    let width: Int
-    let height: Int
-
-    init(_ image: CGImage) throws {
-        width = image.width
-        height = image.height
-        var bytes = [UInt8](repeating: 0, count: width * height * 4)
-        let drawn = bytes.withUnsafeMutableBytes { buffer -> Bool in
-            guard let context = CGContext(
-                data: buffer.baseAddress, width: image.width, height: image.height, bitsPerComponent: 8,
-                bytesPerRow: image.width * 4, space: CGColorSpace(name: CGColorSpace.sRGB)!,
-                bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)
-            else { return false }
-            context.draw(image, in: CGRect(x: 0, y: 0, width: image.width, height: image.height))
-            return true
-        }
-        guard drawn else { throw UnreadableScreenshot() }
-        self.bytes = bytes
-    }
-
-    /// The smallest rectangle around every pixel brighter than dark grey in `area`.
-    func boundsOfLight(in area: (left: Int, top: Int, right: Int, bottom: Int))
-        -> (left: Int, top: Int, right: Int, bottom: Int)?
-    {
-        var result: (left: Int, top: Int, right: Int, bottom: Int)?
-        for y in max(area.top, 0)...min(area.bottom, height - 1) {
-            for x in max(area.left, 0)...min(area.right, width - 1) {
-                let pixel = rgb(x: x, y: y)
-                guard pixel.red > 40 || pixel.green > 40 || pixel.blue > 40 else { continue }
-                if let current = result {
-                    result = (min(current.left, x), min(current.top, y), max(current.right, x), max(current.bottom, y))
-                } else {
-                    result = (x, y, x, y)
-                }
-            }
-        }
-        return result
-    }
-
-    func rgb(x: Int, y: Int) -> (red: UInt8, green: UInt8, blue: UInt8) {
-        let x = min(max(x, 0), width - 1)
-        let y = min(max(y, 0), height - 1)
-        let offset = (y * width + x) * 4
-        return (bytes[offset], bytes[offset + 1], bytes[offset + 2])
     }
 }

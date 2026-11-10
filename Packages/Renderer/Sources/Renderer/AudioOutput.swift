@@ -139,14 +139,28 @@ public final class AudioOutput {
         }
     }
 
+    /// The rate the source node converts from: the core's rate, rounded to
+    /// whole hertz. melonDS DS plays at 33 513 982 / 1024 = 32 728.498046875 Hz,
+    /// so the node gets 32 728 Hz. From a fractional rate (first 32 728.5 Hz)
+    /// the node's conversion broke down after 80 to 90 s in each of three
+    /// runs in the iOS 27.1 Simulator: it stopped pulling, then the ring ran
+    /// dry over and over. From whole hertz it ran steadily, 32 729 Hz for
+    /// 250 s and 32 728 Hz for 182 s in the app (docs/wissen/renderer.md).
+    /// Half a hertz is 15 ppm, inaudible, and the emulation follows the audio
+    /// clock anyway (ADR 0005).
+    package static func nodeSampleRate(for coreRate: Double) -> Double {
+        max(1, coreRate.rounded())
+    }
+
     private func buildEngine() throws(AudioOutputError) {
         // The block format is the core's format, so the render block only
         // copies; the node converts rate, bit depth and interleaving once.
+        let nodeRate = Self.nodeSampleRate(for: sampleRate)
         guard let coreFormat = AVAudioFormat(
-            commonFormat: .pcmFormatInt16, sampleRate: sampleRate, channels: 2, interleaved: true),
+            commonFormat: .pcmFormatInt16, sampleRate: nodeRate, channels: 2, interleaved: true),
               let node = ring.makeSourceNode(format: coreFormat)
         else {
-            throw .engine(reason: "No source node for stereo Int16 at \(sampleRate) Hz")
+            throw .engine(reason: "No source node for stereo Int16 at \(nodeRate) Hz")
         }
         let engine = AVAudioEngine()
         engine.attach(node)

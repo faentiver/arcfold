@@ -1,9 +1,9 @@
 # Builds Arcfold and runs the tests in the iOS Simulator.
 #
-# Costs: the repository is private for now, and GitHub bills every macOS
-# minute ten times against the free quota of private repositories. So there
-# is a single job, the built core is cached, and a new run cancels the one
-# that is still going for the same branch.
+# Costs: the repository is public since 7 November 2026, and GitHub's standard
+# runners are free for public repositories. A single job, the cached core and
+# cancelling the run that is still going for the same branch keep runs short
+# all the same.
 #
 # For now the workflow runs on manual start only (workflow_dispatch);
 # `pull_request:` comes back later (docs/wissen/bauen-und-ci.md).
@@ -74,11 +74,27 @@ jobs:
           echo "available=true" >> "$GITHUB_OUTPUT"
           echo "build=$(xcodebuild -version | awk '/Build version/ { print $3 }')" >> "$GITHUB_OUTPUT"
 
-      # Only the submodules of the embedded cores, shallow. A new core adds its
-      # submodule here and its recipe to the cache key below.
+      # Only the submodules of the embedded cores, shallow: each core's
+      # CORE_SOURCE and the CORE_DEPENDENCIES of its recipe
+      # (Scripts/build-core.sh <recipe> --submodules). A new core adds its
+      # submodules here and its recipe to the cache key below.
       - name: Fetch core sources
         if: steps.xcode.outputs.available == 'true'
-        run: git submodule update --init --depth 1 -- Cores/mgba
+        run: |
+          git submodule update --init --depth 1 -- \
+            Cores/mgba \
+            Cores/melonds-ds \
+            Cores/melonds-ds-deps/melonDS \
+            Cores/melonds-ds-deps/libretro-common \
+            Cores/melonds-ds-deps/embed-binaries \
+            Cores/melonds-ds-deps/glm \
+            Cores/melonds-ds-deps/libslirp \
+            Cores/melonds-ds-deps/pntr \
+            Cores/melonds-ds-deps/fmt \
+            Cores/melonds-ds-deps/yamc \
+            Cores/melonds-ds-deps/span-lite \
+            Cores/melonds-ds-deps/date \
+            Cores/melonds-ds-deps/zlib
 
       - name: Install tools
         if: steps.xcode.outputs.available == 'true'
@@ -102,12 +118,15 @@ jobs:
           fi
 
       # The key covers what makes a core outdated for Scripts/bootstrap.sh:
-      # submodule commit, recipe and build-core.sh, plus the Xcode build.
+      # the submodule commits, the recipes and build-core.sh, plus the Xcode
+      # build. `git ls-tree` lists the recorded commits of the core submodules
+      # without fetching them.
       - name: Compute core cache key
         if: steps.xcode.outputs.available == 'true'
         id: cores
         run: |
-          echo "key=cores-${{ steps.xcode.outputs.build }}-$(git rev-parse HEAD:Cores/mgba)-${{ hashFiles('Scripts/build-core.sh', 'Scripts/cores/mgba.sh') }}" >> "$GITHUB_OUTPUT"
+          submodules="$(git ls-tree -r HEAD -- Cores/mgba Cores/melonds-ds Cores/melonds-ds-deps | shasum -a 256 | cut -c 1-16)"
+          echo "key=cores-${{ steps.xcode.outputs.build }}-$submodules-${{ hashFiles('Scripts/build-core.sh', 'Scripts/cores/mgba.sh', 'Scripts/cores/melondsds.sh') }}" >> "$GITHUB_OUTPUT"
 
       - name: Restore cores
         if: steps.xcode.outputs.available == 'true'

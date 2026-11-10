@@ -234,18 +234,27 @@ final class BatterySaveMonitor {
     }
 
     /// Before the first frame: removes a leftover temporary file and copies the
-    /// save, or its backup, into `memory`, at most `memory.count` bytes. The
-    /// rest of the memory keeps what the core put there (0xFF for mGBA).
-    func load(into memory: UnsafeMutableRawBufferPointer?) throws(SessionError) {
+    /// save, or its backup, into `memory`, at most `memory.count` bytes.
+    /// `blankByte`, if given, fills what no file covers: the whole memory
+    /// without a file, the rest behind a shorter one, for example after a new
+    /// core version gave a game a larger save (blank EEPROM and flash read
+    /// 0xFF; ADR 0006, section 11). Without it the rest keeps what the core
+    /// put there (0xFF for mGBA, whose memory is larger than its save until it
+    /// knows the save type).
+    func load(into memory: UnsafeMutableRawBufferPointer?, blankByte: UInt8? = nil) throws(SessionError) {
         BatterySaveFile.removeLeftovers(of: url)
         let data = try BatterySaveFile.read(url)
         fileExists = data != nil
         guard let memory else { return }
+        var count = 0
         if let data {
-            let count = min(data.count, memory.count)
+            count = min(data.count, memory.count)
             data.withUnsafeBytes { bytes in
                 memory.copyMemory(from: UnsafeRawBufferPointer(rebasing: bytes[..<count]))
             }
+        }
+        if let blankByte, let base = memory.baseAddress, count < memory.count {
+            memset(base + count, Int32(blankByte), memory.count - count)
         }
         remember(UnsafeRawBufferPointer(memory))
         isDirty = false

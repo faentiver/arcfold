@@ -19,7 +19,7 @@ Stand 7. November 2026, Mac mini (M4 Pro, 14 Kerne, 24 GB, macOS 27.2).
 | actionlint | 1.7.12 | Homebrew, für Arcfold installiert | CI-Workflow lokal prüfen |
 | ShellCheck | 0.11.0 | Homebrew, mit actionlint installiert | Skripte prüfen, auch die `run:`-Blöcke im Workflow |
 | libmpc, mpfr | 1.4.1, 4.2.2 | Homebrew, für Arcfold installiert | Laufzeitbibliotheken des PSPDEV-Compilers |
-| PSPDEV | v20261101 | nur entpackt im Scratchpad einer Session, nicht dauerhaft | baut `Tests/Fixtures/psp/gu-test` neu, Herkunft und Prüfsumme in `Tests/Fixtures/LICENSES.md` |
+| PSPDEV | v20261101 | nur vorübergehend entpackt, nicht installiert | baut `Tests/Fixtures/psp/gu-test` neu, Herkunft und Prüfsumme in `Tests/Fixtures/LICENSES.md` |
 | MoltenVK | 1.4.2 (`MoltenVK-all.tar`) | lädt der PSP-Spike nach `build/` (ignoriert) | Vulkan im PSP-Spike, `MoltenVK-ios.tar` hat keine Simulator-Scheibe |
 | Simulator-Runtimes | iOS 27.2 (24B8117), iOS 27.1 (24A94425) | `xcodebuild -downloadPlatform iOS` bzw. `-buildVersion 27.1` | Tests; den Duo-Simulator gibt es nur mit iOS 27.1 |
 

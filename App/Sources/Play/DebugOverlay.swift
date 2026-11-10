@@ -1,3 +1,4 @@
+import FoldLayout
 import Foundation
 import LibretroKit
 import Renderer
@@ -16,12 +17,54 @@ nonisolated struct DebugReadings: Sendable {
     /// The buttons as the session's `InputState` sees them; nil before the
     /// session exists.
     var input: InputReadings?
+    /// The pointer of the touch screen; nil for systems without one.
+    var pointer: PointerReadings?
     var thermalState: ProcessInfo.ThermalState
     var isLowPowerModeEnabled: Bool
+    /// Pose, geometry and layout of the game view, set by the view.
+    var fold: FoldReadings? = nil
+    /// The game is paused for any reason (ADR 0005, section 9; ADR 0006, section 10).
+    var isPaused = false
+    /// How often the game was paused since it started, however short.
+    var pauses = 0
 
     /// The overlay's lines; also the line the app logs every 10 seconds.
     var lines: [String] {
-        [emulationLine, displayLine, audioLine, inputLine, deviceLine]
+        var lines = [emulationLine, displayLine, audioLine, inputLine]
+        if let pointer {
+            lines.append(pointer.line)
+        }
+        if let fold {
+            lines += fold.lines
+        }
+        lines.append(deviceLine)
+        return lines
+    }
+
+    /// The same values for UI tests, as `key=value` pairs joined by ";": the
+    /// accessibility value of the overlay (ADR 0006, section 14).
+    var accessibilityValue: String {
+        var pairs: [String] = []
+        if let emulation {
+            pairs.append("frames=\(emulation.framesEmulated)")
+            pairs.append("resyncs=\(emulation.resyncs)")
+        }
+        pairs.append("underruns=\(audio.underruns)")
+        pairs.append("dropped=\(audio.droppedFrames)")
+        pairs.append("primes=\(audio.primes)")
+        pairs.append("paused=\(isPaused)")
+        pairs.append("pauses=\(pauses)")
+        if let input {
+            pairs.append("buttonPresses=\(input.presses)")
+            pairs.append("lastButtons=\(Self.names(of: input.lastPressed))")
+        }
+        if let pointer {
+            pairs += pointer.pairs
+        }
+        if let fold {
+            pairs += fold.pairs
+        }
+        return pairs.joined(separator: ";")
     }
 
     var emulationLine: String {
@@ -30,6 +73,7 @@ nonisolated struct DebugReadings: Sendable {
             + " · run \(Self.milliseconds(emulation.lastRunTime)) ms (max \(Self.milliseconds(emulation.maxRunTime)))"
             + " · trim \(Self.number(emulation.periodTrim * 100, digits: 3)) %"
             + " · late \(emulation.lateFrames) · resync \(emulation.resyncs)"
+            + " · pauses \(pauses)" + (isPaused ? " · paused" : "")
     }
 
     var displayLine: String {
@@ -117,6 +161,97 @@ nonisolated struct InputReadings: Sendable {
     }
 }
 
+/// The pointer of the touch screen as the session's `InputState` sees it, in
+/// pixels of the core's frame and of the touch screen (ADR 0006, section 6).
+nonisolated struct PointerReadings: Sendable {
+    /// Where the pointer is pressed right now.
+    var held: PointerPosition?
+    /// Where the latest press began, kept after its release.
+    var lastPress: PointerPosition?
+    /// Presses since the session began; keeps what a short tap did.
+    var presses: UInt64
+    /// The core's frame, the extent of pointer coordinates.
+    var frameSize: PixelSize
+    /// The touch screen in that frame.
+    var touchScreen: PixelRect
+
+    init(held: PointerPosition?, lastPress: PointerPosition?, presses: UInt64, frameSize: PixelSize, touchScreen: PixelRect) {
+        self.held = held
+        self.lastPress = lastPress
+        self.presses = presses
+        self.frameSize = frameSize
+        self.touchScreen = touchScreen
+    }
+
+    init(_ input: InputState, frameSize: PixelSize, touchScreen: PixelRect) {
+        self.init(held: input.pointer, lastPress: input.lastPointerPress, presses: input.pointerPressCount,
+                  frameSize: frameSize, touchScreen: touchScreen)
+    }
+
+    /// The frame pixel a pointer position aims at, the way melonDS DS reads
+    /// it back: `p · W / 65534 + W / 2`, rounded down.
+    static func framePixel(of position: PointerPosition, frameSize: PixelSize) -> (x: Int, y: Int) {
+        func pixel(_ coordinate: Int16, _ extent: Int) -> Int {
+            Int(((Double(coordinate) + 32_767) * Double(extent) / 65_534).rounded(.down))
+        }
+        return (pixel(position.x, frameSize.width), pixel(position.y, frameSize.height))
+    }
+
+    /// "x,y" on the touch screen, "–" for none.
+    private func text(_ position: PointerPosition?) -> String {
+        guard let position else { return "–" }
+        let frame = Self.framePixel(of: position, frameSize: frameSize)
+        return "\(frame.x - touchScreen.x),\(frame.y - touchScreen.y)"
+    }
+
+    var line: String {
+        let frame = lastPress.map { Self.framePixel(of: $0, frameSize: frameSize) }
+        return "Touch last \(text(lastPress))" + (frame.map { " (frame \($0.x),\($0.y))" } ?? "")
+            + " · presses \(presses) · held \(text(held))"
+    }
+
+    var pairs: [String] {
+        ["pointer=\(text(lastPress))", "pointerPresses=\(presses)", "pointerHeld=\(text(held))"]
+    }
+}
+
+/// Pose, geometry and layout of the game view, for the overlay, the log and UI tests.
+nonisolated struct FoldReadings: Sendable, Hashable {
+    var geometry: FoldGeometry
+    var layout: GameLayout
+    /// The geometry was replaced by `-ArcfoldFoldOverride`.
+    var isOverridden: Bool
+
+    var lines: [String] {
+        let fold = geometry.fold.map { "\($0) \(geometry.isFoldActive ? "active" : "inactive")" } ?? "–"
+        let occlusions = geometry.occlusions.isEmpty ? "–" : geometry.occlusions.map(\.description).joined(separator: " ")
+        let screens = layout.screens.map { "\($0.scale)× \($0.destination)" }.joined(separator: " · ")
+        return [
+            "Fold \(layout.posture.rawValue)\(isOverridden ? " (override)" : "") · view \(geometry.container) px"
+                + " · safe \(geometry.safeArea) · fold \(fold) · occlusion \(occlusions)",
+            "Screens \(screens)" + (layout.touchScreenIndex.map { " · touch #\($0)" } ?? ""),
+        ]
+    }
+
+    var pairs: [String] {
+        func rect(_ rect: PixelRect) -> String { "\(rect.x),\(rect.y),\(rect.width),\(rect.height)" }
+        let insets = geometry.safeArea
+        return [
+            "posture=\(layout.posture.rawValue)",
+            "override=\(isOverridden)",
+            "scale=\(geometry.scale)",
+            "view=\(geometry.container.width),\(geometry.container.height)",
+            "safe=\(insets.top),\(insets.left),\(insets.bottom),\(insets.right)",
+            "fold=" + (geometry.fold.map { rect($0) + (geometry.isFoldActive ? ",active" : ",inactive") } ?? "none"),
+            "occlusions=" + (geometry.occlusions.isEmpty ? "none" : geometry.occlusions.map(rect).joined(separator: "|")),
+            "screens=" + layout.screens.map { rect($0.destination) + ",\($0.scale)" }.joined(separator: "|"),
+            "touch=" + (layout.touchScreenIndex.map(String.init) ?? "none"),
+            "controls=" + (layout.controls.map { zones in
+                zones.all.map(rect).joined(separator: "|") } ?? "none"),
+        ]
+    }
+}
+
 /// Measurements over the picture, refreshed four times a second. Technical
 /// text for development and acceptance runs, so it is not localized.
 struct DebugOverlay: View {
@@ -136,6 +271,7 @@ struct DebugOverlay: View {
             .padding(6)
             .background(.black.opacity(0.6), in: RoundedRectangle(cornerRadius: 6))
             .accessibilityElement(children: .combine)
+            .accessibilityValue(Text(verbatim: readings.accessibilityValue))
             .accessibilityIdentifier("debug-overlay")
         }
         .allowsHitTesting(false)
@@ -168,8 +304,18 @@ struct DebugOverlay: View {
             audioSampleRate: 32768,
             route: AudioRoute(hardwareSampleRate: 48000, ioBufferDuration: 0.0053, outputLatency: 0.012),
             input: InputReadings(held: [.a, .right], lastPressed: .a, presses: 12),
+            pointer: PointerReadings(
+                held: nil, lastPress: PointerPosition(pixelX: 128, pixelY: 288, frameWidth: 256, frameHeight: 384),
+                presses: 3, frameSize: SystemScreens.ds.frameSize, touchScreen: SystemScreens.ds.sources[1]),
             thermalState: .nominal,
-            isLowPowerModeEnabled: false
+            isLowPowerModeEnabled: false,
+            fold: FoldReadings(
+                geometry: FoldGeometry(container: PixelSize(width: 1398, height: 2034),
+                                       safeArea: PixelInsets(bottom: 102, right: 252)),
+                layout: GameLayout(system: .ds, geometry: FoldGeometry(container: PixelSize(width: 1398, height: 2034),
+                                                                       safeArea: PixelInsets(bottom: 102, right: 252)),
+                                   showsTouchControls: true),
+                isOverridden: false)
         )
     }
     .padding()

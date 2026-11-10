@@ -1,0 +1,1158 @@
+# melonDS DS im Store-Build: kein JIT-Code-Pfad, keine Schlüssel, kein Download
+
+Erzeugt am 07.11.2026 09:31 mit Xcode 27.2 auf macOS 27.2, Branch m2/ds-falz. Welchen Stand von Rezept und Scripts/build-core.sh ein Bau hatte, nennt der Stempel (SHA-256 beider Dateien).
+Stempel, Ausgabe des Rezepts und Schlüsselmaterial erneuert am 07.11.2026 11:03, nach dem Umbau des Rezepts: Es nimmt das Schlüsselmaterial mit Ersetzungen über Namen heraus statt mit einem Patch, der die Werte enthielt, und liest die Werte für die Prüfung beim Bau aus der unveränderten Quelle von melonDS. Die gepatchten Quellen sind byteweise dieselben wie vorher (alle 979 Dateien mit gleicher SHA-256), die Scheiben ebenso (SHA-256 und Größe wie unten); die übrigen Abschnitte gelten deshalb unverändert.
+Stempel und Ausgabe des Rezepts erneuert und Abschnitt „Prüfungen nach jedem Bau“ ergänzt am 07.11.2026 12:53, nachdem die Prüfungen nach jedem Bau in Scripts/build-core.sh und die Prüfung der FreeBIOS ins Rezept kamen und die Kommentare, die das Rezept in die Quellen schreibt, das Datum tragen. Beide Kerne frisch gebaut (Scripts/build-core.sh <kern> --clean): Die 12 Dateien der vier Scheiben (Binärdatei, Info.plist und CodeResources je Scheibe) sind byteweise dieselben wie vorher (SHA-256), ebenso das Info.plist des xcframeworks von mGBA. Das Info.plist des xcframeworks von melonDS DS führt dieselben zwei Scheiben in anderer Reihenfolge; die wählt xcodebuild -create-xcframework zufällig (sechs Läufe mit denselben Frameworks: viermal die Simulator-Scheibe zuerst, zweimal die Gerätescheibe). Die gepatchten Quellen unterscheiden sich nur in neun Kommentarzeilen in vier Dateien, bei gleicher Zeilenzahl; die übrigen 975 Dateien sind byteweise gleich. Die übrigen Abschnitte gelten deshalb unverändert.
+Befehlszahl von DeriveNormalKey am 07.11.2026 nachgezählt: 9 Befehle bis einschließlich zum ersten ret, nicht 10 wie bisher hier; die frühere Zahl zählte die Funktionsmarke der Disassemblierung mit.
+Stempel, Ausgabe des Rezepts und die Abschnitte „Prüfungen nach jedem Bau“ und „Gegenproben der Prüfungen nach jedem Bau“ erneuert am 10.11.2026 09:23, nachdem die Prüfungen in Scripts/build-core.sh erweitert wurden (Importe am Grundnamen und mit ptrace und csops, rohe Systemaufrufe, Disassemblierung mit allen Erweiterungen des Befehlssatzes, direkte Sprünge nur nach __TEXT,__text und in die Stubs, x19 bis x28 über einen mmap-Aufruf hinweg, --check nicht mehr zusammen mit --clean, --fingerprint oder --submodules) und jedes Skript unter Scripts/ die Zeile SPDX-License-Identifier bekam. Beide Kerne frisch gebaut (Scripts/build-core.sh <kern> --clean): Alle 14 Dateien der beiden xcframeworks sind byteweise dieselben wie vorher (SHA-256), darunter die 12 Dateien der vier Scheiben; in den Stempeln änderten sich nur die Zeilen recipe und build-core. Die übrigen Abschnitte gelten deshalb unverändert; die Abschnitte der Scheiben nennen die Importliste ihres Standes.
+Quelle: Cores/Build/melondsds_libretro.xcframework, gebaut von Scripts/build-core.sh mit Scripts/cores/melondsds.sh.
+
+## Stempel (Cores/Build/melondsds_libretro.stamp)
+
+    source Cores/melonds-ds f394adbacb5722ee97c1b37c8064da9a25818310
+    dependency Cores/melonds-ds-deps/melonDS 906e9ebb27da8c6a715cd7abab4abfe8a8d29427
+    dependency Cores/melonds-ds-deps/libretro-common fa8a1b572a444fcb552007019f8caf68281108aa
+    dependency Cores/melonds-ds-deps/embed-binaries 078b62beba97e8192c99bfb16d5e17220cfc7598
+    dependency Cores/melonds-ds-deps/glm 6f14f4792a0cde5d0cf2c910506724d61cb95834
+    dependency Cores/melonds-ds-deps/libslirp e61dbd459c8c06607b3a84694489427e8ec60f17
+    dependency Cores/melonds-ds-deps/pntr a47fe167703b0ac3bfad00785b20b0dce6712509
+    dependency Cores/melonds-ds-deps/fmt 1be298e1bd68957e4cd352e1f676f00e07dcfb57
+    dependency Cores/melonds-ds-deps/yamc 4e015a7e8eb0d61c34e6928676c8c78881a72d73
+    dependency Cores/melonds-ds-deps/span-lite f63fe2974943b5f555b928b10d910e457fbb93d4
+    dependency Cores/melonds-ds-deps/date 179a6b921ccd6179b5b04dce812a89f71a51b4df
+    dependency Cores/melonds-ds-deps/zlib da607da739fa6047df13e66a2af6b8bec7c2a498
+    recipe melondsds bdec0e1572e198f2c5cac0a9f63d83512b88ec849597aae8fc5bd9ef41131d2d
+    build-core cee3398a13b48df2516eb8b7225f4f1dc7545b09b84859c761e1db9f03d16440
+    build-type Release
+
+## Optionen des Baus (CMakeCache.txt je SDK)
+
+iphoneos:
+    BUILD_AS_SHARED_LIBRARY:BOOL=ON
+    CMAKE_BUILD_TYPE:STRING=Release
+    CMAKE_OSX_DEPLOYMENT_TARGET:STRING=27.0
+    ENABLE_DYNAMIC:BOOL=OFF
+    ENABLE_JIT:BOOL=OFF
+    ENABLE_NETWORKING:BOOL=ON
+    ENABLE_OGLRENDERER:BOOL=OFF
+    ENABLE_OPENGL:BOOL=OFF
+    ENABLE_THREADED_RENDERER:BOOL=ON
+    FETCHCONTENT_FULLY_DISCONNECTED:BOOL=ON
+    JIT_ENABLED in build.ninja: 0
+    Quellen ARMJIT*.cpp oder dolphin/ in build.ninja: 0
+iphonesimulator:
+    BUILD_AS_SHARED_LIBRARY:BOOL=ON
+    CMAKE_BUILD_TYPE:STRING=Release
+    CMAKE_OSX_DEPLOYMENT_TARGET:STRING=27.0
+    ENABLE_DYNAMIC:BOOL=OFF
+    ENABLE_JIT:BOOL=OFF
+    ENABLE_NETWORKING:BOOL=ON
+    ENABLE_OGLRENDERER:BOOL=OFF
+    ENABLE_OPENGL:BOOL=OFF
+    ENABLE_THREADED_RENDERER:BOOL=ON
+    FETCHCONTENT_FULLY_DISCONNECTED:BOOL=ON
+    JIT_ENABLED in build.ninja: 0
+    Quellen ARMJIT*.cpp oder dolphin/ in build.ninja: 0
+
+## Ausgabe des Rezepts (Ende des Build-Logs von Scripts/build-core.sh melondsds)
+
+Die Prüfungen nach jedem Bau (Abschnitt unten) brechen den Bau mit Exit 70 ab: check_exports, check_imports, check_code (mmap und Systemaufrufe) und check_jit_traces in build-core.sh, danach über core_check die Prüfungen des Rezepts, melondsds_check_key_material (Schlüsselmaterial des DSi und Adresse von Nintendos Update-Server; bricht auch ab, wenn es seine Werte nicht in der Quelle von melonDS findet) und melondsds_check_freebios (KEY1-Tabelle der FreeBIOS des ARM7). Ebenso bricht melondsds_remove_key_material ab, wenn eine Ersetzung nicht genau einmal greift. Der Bau lief durch.
+
+    ==> Building melondsds_libretro for iphoneos (Release)
+    ld: warning: ignoring duplicate libraries: 'libretro-common.a'
+        exports: exactly the 25 functions of the libretro API
+        imports: 346 symbols (nm -u and dyld_info -imports), none of 32 names and patterns that can make memory executable, load code, start a program or relax code signing
+        mmap: 1 call with bl, prot and flags constant in the basic block (x19 to x28 also from the block of a call of mmap right before it), none with PROT_EXEC or MAP_JIT: 1x prot 0x1 flags 0x1; no other reference found (379335 instructions, 7907 functions, 6969 jumps into stubs, 0 jump tables)
+        system calls: no svc, hvc or smc among the 379335 instructions of __TEXT,__text, all decoded
+        no JIT traces: 12546 symbols (nm -a) and 26155 strings (strings -a) without ARMJIT, Arm64Gen, JitBlock, MAP_JIT, jit_write_protect, pthread_jit or be_memory_inline_jit
+        no key material of the DSi: 5 keys and 3 XOR constants from melonDS 906e9ebb27, 20 byte patterns, 33 words, 4 byte runs, 8025 functions
+        no address of Nintendo's update server: no string nintendowifi
+        FreeBIOS of the ARM7 without the key table of KEY1: 4168 bytes from 0x30 of bios_ntr_arm7 (__DATA,__data, file offset 2680996) all zero
+    ==> Building melondsds_libretro for iphonesimulator (Release)
+    ld: warning: ignoring duplicate libraries: 'libretro-common.a'
+        exports: exactly the 25 functions of the libretro API
+        imports: 345 symbols (nm -u and dyld_info -imports), none of 32 names and patterns that can make memory executable, load code, start a program or relax code signing
+        mmap: 1 call with bl, prot and flags constant in the basic block (x19 to x28 also from the block of a call of mmap right before it), none with PROT_EXEC or MAP_JIT: 1x prot 0x1 flags 0x1; no other reference found (382303 instructions, 7906 functions, 6970 jumps into stubs, 0 jump tables)
+        system calls: no svc, hvc or smc among the 382303 instructions of __TEXT,__text, all decoded
+        no JIT traces: 12544 symbols (nm -a) and 26272 strings (strings -a) without ARMJIT, Arm64Gen, JitBlock, MAP_JIT, jit_write_protect, pthread_jit or be_memory_inline_jit
+        no key material of the DSi: 5 keys and 3 XOR constants from melonDS 906e9ebb27, 20 byte patterns, 33 words, 4 byte runs, 8024 functions
+        no address of Nintendo's update server: no string nintendowifi
+        FreeBIOS of the ARM7 without the key table of KEY1: 4168 bytes from 0x30 of bios_ntr_arm7 (__DATA,__data, file offset 2680996) all zero
+    ==> Wrote Cores/Build/melondsds_libretro.xcframework
+        iphoneos         platform IOS, minos 27.0
+        iphonesimulator  platform IOSSIMULATOR, minos 27.0
+    Warnungen im Log: 144, alle im Fremdcode (keine in Dateien außerhalb von Cores/ und build/cores/)
+
+## Gegenprobe der Schlüsselprüfung
+
+Ein Kern aus demselben Rezept, aber ohne die Ersetzungen in melonDS (nur iphoneos, außerhalb des Repos gebaut, ohne Framework und nie eingebettet, 4493256 Byte), lässt melondsds_check_key_material mit Exit 70 abbrechen. Die Meldung nennt Fundorte, keine Werte:
+
+    error: the core still carries key material of the DSi:
+        AES key of boot2 as bytes at offset 2246848
+        XOR constant of the key X derivation as a word in __ZN7melonDS3DSi5ResetEv
+        XOR constant of the key X derivation as a word in __ZN7melonDS3DSi9SoftResetEv
+        XOR constant of the key X derivation as a word in __ZN7melonDS8DSi_NAND9NANDImageC2EPNS_8Platform10FileHandleEPKh
+        eMMC key Y as a word in __ZN7melonDS3DSi5ResetEv
+        eMMC key Y as a word in __ZN7melonDS3DSi9SoftResetEv
+        eMMC key Y as bytes at offset 2250928
+        key X of modcrypt as bytes at offset 2246784
+        key X of slot 1 as bytes at offset 2246792
+        key scrambler constant as add/sub immediates in __ZN7melonDS7DSi_AES15DeriveNormalKeyEPhS1_S1_
+
+Die frühere Prüfung mit drei festen Bytefolgen fand in diesem Kern nur den boot2-Schlüssel, den eMMC-KeyY und die KeyX von Platz 1. Fehlt in der Quelle von melonDS ein Wert oder greift eine Ersetzung nicht genau einmal, bricht der Bau ebenfalls ab (geprüft mit veränderten Kopien der drei Dateien: umbenanntes Feld, Feld mit 15 Bytes, fehlende Zeile von KeyY, abweichende XOR-Konstante, fehlende Datei, fehlender Kommentar als Anker, doppelter Block, neue Zuweisung eines Schlüssels aus Konstanten, leere Binärdatei).
+
+## Prüfungen nach jedem Bau
+
+Nach dem Bau jeder Scheibe prüft Scripts/build-core.sh für jeden Kern die Binärdatei, die ins xcframework kommt, und bricht mit Exit 70 ab, wenn eine Prüfung fehlschlägt; jede Prüfung schreibt sonst eine Zusammenfassung ins Log und bricht auch ab, wenn ihre Werkzeuge unplausibel wenig liefern:
+    exports       genau die 25 Funktionen der libretro-API (nm -gU)
+    imports       keine Funktion, die Speicher ausführbar macht, Code lädt, ein Programm startet oder die Codesignatur lockert (nm -u und dyld_info -imports; 31 Namen und Muster wie mprotect, vm_map, pthread_jit_*, sys_icache_invalidate, dlopen, dlopen_from, exec*, posix_spawn, forkpty, syscall, ptrace, csops, dazu jede Abwandlung von mmap, zusammen die 32 der Zusammenfassung); verglichen wird der Grundname ohne führende Unterstriche, ohne Zusatz wie $DARWIN_EXTSN und ohne kernelrpc_ und _trap der Mach-Traps; beide Listen dürfen nicht leer sein
+    mmap          jeder Aufruf ein bl, dessen Grundblock prot (w2) und flags (w3) als Konstanten oder als Auswahl zwischen Konstanten setzt, prot ohne PROT_EXEC (0x4), flags ohne MAP_JIT (0x800); Grundblöcke beginnen am Funktionsanfang, nach Sprüngen und Aufrufen und an jedem direkten Sprungziel, auch an den Zielen der Sprungtabellen der Funktionen mit mmap-Aufruf; führt in einen Block nur der mmap-Aufruf direkt davor, gelten die Konstanten in x19 bis x28 aus dem Block dieses Aufrufs weiter; Abbruch bei Tail-Call, Adressnahme in Code oder Daten, anderem indirektem Sprung in solchen Funktionen, einem direkten Sprung aus __TEXT,__text und den Stubs hinaus, Code in einem weiteren Abschnitt oder Segment, nicht auswertbarem Wert, einer Disassemblierung, die __TEXT,__text nicht lückenlos abdeckt, und wenn der Kern mmap importiert, die Prüfung aber keinen Aufruf findet
+    system calls  kein svc, hvc oder smc in __TEXT,__text und kein Wort, das xcrun llvm-objdump mit --mattr=+all nicht decodiert; ohne --mattr druckt es Befehle wie ldapr oder ldaddal als .long (106 in der Gerätescheibe von melonDS DS, 134 in der Simulator-Scheibe, einer in der Simulator-Scheibe von mGBA; mit --mattr=+all keiner), und ein Schreibzugriff auf w2 oder w3 bliebe darin unbemerkt
+    JIT           kein Symbol (nm -a) und keine Zeichenkette (strings -a) mit ARMJIT, Arm64Gen, JitBlock, MAP_JIT, jit_write_protect, pthread_jit oder be_memory_inline_jit; nm -a muss die 25 Exporte und lokale Symbole zeigen, strings -a mindestens eine Zeichenkette
+    Rezept        core_check, bei melonDS DS melondsds_check_key_material (mit nintendowifi) und melondsds_check_freebios: die 4168 Byte ab Offset 0x30 von bios_ntr_arm7, im BIOS der Konsole die Blowfish-Tabelle von KEY1, sind null
+
+Die Prüfungen von mmap und Systemaufrufen sichern zu, dass Code, den der Compiler aus den Quellen eines Kerns erzeugt, kein ausführbares Mapping und kein Mapping für JIT anlegt. Handgeschriebener Assembler kann sie mit Umwegen umgehen (Gegenproben b01 bis b05 unten) und braucht Review der Quellen.
+
+Ohne Bau, an den Scheiben in Cores/Build, erzeugen dieselben Zeilen (--check lässt sich nicht mit --clean, --fingerprint oder --submodules verbinden, Exit 64):
+
+    Scripts/build-core.sh melondsds --check
+    Scripts/build-core.sh mgba --check
+
+Zusammenfassungen aus den Bau-Logs vom 10.11.2026 (Scripts/build-core.sh <kern> --clean); --check gab danach dieselben Zeilen aus.
+
+melonDS DS, ios-arm64:
+    exports: exactly the 25 functions of the libretro API
+    imports: 346 symbols (nm -u and dyld_info -imports), none of 32 names and patterns that can make memory executable, load code, start a program or relax code signing
+    mmap: 1 call with bl, prot and flags constant in the basic block (x19 to x28 also from the block of a call of mmap right before it), none with PROT_EXEC or MAP_JIT: 1x prot 0x1 flags 0x1; no other reference found (379335 instructions, 7907 functions, 6969 jumps into stubs, 0 jump tables)
+    system calls: no svc, hvc or smc among the 379335 instructions of __TEXT,__text, all decoded
+    no JIT traces: 12546 symbols (nm -a) and 26155 strings (strings -a) without ARMJIT, Arm64Gen, JitBlock, MAP_JIT, jit_write_protect, pthread_jit or be_memory_inline_jit
+    no key material of the DSi: 5 keys and 3 XOR constants from melonDS 906e9ebb27, 20 byte patterns, 33 words, 4 byte runs, 8025 functions
+    no address of Nintendo's update server: no string nintendowifi
+    FreeBIOS of the ARM7 without the key table of KEY1: 4168 bytes from 0x30 of bios_ntr_arm7 (__DATA,__data, file offset 2680996) all zero
+melonDS DS, ios-arm64-simulator:
+    exports: exactly the 25 functions of the libretro API
+    imports: 345 symbols (nm -u and dyld_info -imports), none of 32 names and patterns that can make memory executable, load code, start a program or relax code signing
+    mmap: 1 call with bl, prot and flags constant in the basic block (x19 to x28 also from the block of a call of mmap right before it), none with PROT_EXEC or MAP_JIT: 1x prot 0x1 flags 0x1; no other reference found (382303 instructions, 7906 functions, 6970 jumps into stubs, 0 jump tables)
+    system calls: no svc, hvc or smc among the 382303 instructions of __TEXT,__text, all decoded
+    no JIT traces: 12544 symbols (nm -a) and 26272 strings (strings -a) without ARMJIT, Arm64Gen, JitBlock, MAP_JIT, jit_write_protect, pthread_jit or be_memory_inline_jit
+    no key material of the DSi: 5 keys and 3 XOR constants from melonDS 906e9ebb27, 20 byte patterns, 33 words, 4 byte runs, 8024 functions
+    no address of Nintendo's update server: no string nintendowifi
+    FreeBIOS of the ARM7 without the key table of KEY1: 4168 bytes from 0x30 of bios_ntr_arm7 (__DATA,__data, file offset 2680996) all zero
+mGBA, ios-arm64 (Stempel: source Cores/mgba 26b7884bc25a5933960f3cdcd98bac1ae14d42e2, recipe mgba db3f9d3d5ba63112c81a75a3c2f957964ac5f195280ed8dbc9b267d2bc801d97, build-core wie oben):
+    exports: exactly the 25 functions of the libretro API
+    imports: 76 symbols (nm -u and dyld_info -imports), none of 32 names and patterns that can make memory executable, load code, start a program or relax code signing
+    mmap: 34 calls with bl, prot and flags constant in the basic block (x19 to x28 also from the block of a call of mmap right before it), none with PROT_EXEC or MAP_JIT: 33x prot 0x3 flags 0x1002, 1x prot 0x3 flags 0x1 or 0x2; no other reference found (120992 instructions, 1353 functions, 588 jumps into stubs, 2 jump tables)
+    system calls: no svc, hvc or smc among the 120992 instructions of __TEXT,__text, all decoded
+    no JIT traces: 1605 symbols (nm -a) and 5555 strings (strings -a) without ARMJIT, Arm64Gen, JitBlock, MAP_JIT, jit_write_protect, pthread_jit or be_memory_inline_jit
+mGBA, ios-arm64-simulator:
+    exports: exactly the 25 functions of the libretro API
+    imports: 75 symbols (nm -u and dyld_info -imports), none of 32 names and patterns that can make memory executable, load code, start a program or relax code signing
+    mmap: 34 calls with bl, prot and flags constant in the basic block (x19 to x28 also from the block of a call of mmap right before it), none with PROT_EXEC or MAP_JIT: 33x prot 0x3 flags 0x1002, 1x prot 0x3 flags 0x1 or 0x2; no other reference found (121293 instructions, 1353 functions, 588 jumps into stubs, 2 jump tables)
+    system calls: no svc, hvc or smc among the 121293 instructions of __TEXT,__text, all decoded
+    no JIT traces: 1604 symbols (nm -a) and 5578 strings (strings -a) without ARMJIT, Arm64Gen, JitBlock, MAP_JIT, jit_write_protect, pthread_jit or be_memory_inline_jit
+
+Bei mGBA holen 33 Aufrufe anonymen Speicher (prot 0x3 = PROT_READ|PROT_WRITE, flags 0x1002 = MAP_PRIVATE|MAP_ANON); _vfdMap bildet eine Datei ab und wählt mit cinc zwischen MAP_PRIVATE (0x2) und MAP_SHARED (0x1), beides mit PROT_READ|PROT_WRITE. Die zwei Sprungtabellen stehen in _GBAStore8 und _GBAStore16 (28 Einträge aus ldrh bzw. 14 aus ldrb); ihre Ziele zählen als Anfänge von Grundblöcken. Bei melonDS DS ist der einzige Aufruf der in _retro_vfs_file_open_impl (libretro-common, Dateien nur lesend abgebildet).
+
+Die Zahl der Funktionen steht bei melonDS DS zweimal mit verschiedenen Werten da: Die mmap-Prüfung zählt die Funktionsanfänge aus LC_FUNCTION_STARTS (7907 in der Gerätescheibe, 7906 im Simulator). Die Schlüsselprüfung zählt die Marken der Disassemblierung, von denen mehrere auf dieselbe Adresse zeigen können (Aliasse: 8024 Marken an 7907 Adressen, im Simulator 8023 an 7906), und dazu die Kopfzeile mit dem Dateinamen; daher 8025 und 8024.
+
+## Gegenproben der Prüfungen nach jedem Bau
+
+Winzige arm64-iOS-dylibs, gebaut außerhalb des Repos mit xcrun -sdk iphoneos clang -target arm64-apple-ios27.0 -dynamiclib -O2 und -exported_symbols_list; jede exportiert die 25 libretro-Funktionen als Stummel, importiert malloc und free und enthält eine Zeichenkette, sodass nur die Prüfung unter Test anschlägt. Geprüft mit Scripts/build-core.sh mgba --check <datei> (mGBA hat kein core_check), die Kopien der Scheiben mit dem Rezept ihres Kerns. Cores/Build blieb unverändert. Ausgabe der Fehlermeldungen ohne Ordner:
+
+    Kontrolle, mmap(NULL, len, PROT_READ, MAP_SHARED, fd, 0) mit bl    Exit 0
+        mmap: 1 call with bl, prot and flags constant in the basic block (x19 to x28 also from the block of a call of mmap right before it), none with PROT_EXEC or MAP_JIT: 1x prot 0x1 flags 0x1; no other reference found (77 instructions, 26 functions, 3 jumps into stubs, 0 jump tables)
+        system calls: no svc, hvc or smc among the 77 instructions of __TEXT,__text, all decoded
+    mmap mit PROT_READ|PROT_EXEC                                     Exit 70
+        error: the call of mmap at 0x4118 in prot_exec.dylib can map executable memory: prot 0x5
+    mmap mit MAP_PRIVATE|MAP_ANON|MAP_JIT                            Exit 70
+        error: the call of mmap at 0x4118 in map_jit.dylib can map memory for JIT: flags 0x1802
+    mmap mit prot aus einem Argument der Funktion                    Exit 70
+        error: the call of mmap at 0x4118 in prot_variable.dylib does not set prot (w2) to a constant in its basic block
+    Tail-Call auf mmap (return mmap(...), der Compiler setzt b)      Exit 70
+        error: tail call of mmap at 0x4108 in tail_call.dylib; only calls with bl can be checked
+    Adressnahme von mmap im Code (return mmap;)                      Exit 70
+        error: code takes the address of mmap at 0x40f4 in address_taken.dylib (ldr x0, [x0, #0x10]); only calls with bl can be checked
+    Adresse von mmap in Daten (Tabelle mit mmap)                     Exit 70
+        error: address_in_data.dylib stores the address of mmap at 0xc000 in __DATA,__data; only calls with bl can be checked
+    Import von mprotect                                              Exit 70
+        error: mprotect.dylib imports functions that can make memory executable, load code, start a program or relax code signing:
+            _mprotect
+    Symbol mit ARMJIT im Namen (ARMJIT_CompileBlock)                 Exit 70
+        error: armjit_symbol.dylib carries traces of a JIT:
+            symbol: 00000000000040f0 t _ARMJIT_CompileBlock
+    Zeichenkette mit MAP_JIT                                         Exit 70
+        error: string_map_jit.dylib carries traces of a JIT:
+            string: mmap with MAP_JIT failed
+    Kopie der melonDS-Scheibe ios-arm64, ein Byte im KEY1-Bereich 0x5a statt 0 (Dateioffset 2682020), mit melondsds --check    Exit 70
+        error: the key table of KEY1 in the FreeBIOS of the ARM7 is not empty in melondsds-key1.bin: 1 of 4168 bytes are not zero
+    Kopie der mGBA-Scheibe ios-arm64 nach strip -x (keine lokalen Symbole)    Exit 70
+        error: mgba-gestrippt.bin has no local symbols; a stripped binary hides the names this check looks for
+    leere Datei                                                      Exit 70
+        error: lipo cannot read leer.bin: lipo: cannot mmap() file 'leer.bin', errno=22
+    fehlende Datei                                                   Exit 66
+        error: no file at gibt-es-nicht.bin
+
+In jeder Gegenprobe liefen die Prüfungen davor durch (Exporte, Importe und, wo betroffen, mmap); die echten Kerne laufen mit --check durch (Exit 0, Zeilen oben). Die mmap-Prüfung der gestrippten Kopie lief ebenfalls durch, weil sie die Funktionsanfänge aus LC_FUNCTION_STARTS liest.
+
+Weitere Gegenproben vom 10.11.2026 für die erweiterten Prüfungen, gebaut und geprüft wie oben (.c mit -O2 übersetzt, .s handgeschriebener Assembler; iOS 27, arm64). Exit 70 heißt, dass die Prüfung abbricht; die Meldung steht darunter, bei Exit 0 der Anfang der mmap-Zeile.
+
+Kontrollen:
+    k01_kontrolle                       Exit 0   Kontrolle: mmap(PROT_READ, MAP_SHARED) mit bl
+        mmap: 1 call with bl, prot and flags constant in the basic block …
+    k02_mprotect                        Exit 70  Kontrolle: Import von mprotect
+        error: k02_mprotect.dylib imports functions that can make memory executable, load code, start a program or relax code signing:
+            _mprotect
+
+Importe (Grundname, neue Namen):
+    i01___mprotect                      Exit 70  Import ___mprotect (drei Unterstriche), prot 5
+        error: i01___mprotect.dylib imports functions that can make memory executable, load code, start a program or relax code signing:
+            ___mprotect
+    i02_kernelrpc_vm_protect            Exit 70  Import __kernelrpc_mach_vm_protect_trap mit VM_PROT_EXECUTE
+        error: i02_kernelrpc_vm_protect.dylib imports functions that can make memory executable, load code, start a program or relax code signing:
+            __kernelrpc_mach_vm_protect_trap
+    i03_kernelrpc_vm_map                Exit 70  Import __kernelrpc_mach_vm_map mit VM_PROT_ALL
+        error: i03_kernelrpc_vm_map.dylib imports functions that can make memory executable, load code, start a program or relax code signing:
+            __kernelrpc_mach_vm_map
+    i04_dlopen_from                     Exit 70  Importe dlopen_from und dlopen_audited
+        error: i04_dlopen_from.dylib imports functions that can make memory executable, load code, start a program or relax code signing:
+            _dlopen_audited
+            _dlopen_from
+    i05_spawn_varianten                 Exit 70  Importe ___execve, ___fork, ___posix_spawn, forkpty
+        error: i05_spawn_varianten.dylib imports functions that can make memory executable, load code, start a program or relax code signing:
+            ___execve
+            ___fork
+            ___posix_spawn
+            _forkpty
+    i06_ptrace_csops                    Exit 70  Importe ptrace und csops
+        error: i06_ptrace_csops.dylib imports functions that can make memory executable, load code, start a program or relax code signing:
+            _csops
+            _ptrace
+
+Systemaufrufe:
+    s01_svc_mprotect                    Exit 70  mprotect(PROT_READ|PROT_EXEC) per svc #0x80, ohne Import
+        error: system call at 0x40d4 in s01_svc_mprotect.dylib (svc #0x80); a core must call the system through libSystem
+    s02_svc_mmap_jit                    Exit 70  mmap(RWX, MAP_JIT) per svc #0x80, ohne Import
+        error: system call at 0x40e4 in s02_svc_mmap_jit.dylib (svc #0x80); a core must call the system through libSystem
+
+mmap, vom Compiler erzeugter Code (.c):
+    m01_funktionszeiger_lokal           Exit 70  Funktionszeiger auf mmap in einer lokalen Variablen
+        error: code takes the address of mmap at 0x40d8 in m01_funktionszeiger_lokal.dylib (ldr x9, [x9]); only calls with bl can be checked
+    m02_funktionszeiger_daten           Exit 70  Funktionszeiger auf mmap in einer Tabelle
+        error: m02_funktionszeiger_daten.dylib stores the address of mmap at 0x8008 in __DATA,__data; only calls with bl can be checked
+    m03_wrapper                         Exit 70  Wrapper, der prot und flags als Argumente weiterreicht
+        error: the call of mmap at 0x40e4 in m03_wrapper.dylib does not set prot (w2) to a constant in its basic block
+    m04_map_jit_register                Exit 70  flags aus einer Variablen
+        error: the call of mmap at 0x40f0 in m04_map_jit_register.dylib does not set flags (w3) to a constant in its basic block
+    m05_ternaer                         Exit 70  zweiter Aufruf mit jit ? MAP_JIT : 0, Konstante in x20 über den ersten Aufruf
+        error: the call of mmap at 0x412c in m05_ternaer.dylib can map memory for JIT: flags 0x1002 or 0x1802
+    m06_ternaer_harmlos                 Exit 0   harmlos: prot und flags je Auswahl zwischen Konstanten
+        mmap: 2 calls with bl, prot and flags constant in the basic block …
+    m07_switch_sprungtabelle            Exit 0   harmlos: switch mit Sprungtabelle in der Funktion
+        mmap: 2 calls with bl, prot and flags constant in the basic block …
+    m08_schleife                        Exit 0   harmlos: zwei Aufrufe in einer Schleife
+        mmap: 2 calls with bl, prot and flags constant in the basic block …
+    f01_hochgezogene_konstante          Exit 0   harmlos: zweiter Aufruf wählt zwischen zwei Konstanten
+        mmap: 2 calls with bl, prot and flags constant in the basic block …
+    f02_sprungtabelle                   Exit 0   harmlos: switch mit Aufrufen und Sprungtabelle
+        mmap: 2 calls with bl, prot and flags constant in the basic block …
+    f03_sprungtabelle16                 Exit 0   harmlos: switch über int mit 16 Fällen (mov w8, w0 hinter der Schranke)
+        mmap: 2 calls with bl, prot and flags constant in the basic block …
+    f04_hochgezogen_csel                Exit 0   harmlos: wie m05 mit MAP_NORESERVE, Konstante in x20 über den ersten Aufruf
+        mmap: 2 calls with bl, prot and flags constant in the basic block …
+    b08_schwacher_import                Exit 70  mmap schwach importiert, Adresse in Daten
+        error: b08_schwacher_import.dylib stores the address of mmap at 0xc008 in __DATA,__data; only calls with bl can be checked
+
+mmap, Assembler, den die Prüfung erkennt (.s):
+    m09_ueber_sprung                    Exit 70  prot 7 kommt über einen Sprung zum Aufruf
+        error: the call of mmap at 0x40ec in m09_ueber_sprung.dylib does not set prot (w2) to a constant in its basic block
+    m10_x2_exec                         Exit 70  mov x2, #7 statt w2
+        error: the call of mmap at 0x40e4 in m10_x2_exec.dylib can map executable memory: prot 0x7
+    m11_map_jit_orr_register            Exit 70  MAP_JIT per orr aus einem Register
+        error: the call of mmap at 0x40ec in m11_map_jit_orr_register.dylib does not set flags (w3) to a constant in its basic block
+    m12_aufruf_ist_sprungziel           Exit 70  der Aufruf selbst ist Sprungziel
+        error: the call of mmap at 0x40ec in m12_aufruf_ist_sprungziel.dylib does not set prot (w2) to a constant in its basic block
+    m13_movk                            Exit 70  PROT_EXEC per movk
+        error: the call of mmap at 0x40e8 in m13_movk.dylib can map executable memory: prot 0x4
+    m14_orr_immediate                   Exit 70  PROT_EXEC per orr mit Sofortwert
+        error: the call of mmap at 0x40e8 in m14_orr_immediate.dylib can map executable memory: prot 0x7
+    f05_ldr_literal_w                   Exit 0   harmlos: Literal-Ladebefehle in w- und x-Register
+        mmap: 1 call with bl, prot and flags constant in the basic block …
+    b06_code_in_const                   Exit 70  bl in Code, der in __TEXT,__const liegt und mmap(RWX, MAP_JIT) ruft
+        error: the jump at 0x40e8 in b06_code_in_const.dylib leads to 0x4118, outside __TEXT,__text and the stubs
+    b07_nicht_decodiert                 Exit 70  ldapr und ldapur überschreiben w2 und w3 (ohne --mattr als .long gedruckt)
+        error: the call of mmap at 0x40f4 in b07_nicht_decodiert.dylib does not set prot (w2) to a constant in its basic block
+    b09_cneg_64bit                      Exit 70  cneg x2 mit einem Wert über 2^63, ergibt prot 7
+        error: the call of mmap at 0x40f4 in b09_cneg_64bit.dylib can map executable memory: prot 0x7 or 0xfffffff9
+    n01_cb_sprungziel                   Exit 70  cbgt (Armv9.6, als Wort) springt mit prot 7 und MAP_JIT auf den Aufruf
+        error: the call of mmap at 0x40f0 in n01_cb_sprungziel.dylib does not set prot (w2) to a constant in its basic block
+    n02_konstante_ueber_anderem_aufruf  Exit 70  harmlos: Konstante in x20 über einen anderen Aufruf als mmap (Fehlalarm, siehe unten)
+        error: the call of mmap at 0x40f4 in n02_konstante_ueber_anderem_aufruf.dylib does not set flags (w3) to a constant in its basic block
+    n03_ldr_literal_x                   Exit 70  Zeiger von mmap per Literal-Ladebefehl in ein x-Register, dann blr
+        error: code takes the address of mmap at 0x4100 in n03_ldr_literal_x.dylib (ldr x10, #0x3f00); only calls with bl can be checked
+
+mmap, Assembler mit Umwegen, den die Prüfung nicht erkennt (.s): jede Probe ruft mmap mit prot 7 und MAP_JIT und läuft trotzdem durch:
+    b01_got_registerkopie               Exit 0   GOT-Seite von mmap in ein zweites Register kopiert, dann ldr und blr
+        mmap: 1 call with bl, prot and flags constant in the basic block …
+    b02_got_versatz                     Exit 0   GOT-Seite mit add und sub um eine Seite verschoben, dann ldr und blr
+        mmap: 1 call with bl, prot and flags constant in the basic block …
+    b03_got_relativ_daten               Exit 0   Zeiger relativ zur GOT in __TEXT,__const, gelesen mit ldrsw und add
+        mmap: 1 call with bl, prot and flags constant in the basic block …
+    b04_sprung_in_blockmitte            Exit 0   br aus einer anderen Funktion hinter mov w2 und mov w3
+        mmap: 1 call with bl, prot and flags constant in the basic block …
+    b05_ret_in_blockmitte               Exit 0   ret mit gesetztem x30 hinter mov w2 und mov w3
+        mmap: 1 call with bl, prot and flags constant in the basic block …
+
+Optionen und Werkzeuge:
+    --check --fingerprint <datei>                                    Exit 64
+        error: --check builds nothing and cannot be combined with --clean, --fingerprint or --submodules
+    --check --submodules <datei>                                     Exit 64
+        error: --check builds nothing and cannot be combined with --clean, --fingerprint or --submodules
+    --check --clean                                                  Exit 64
+        error: --check builds nothing and cannot be combined with --clean, --fingerprint or --submodules
+    --clean --check <datei>                                          Exit 64
+        error: --check builds nothing and cannot be combined with --clean, --fingerprint or --submodules
+    otool, das maxprot und initprot als Buchstaben statt als Hex ausgibt (über PATH vorgeschaltet), mit k01_kontrolle    Exit 70
+        error: otool -l gives no initprot or maxprot for __TEXT of k01_kontrolle.dylib
+
+Ergebnis: Von den 41 Bibliotheken brechen 27 ab, 14 laufen durch, darunter die fünf mit Umwegen (b01 bis b05). Diese fünf zeigen die Grenze der Prüfung: Sie verfolgt die Adresse des mmap-Zeigers nicht durch eine Registerkopie oder einen Versatz, sieht keinen Zeiger relativ zur GOT in Daten und keinen indirekten Sprung aus einer anderen Funktion mitten in einen Block. Die Zusage gilt deshalb für Code, den der Compiler aus den Quellen erzeugt; Assembler-Quellen eines Kerns brauchen Review. n02 ist ein Fehlalarm mit Absicht: Die Konstanten in x19 bis x28 gelten nur über einen mmap-Aufruf hinweg weiter, weil hinter einem anderen Aufruf, der nie zurückkehrt, das Landepad einer C++-Ausnahme stehen kann, das diese Register vom werfenden Aufruf bekommt. Vor der Erweiterung liefen i01 bis i06, s01, s02, b06, b07 und b09 durch, f03 und f04 brachen ab, und --check zusammen mit --fingerprint oder --submodules prüfte nichts und endete mit Exit 0.
+
+## Scheibe ios-arm64
+
+Datei: Cores/Build/melondsds_libretro.xcframework/ios-arm64/melondsds_libretro.framework/melondsds_libretro
+SHA-256: aa007b4a5952e7304681f057b0fb5549447125687d1b865a61d61fe911061d3c
+Größe: 4502416 Byte
+Version (CFBundleShortVersionString): 1.4.0
+Bundle-ID: com.faentiver.arcfold.core.melondsds-libretro
+Install-Name: @rpath/melondsds_libretro.framework/melondsds_libretro
+platform IOS
+minos 27.0
+sdk 27.2
+
+Gelinkte Bibliotheken (otool -L):
+    @rpath/melondsds_libretro.framework/melondsds_libretro (compatibility version 0.0.0, current version 0.0.0)
+    /usr/lib/libresolv.9.dylib (compatibility version 1.0.0, current version 1.0.0)
+    /usr/lib/libc++.1.dylib (compatibility version 1.0.0, current version 2200.32.0)
+    /usr/lib/libSystem.B.dylib (compatibility version 1.0.0, current version 1359.40.3)
+
+Exporte (nm -gU): 25
+    genau die 25 Funktionen der libretro-API
+    _retro_api_version
+    _retro_cheat_reset
+    _retro_cheat_set
+    _retro_deinit
+    _retro_get_memory_data
+    _retro_get_memory_size
+    _retro_get_region
+    _retro_get_system_av_info
+    _retro_get_system_info
+    _retro_init
+    _retro_load_game
+    _retro_load_game_special
+    _retro_reset
+    _retro_run
+    _retro_serialize
+    _retro_serialize_size
+    _retro_set_audio_sample
+    _retro_set_audio_sample_batch
+    _retro_set_controller_port_device
+    _retro_set_environment
+    _retro_set_input_poll
+    _retro_set_input_state
+    _retro_set_video_refresh
+    _retro_unload_game
+    _retro_unserialize
+
+Importe (nm -u): 346
+Verbotene Importe (_(mprotect|pthread_jit_write_protect_np|sys_icache_invalidate|vm_protect|mach_vm_protect|mach_vm_remap|vm_remap|dlopen|dlsym|__clear_cache)): 0
+Davon mmap: 1
+
+Symbole aller Art (nm -a): 12546
+    nm -a mit 'ARMJIT': 0; strings mit 'ARMJIT': 0
+    nm -a mit 'Arm64Gen': 0; strings mit 'Arm64Gen': 0
+    nm -a mit 'JitBlock': 0; strings mit 'JitBlock': 0
+    nm -a mit 'MAP_JIT': 0; strings mit 'MAP_JIT': 0
+    nm -a mit 'jit_write_protect': 0; strings mit 'jit_write_protect': 0
+
+Aufrufe von mmap (Disassemblierung, objdump --macho -d): Funktion, Adresse, Schutz w2 und Flags w3
+(PROT_EXEC wäre 0x4, MAP_JIT 0x800; 0x1 heißt PROT_READ bzw. MAP_SHARED):
+    _retro_vfs_file_open_impl, 0x56d34: w2 #0x1, w3 #0x1
+
+Schlüsselmaterial des DSi und Download (melondsds_remove_key_material und melondsds_check_key_material im Rezept, ADR 0006, Abschnitt 3):
+    Werte beim Bau aus der unveränderten Quelle von melonDS gelesen (src/DSi.cpp, src/DSi_AES.cpp und src/DSi_NAND.cpp am Commit des Submoduls): AES-Schlüssel von boot2, Scrambler-Konstante, eMMC-KeyY, KeyX von Modcrypt, KeyX von Platz 1 und die drei XOR-Konstanten der KeyX-Ableitung
+    Bytefolgen der fünf Schlüssel, je in Speicherreihenfolge, umgedreht, mit getauschten 32-Bit-Wörtern und beides (KeyX von Modcrypt in Speicherreihenfolge nur vor dem von Platz 1): 20 Muster, 0 Treffer
+    32-Bit-Wörter der Schlüssel (beide Byte-Reihenfolgen) und der XOR-Konstanten, mit mov und movk gebaut: 33 Wörter, 0 Treffer
+    8 oder mehr Bytes des boot2-Schlüssels oder der Scrambler-Konstante hintereinander in den Sofortwerten von add, sub oder mov einer Funktion: 0 Treffer in 8025 Funktionen
+    Zeichenketten mit 'nintendowifi': 0
+    Symbole mit 'DownloadTmd' oder 'CacheTmd': 0
+    DeriveNormalKey (__ZN7melonDS7DSi_AES15DeriveNormalKeyEPhS1_S1_): 9 Befehle bis einschließlich zum ersten ret, kein add, sub oder mov mit Sofortwert (am 07.11.2026 nachgezählt; vorher stand hier 10, mitgezählt war die Funktionsmarke)
+
+Importe vollständig:
+    __DefaultRuneLocale
+    __Unwind_Resume
+    __ZNKSt11logic_error4whatEv
+    __ZNKSt13runtime_error4whatEv
+    __ZNKSt3__114__codecvt_utf8IDsE10do_unshiftER11__mbstate_tPcS4_RS4_
+    __ZNKSt3__114__codecvt_utf8IDsE11do_encodingEv
+    __ZNKSt3__114__codecvt_utf8IDsE13do_max_lengthEv
+    __ZNKSt3__114__codecvt_utf8IDsE16do_always_noconvEv
+    __ZNKSt3__114__codecvt_utf8IDsE5do_inER11__mbstate_tPKcS5_RS5_PDsS7_RS7_
+    __ZNKSt3__114__codecvt_utf8IDsE6do_outER11__mbstate_tPKDsS5_RS5_PcS7_RS7_
+    __ZNKSt3__114__codecvt_utf8IDsE9do_lengthER11__mbstate_tPKcS5_m
+    __ZNKSt3__115basic_stringbufIcNS_11char_traitsIcEENS_9allocatorIcEEE3strEv
+    __ZNKSt3__119__shared_weak_count13__get_deleterERKSt9type_info
+    __ZNKSt3__123__match_any_but_newlineIcE6__execERNS_7__stateIcEE
+    __ZNKSt3__14__fs10filesystem18directory_iterator13__dereferenceEv
+    __ZNKSt3__14__fs10filesystem28recursive_directory_iterator13__dereferenceEv
+    __ZNKSt3__16locale4nameEv
+    __ZNKSt3__16locale9has_facetERNS0_2idE
+    __ZNKSt3__16locale9use_facetERNS0_2idE
+    __ZNKSt3__16localeeqERKS0_
+    __ZNKSt3__18ios_base6getlocEv
+    __ZNKSt9exception4whatEv
+    __ZNSt11logic_errorC2EPKc
+    __ZNSt11range_errorD0Ev
+    __ZNSt11range_errorD1Ev
+    __ZNSt12length_errorD0Ev
+    __ZNSt12length_errorD1Ev
+    __ZNSt12out_of_rangeD0Ev
+    __ZNSt12out_of_rangeD1Ev
+    __ZNSt13runtime_errorC1EPKc
+    __ZNSt13runtime_errorC1ERKNSt3__112basic_stringIcNS0_11char_traitsIcEENS0_9allocatorIcEEEE
+    __ZNSt13runtime_errorC2EPKc
+    __ZNSt13runtime_errorC2ERKNSt3__112basic_stringIcNS0_11char_traitsIcEENS0_9allocatorIcEEEE
+    __ZNSt13runtime_errorC2ERKS_
+    __ZNSt13runtime_errorD1Ev
+    __ZNSt13runtime_errorD2Ev
+    __ZNSt16invalid_argumentD0Ev
+    __ZNSt16invalid_argumentD1Ev
+    __ZNSt20bad_array_new_lengthC1Ev
+    __ZNSt20bad_array_new_lengthD1Ev
+    __ZNSt3__111regex_errorC1ENS_15regex_constants10error_typeE
+    __ZNSt3__111regex_errorD1Ev
+    __ZNSt3__112__next_primeEm
+    __ZNSt3__112basic_stringIcNS_11char_traitsIcEENS_9allocatorIcEEE6appendEPKc
+    __ZNSt3__112basic_stringIcNS_11char_traitsIcEENS_9allocatorIcEEE6appendEPKcm
+    __ZNSt3__112basic_stringIcNS_11char_traitsIcEENS_9allocatorIcEEE6assignEPKc
+    __ZNSt3__112basic_stringIcNS_11char_traitsIcEENS_9allocatorIcEEE6assignEPKcm
+    __ZNSt3__112basic_stringIcNS_11char_traitsIcEENS_9allocatorIcEEE6assignEmc
+    __ZNSt3__112basic_stringIcNS_11char_traitsIcEENS_9allocatorIcEEE6resizeEmc
+    __ZNSt3__112basic_stringIcNS_11char_traitsIcEENS_9allocatorIcEEE9__grow_byEmmmmmm
+    __ZNSt3__112basic_stringIcNS_11char_traitsIcEENS_9allocatorIcEEEaSERKS5_
+    __ZNSt3__112basic_stringIcNS_11char_traitsIcEENS_9allocatorIcEEEaSEc
+    __ZNSt3__112system_errorC1ENS_10error_codeEPKc
+    __ZNSt3__112system_errorC1ENS_10error_codeERKNS_12basic_stringIcNS_11char_traitsIcEENS_9allocatorIcEEEE
+    __ZNSt3__112system_errorC2ENS_10error_codeERKNS_12basic_stringIcNS_11char_traitsIcEENS_9allocatorIcEEEE
+    __ZNSt3__112system_errorD1Ev
+    __ZNSt3__112system_errorD2Ev
+    __ZNSt3__113basic_ostreamIcNS_11char_traitsIcEEE6sentryC1ERS3_
+    __ZNSt3__113basic_ostreamIcNS_11char_traitsIcEEE6sentryD1Ev
+    __ZNSt3__113basic_ostreamIcNS_11char_traitsIcEEED0Ev
+    __ZNSt3__113basic_ostreamIcNS_11char_traitsIcEEED1Ev
+    __ZNSt3__114basic_iostreamIcNS_11char_traitsIcEEED2Ev
+    __ZNSt3__115__get_classnameEPKcb
+    __ZNSt3__115basic_streambufIcNS_11char_traitsIcEEE4syncEv
+    __ZNSt3__115basic_streambufIcNS_11char_traitsIcEEE5imbueERKNS_6localeE
+    __ZNSt3__115basic_streambufIcNS_11char_traitsIcEEE5uflowEv
+    __ZNSt3__115basic_streambufIcNS_11char_traitsIcEEE6setbufEPcl
+    __ZNSt3__115basic_streambufIcNS_11char_traitsIcEEE6xsgetnEPcl
+    __ZNSt3__115basic_streambufIcNS_11char_traitsIcEEE7seekoffExNS_8ios_base7seekdirEj
+    __ZNSt3__115basic_streambufIcNS_11char_traitsIcEEE7seekposENS_4fposI11__mbstate_tEEj
+    __ZNSt3__115basic_streambufIcNS_11char_traitsIcEEE9pbackfailEi
+    __ZNSt3__115basic_streambufIcNS_11char_traitsIcEEE9showmanycEv
+    __ZNSt3__115basic_streambufIcNS_11char_traitsIcEEE9underflowEv
+    __ZNSt3__115recursive_mutexC1Ev
+    __ZNSt3__115recursive_mutexD1Ev
+    __ZNSt3__115system_categoryEv
+    __ZNSt3__116generic_categoryEv
+    __ZNSt3__117bad_function_callD0Ev
+    __ZNSt3__117bad_function_callD1Ev
+    __ZNSt3__119__shared_weak_count14__release_weakEv
+    __ZNSt3__119__shared_weak_countD2Ev
+    __ZNSt3__120__get_collation_nameEPKc
+    __ZNSt3__14__fs10filesystem11__file_sizeERKNS1_4pathEPNS_10error_codeE
+    __ZNSt3__14__fs10filesystem13__permissionsERKNS1_4pathENS1_5permsENS1_12perm_optionsEPNS_10error_codeE
+    __ZNSt3__14__fs10filesystem16filesystem_error13__create_whatEi
+    __ZNSt3__14__fs10filesystem16filesystem_errorD1Ev
+    __ZNSt3__14__fs10filesystem17__last_write_timeERKNS1_4pathEPNS_10error_codeE
+    __ZNSt3__14__fs10filesystem18__create_directoryERKNS1_4pathEPNS_10error_codeE
+    __ZNSt3__14__fs10filesystem18directory_iterator11__incrementEPNS_10error_codeE
+    __ZNSt3__14__fs10filesystem18directory_iteratorC1ERKNS1_4pathEPNS_10error_codeENS1_17directory_optionsE
+    __ZNSt3__14__fs10filesystem28recursive_directory_iterator11__incrementEPNS_10error_codeE
+    __ZNSt3__14__fs10filesystem28recursive_directory_iteratorC1ERKNS1_4pathENS1_17directory_optionsEPNS_10error_codeE
+    __ZNSt3__14__fs10filesystem8__removeERKNS1_4pathEPNS_10error_codeE
+    __ZNSt3__14__fs10filesystem8__statusERKNS1_4pathEPNS_10error_codeE
+    __ZNSt3__14stoiERKNS_12basic_stringIcNS_11char_traitsIcEENS_9allocatorIcEEEEPmi
+    __ZNSt3__15ctypeIcE2idE
+    __ZNSt3__15mutexD1Ev
+    __ZNSt3__16chrono12system_clock11from_time_tEl
+    __ZNSt3__16chrono12system_clock3nowEv
+    __ZNSt3__16chrono12system_clock9to_time_tERKNS0_10time_pointIS1_NS0_8durationIxNS_5ratioILl1ELl1000000EEEEEEE
+    __ZNSt3__16locale5facet16__on_zero_sharedEv
+    __ZNSt3__16locale5facetD2Ev
+    __ZNSt3__16locale7classicEv
+    __ZNSt3__16localeC1ERKS0_
+    __ZNSt3__16localeC1Ev
+    __ZNSt3__16localeD1Ev
+    __ZNSt3__16localeaSERKS0_
+    __ZNSt3__17codecvtIDic11__mbstate_tE2idE
+    __ZNSt3__17codecvtIDsc11__mbstate_tED2Ev
+    __ZNSt3__17collateIcE2idE
+    __ZNSt3__18ios_base33__set_badbit_and_consider_rethrowEv
+    __ZNSt3__18ios_base4initEPv
+    __ZNSt3__18ios_base5clearEj
+    __ZNSt3__18ios_base5imbueERKNS_6localeE
+    __ZNSt3__18numpunctIcE2idE
+    __ZNSt3__18numpunctIwE2idE
+    __ZNSt3__18time_putIcNS_19ostreambuf_iteratorIcNS_11char_traitsIcEEEEE2idE
+    __ZNSt3__19basic_iosIcNS_11char_traitsIcEEED2Ev
+    __ZNSt3__1plIcNS_11char_traitsIcEENS_9allocatorIcEEEENS_12basic_stringIT_T0_T1_EEPKS6_RKS9_
+    __ZNSt9bad_allocC1Ev
+    __ZNSt9bad_allocD1Ev
+    __ZNSt9exceptionD0Ev
+    __ZNSt9exceptionD1Ev
+    __ZSt7nothrow
+    __ZSt9terminatev
+    __ZTINSt3__111regex_errorE
+    __ZTINSt3__112system_errorE
+    __ZTINSt3__113basic_ostreamIcNS_11char_traitsIcEEEE
+    __ZTINSt3__114__codecvt_utf8IDsEE
+    __ZTINSt3__115basic_streambufIcNS_11char_traitsIcEEEE
+    __ZTINSt3__117bad_function_callE
+    __ZTINSt3__119__shared_weak_countE
+    __ZTINSt3__14__fs10filesystem16filesystem_errorE
+    __ZTINSt3__16locale5facetE
+    __ZTISt11range_error
+    __ZTISt12length_error
+    __ZTISt12out_of_range
+    __ZTISt13runtime_error
+    __ZTISt16invalid_argument
+    __ZTISt20bad_array_new_length
+    __ZTISt9bad_alloc
+    __ZTISt9exception
+    __ZTTNSt3__118basic_stringstreamIcNS_11char_traitsIcEENS_9allocatorIcEEEE
+    __ZTVN10__cxxabiv117__class_type_infoE
+    __ZTVN10__cxxabiv120__si_class_type_infoE
+    __ZTVNSt3__113basic_ostreamIcNS_11char_traitsIcEEEE
+    __ZTVNSt3__115basic_streambufIcNS_11char_traitsIcEEEE
+    __ZTVNSt3__115basic_stringbufIcNS_11char_traitsIcEENS_9allocatorIcEEEE
+    __ZTVNSt3__117bad_function_callE
+    __ZTVNSt3__118basic_stringstreamIcNS_11char_traitsIcEENS_9allocatorIcEEEE
+    __ZTVNSt3__14__fs10filesystem16filesystem_errorE
+    __ZTVSt11range_error
+    __ZTVSt12length_error
+    __ZTVSt12out_of_range
+    __ZTVSt16invalid_argument
+    __ZTVSt9exception
+    __ZTv0_n24_NSt3__113basic_ostreamIcNS_11char_traitsIcEEED0Ev
+    __ZTv0_n24_NSt3__113basic_ostreamIcNS_11char_traitsIcEEED1Ev
+    __ZdaPv
+    __ZdlPv
+    __Znam
+    __Znwm
+    __ZnwmRKSt9nothrow_t
+    ___chkstk_darwin
+    ___cxa_allocate_exception
+    ___cxa_atexit
+    ___cxa_bad_cast
+    ___cxa_begin_catch
+    ___cxa_end_catch
+    ___cxa_free_exception
+    ___cxa_guard_abort
+    ___cxa_guard_acquire
+    ___cxa_guard_release
+    ___cxa_pure_virtual
+    ___cxa_throw
+    ___darwin_check_fd_set_overflow
+    ___divti3
+    ___dynamic_cast
+    ___error
+    ___gxx_personality_v0
+    ___maskrune
+    ___memcpy_chk
+    ___memmove_chk
+    ___memset_chk
+    ___sincosf_stret
+    ___stack_chk_fail
+    ___stack_chk_guard
+    ___stderrp
+    ___stdoutp
+    ___strcpy_chk
+    ___strlcat_chk
+    ___strlcpy_chk
+    ___swbuf
+    ___tolower
+    ___toupper
+    ___udivti3
+    ___vsnprintf_chk
+    __tlv_bootstrap
+    _abort
+    _accept
+    _atoi
+    _bind
+    _bzero
+    _calloc
+    _cbrtf
+    _clock
+    _clock_gettime
+    _close
+    _closedir
+    _connect
+    _dispatch_semaphore_create
+    _dispatch_semaphore_signal
+    _dispatch_semaphore_wait
+    _dispatch_time
+    _fclose
+    _fcntl
+    _ferror
+    _fflush
+    _fileno
+    _flockfile
+    _fopen
+    _fprintf
+    _fputc
+    _fread
+    _free
+    _freeaddrinfo
+    _fseek
+    _fseeko
+    _ftell
+    _ftello
+    _ftruncate
+    _funlockfile
+    _fwrite
+    _gai_strerror
+    _getaddrinfo
+    _getenv
+    _getnameinfo
+    _getpeername
+    _getsockname
+    _getsockopt
+    _gettimeofday
+    _gmtime_r
+    _in6addr_any
+    _in6addr_loopback
+    _inet_ntop
+    _inet_pton
+    _ioctl
+    _listen
+    _localtime
+    _localtime_r
+    _lseek
+    _malloc
+    _memchr
+    _memcmp
+    _memcpy
+    _memmove
+    _memset
+    _mkdir
+    _mmap
+    _munmap
+    _nanosleep
+    _open
+    _opendir
+    _poll
+    _powf
+    _printf
+    _pthread_attr_destroy
+    _pthread_attr_init
+    _pthread_attr_setschedparam
+    _pthread_attr_setschedpolicy
+    _pthread_attr_setstacksize
+    _pthread_cancel
+    _pthread_cond_broadcast
+    _pthread_cond_destroy
+    _pthread_cond_init
+    _pthread_cond_signal
+    _pthread_cond_timedwait
+    _pthread_cond_wait
+    _pthread_create
+    _pthread_detach
+    _pthread_equal
+    _pthread_join
+    _pthread_main_np
+    _pthread_mutex_destroy
+    _pthread_mutex_init
+    _pthread_mutex_lock
+    _pthread_mutex_trylock
+    _pthread_mutex_unlock
+    _pthread_override_qos_class_end_np
+    _pthread_override_qos_class_start_np
+    _pthread_self
+    _pthread_setcancelstate
+    _pthread_setname_np
+    _putchar
+    _puts
+    _qsort
+    _read
+    _readdir
+    _realloc
+    _recv
+    _recvfrom
+    _remove
+    _rename
+    _res_9_getservers
+    _res_9_ndestroy
+    _res_9_ninit
+    _select
+    _send
+    _sendto
+    _setlocale
+    _setsockopt
+    _setvbuf
+    _shutdown
+    _signal
+    _sin
+    _snprintf
+    _socket
+    _sscanf
+    _stat
+    _strcasecmp
+    _strchr
+    _strcmp
+    _strdup
+    _strerror
+    _strftime
+    _strlcat
+    _strlcpy
+    _strlen
+    _strncasecmp
+    _strncat
+    _strncmp
+    _strncpy
+    _strnlen
+    _strrchr
+    _strstr
+    _strtod
+    _strtol
+    _strtoul
+    _strtoull
+    _sysconf
+    _sysctlbyname
+    _time
+    _vfprintf
+    _vsnprintf
+    _wcslen
+    _write
+
+## Scheibe ios-arm64-simulator
+
+Datei: Cores/Build/melondsds_libretro.xcframework/ios-arm64-simulator/melondsds_libretro.framework/melondsds_libretro
+SHA-256: 140c0fb5eed9c0104ff6e15c7a228d335961f92a1998c22d6445d0a625a3ae9c
+Größe: 4502304 Byte
+Version (CFBundleShortVersionString): 1.4.0
+Bundle-ID: com.faentiver.arcfold.core.melondsds-libretro
+Install-Name: @rpath/melondsds_libretro.framework/melondsds_libretro
+platform IOSSIMULATOR
+minos 27.0
+sdk 27.2
+
+Gelinkte Bibliotheken (otool -L):
+    @rpath/melondsds_libretro.framework/melondsds_libretro (compatibility version 0.0.0, current version 0.0.0)
+    /usr/lib/libresolv.9.dylib (compatibility version 1.0.0, current version 1.0.0)
+    /usr/lib/libc++.1.dylib (compatibility version 1.0.0, current version 2200.32.0)
+    /usr/lib/libSystem.B.dylib (compatibility version 1.0.0, current version 1359.40.3)
+
+Exporte (nm -gU): 25
+    genau die 25 Funktionen der libretro-API
+    _retro_api_version
+    _retro_cheat_reset
+    _retro_cheat_set
+    _retro_deinit
+    _retro_get_memory_data
+    _retro_get_memory_size
+    _retro_get_region
+    _retro_get_system_av_info
+    _retro_get_system_info
+    _retro_init
+    _retro_load_game
+    _retro_load_game_special
+    _retro_reset
+    _retro_run
+    _retro_serialize
+    _retro_serialize_size
+    _retro_set_audio_sample
+    _retro_set_audio_sample_batch
+    _retro_set_controller_port_device
+    _retro_set_environment
+    _retro_set_input_poll
+    _retro_set_input_state
+    _retro_set_video_refresh
+    _retro_unload_game
+    _retro_unserialize
+
+Importe (nm -u): 345
+Verbotene Importe (_(mprotect|pthread_jit_write_protect_np|sys_icache_invalidate|vm_protect|mach_vm_protect|mach_vm_remap|vm_remap|dlopen|dlsym|__clear_cache)): 0
+Davon mmap: 1
+
+Symbole aller Art (nm -a): 12544
+    nm -a mit 'ARMJIT': 0; strings mit 'ARMJIT': 0
+    nm -a mit 'Arm64Gen': 0; strings mit 'Arm64Gen': 0
+    nm -a mit 'JitBlock': 0; strings mit 'JitBlock': 0
+    nm -a mit 'MAP_JIT': 0; strings mit 'MAP_JIT': 0
+    nm -a mit 'jit_write_protect': 0; strings mit 'jit_write_protect': 0
+
+Aufrufe von mmap (Disassemblierung, objdump --macho -d): Funktion, Adresse, Schutz w2 und Flags w3
+(PROT_EXEC wäre 0x4, MAP_JIT 0x800; 0x1 heißt PROT_READ bzw. MAP_SHARED):
+    _retro_vfs_file_open_impl, 0x563b4: w2 #0x1, w3 #0x1
+
+Schlüsselmaterial des DSi und Download (melondsds_remove_key_material und melondsds_check_key_material im Rezept, ADR 0006, Abschnitt 3):
+    Werte beim Bau aus der unveränderten Quelle von melonDS gelesen (src/DSi.cpp, src/DSi_AES.cpp und src/DSi_NAND.cpp am Commit des Submoduls): AES-Schlüssel von boot2, Scrambler-Konstante, eMMC-KeyY, KeyX von Modcrypt, KeyX von Platz 1 und die drei XOR-Konstanten der KeyX-Ableitung
+    Bytefolgen der fünf Schlüssel, je in Speicherreihenfolge, umgedreht, mit getauschten 32-Bit-Wörtern und beides (KeyX von Modcrypt in Speicherreihenfolge nur vor dem von Platz 1): 20 Muster, 0 Treffer
+    32-Bit-Wörter der Schlüssel (beide Byte-Reihenfolgen) und der XOR-Konstanten, mit mov und movk gebaut: 33 Wörter, 0 Treffer
+    8 oder mehr Bytes des boot2-Schlüssels oder der Scrambler-Konstante hintereinander in den Sofortwerten von add, sub oder mov einer Funktion: 0 Treffer in 8024 Funktionen
+    Zeichenketten mit 'nintendowifi': 0
+    Symbole mit 'DownloadTmd' oder 'CacheTmd': 0
+    DeriveNormalKey (__ZN7melonDS7DSi_AES15DeriveNormalKeyEPhS1_S1_): 9 Befehle bis einschließlich zum ersten ret, kein add, sub oder mov mit Sofortwert (am 07.11.2026 nachgezählt; vorher stand hier 10, mitgezählt war die Funktionsmarke)
+
+Importe vollständig:
+    __DefaultRuneLocale
+    __Unwind_Resume
+    __ZNKSt11logic_error4whatEv
+    __ZNKSt13runtime_error4whatEv
+    __ZNKSt3__114__codecvt_utf8IDsE10do_unshiftER11__mbstate_tPcS4_RS4_
+    __ZNKSt3__114__codecvt_utf8IDsE11do_encodingEv
+    __ZNKSt3__114__codecvt_utf8IDsE13do_max_lengthEv
+    __ZNKSt3__114__codecvt_utf8IDsE16do_always_noconvEv
+    __ZNKSt3__114__codecvt_utf8IDsE5do_inER11__mbstate_tPKcS5_RS5_PDsS7_RS7_
+    __ZNKSt3__114__codecvt_utf8IDsE6do_outER11__mbstate_tPKDsS5_RS5_PcS7_RS7_
+    __ZNKSt3__114__codecvt_utf8IDsE9do_lengthER11__mbstate_tPKcS5_m
+    __ZNKSt3__115basic_stringbufIcNS_11char_traitsIcEENS_9allocatorIcEEE3strEv
+    __ZNKSt3__119__shared_weak_count13__get_deleterERKSt9type_info
+    __ZNKSt3__123__match_any_but_newlineIcE6__execERNS_7__stateIcEE
+    __ZNKSt3__14__fs10filesystem18directory_iterator13__dereferenceEv
+    __ZNKSt3__14__fs10filesystem28recursive_directory_iterator13__dereferenceEv
+    __ZNKSt3__16locale4nameEv
+    __ZNKSt3__16locale9has_facetERNS0_2idE
+    __ZNKSt3__16locale9use_facetERNS0_2idE
+    __ZNKSt3__16localeeqERKS0_
+    __ZNKSt3__18ios_base6getlocEv
+    __ZNKSt9exception4whatEv
+    __ZNSt11logic_errorC2EPKc
+    __ZNSt11range_errorD0Ev
+    __ZNSt11range_errorD1Ev
+    __ZNSt12length_errorD0Ev
+    __ZNSt12length_errorD1Ev
+    __ZNSt12out_of_rangeD0Ev
+    __ZNSt12out_of_rangeD1Ev
+    __ZNSt13runtime_errorC1EPKc
+    __ZNSt13runtime_errorC1ERKNSt3__112basic_stringIcNS0_11char_traitsIcEENS0_9allocatorIcEEEE
+    __ZNSt13runtime_errorC2EPKc
+    __ZNSt13runtime_errorC2ERKNSt3__112basic_stringIcNS0_11char_traitsIcEENS0_9allocatorIcEEEE
+    __ZNSt13runtime_errorC2ERKS_
+    __ZNSt13runtime_errorD1Ev
+    __ZNSt13runtime_errorD2Ev
+    __ZNSt16invalid_argumentD0Ev
+    __ZNSt16invalid_argumentD1Ev
+    __ZNSt20bad_array_new_lengthC1Ev
+    __ZNSt20bad_array_new_lengthD1Ev
+    __ZNSt3__111regex_errorC1ENS_15regex_constants10error_typeE
+    __ZNSt3__111regex_errorD1Ev
+    __ZNSt3__112__next_primeEm
+    __ZNSt3__112basic_stringIcNS_11char_traitsIcEENS_9allocatorIcEEE6appendEPKc
+    __ZNSt3__112basic_stringIcNS_11char_traitsIcEENS_9allocatorIcEEE6appendEPKcm
+    __ZNSt3__112basic_stringIcNS_11char_traitsIcEENS_9allocatorIcEEE6assignEPKc
+    __ZNSt3__112basic_stringIcNS_11char_traitsIcEENS_9allocatorIcEEE6assignEPKcm
+    __ZNSt3__112basic_stringIcNS_11char_traitsIcEENS_9allocatorIcEEE6assignEmc
+    __ZNSt3__112basic_stringIcNS_11char_traitsIcEENS_9allocatorIcEEE6resizeEmc
+    __ZNSt3__112basic_stringIcNS_11char_traitsIcEENS_9allocatorIcEEE9__grow_byEmmmmmm
+    __ZNSt3__112basic_stringIcNS_11char_traitsIcEENS_9allocatorIcEEEaSERKS5_
+    __ZNSt3__112basic_stringIcNS_11char_traitsIcEENS_9allocatorIcEEEaSEc
+    __ZNSt3__112system_errorC1ENS_10error_codeEPKc
+    __ZNSt3__112system_errorC1ENS_10error_codeERKNS_12basic_stringIcNS_11char_traitsIcEENS_9allocatorIcEEEE
+    __ZNSt3__112system_errorC2ENS_10error_codeERKNS_12basic_stringIcNS_11char_traitsIcEENS_9allocatorIcEEEE
+    __ZNSt3__112system_errorD1Ev
+    __ZNSt3__112system_errorD2Ev
+    __ZNSt3__113basic_ostreamIcNS_11char_traitsIcEEE6sentryC1ERS3_
+    __ZNSt3__113basic_ostreamIcNS_11char_traitsIcEEE6sentryD1Ev
+    __ZNSt3__113basic_ostreamIcNS_11char_traitsIcEEED0Ev
+    __ZNSt3__113basic_ostreamIcNS_11char_traitsIcEEED1Ev
+    __ZNSt3__114basic_iostreamIcNS_11char_traitsIcEEED2Ev
+    __ZNSt3__115__get_classnameEPKcb
+    __ZNSt3__115basic_streambufIcNS_11char_traitsIcEEE4syncEv
+    __ZNSt3__115basic_streambufIcNS_11char_traitsIcEEE5imbueERKNS_6localeE
+    __ZNSt3__115basic_streambufIcNS_11char_traitsIcEEE5uflowEv
+    __ZNSt3__115basic_streambufIcNS_11char_traitsIcEEE6setbufEPcl
+    __ZNSt3__115basic_streambufIcNS_11char_traitsIcEEE6xsgetnEPcl
+    __ZNSt3__115basic_streambufIcNS_11char_traitsIcEEE7seekoffExNS_8ios_base7seekdirEj
+    __ZNSt3__115basic_streambufIcNS_11char_traitsIcEEE7seekposENS_4fposI11__mbstate_tEEj
+    __ZNSt3__115basic_streambufIcNS_11char_traitsIcEEE9pbackfailEi
+    __ZNSt3__115basic_streambufIcNS_11char_traitsIcEEE9showmanycEv
+    __ZNSt3__115basic_streambufIcNS_11char_traitsIcEEE9underflowEv
+    __ZNSt3__115recursive_mutexC1Ev
+    __ZNSt3__115recursive_mutexD1Ev
+    __ZNSt3__115system_categoryEv
+    __ZNSt3__116generic_categoryEv
+    __ZNSt3__117bad_function_callD0Ev
+    __ZNSt3__117bad_function_callD1Ev
+    __ZNSt3__119__shared_weak_count14__release_weakEv
+    __ZNSt3__119__shared_weak_countD2Ev
+    __ZNSt3__120__get_collation_nameEPKc
+    __ZNSt3__14__fs10filesystem11__file_sizeERKNS1_4pathEPNS_10error_codeE
+    __ZNSt3__14__fs10filesystem13__permissionsERKNS1_4pathENS1_5permsENS1_12perm_optionsEPNS_10error_codeE
+    __ZNSt3__14__fs10filesystem16filesystem_error13__create_whatEi
+    __ZNSt3__14__fs10filesystem16filesystem_errorD1Ev
+    __ZNSt3__14__fs10filesystem17__last_write_timeERKNS1_4pathEPNS_10error_codeE
+    __ZNSt3__14__fs10filesystem18__create_directoryERKNS1_4pathEPNS_10error_codeE
+    __ZNSt3__14__fs10filesystem18directory_iterator11__incrementEPNS_10error_codeE
+    __ZNSt3__14__fs10filesystem18directory_iteratorC1ERKNS1_4pathEPNS_10error_codeENS1_17directory_optionsE
+    __ZNSt3__14__fs10filesystem28recursive_directory_iterator11__incrementEPNS_10error_codeE
+    __ZNSt3__14__fs10filesystem28recursive_directory_iteratorC1ERKNS1_4pathENS1_17directory_optionsEPNS_10error_codeE
+    __ZNSt3__14__fs10filesystem8__removeERKNS1_4pathEPNS_10error_codeE
+    __ZNSt3__14__fs10filesystem8__statusERKNS1_4pathEPNS_10error_codeE
+    __ZNSt3__14stoiERKNS_12basic_stringIcNS_11char_traitsIcEENS_9allocatorIcEEEEPmi
+    __ZNSt3__15ctypeIcE2idE
+    __ZNSt3__15mutexD1Ev
+    __ZNSt3__16chrono12system_clock11from_time_tEl
+    __ZNSt3__16chrono12system_clock3nowEv
+    __ZNSt3__16chrono12system_clock9to_time_tERKNS0_10time_pointIS1_NS0_8durationIxNS_5ratioILl1ELl1000000EEEEEEE
+    __ZNSt3__16locale5facet16__on_zero_sharedEv
+    __ZNSt3__16locale5facetD2Ev
+    __ZNSt3__16locale7classicEv
+    __ZNSt3__16localeC1ERKS0_
+    __ZNSt3__16localeC1Ev
+    __ZNSt3__16localeD1Ev
+    __ZNSt3__16localeaSERKS0_
+    __ZNSt3__17codecvtIDic11__mbstate_tE2idE
+    __ZNSt3__17codecvtIDsc11__mbstate_tED2Ev
+    __ZNSt3__17collateIcE2idE
+    __ZNSt3__18ios_base33__set_badbit_and_consider_rethrowEv
+    __ZNSt3__18ios_base4initEPv
+    __ZNSt3__18ios_base5clearEj
+    __ZNSt3__18ios_base5imbueERKNS_6localeE
+    __ZNSt3__18numpunctIcE2idE
+    __ZNSt3__18numpunctIwE2idE
+    __ZNSt3__18time_putIcNS_19ostreambuf_iteratorIcNS_11char_traitsIcEEEEE2idE
+    __ZNSt3__19basic_iosIcNS_11char_traitsIcEEED2Ev
+    __ZNSt3__1plIcNS_11char_traitsIcEENS_9allocatorIcEEEENS_12basic_stringIT_T0_T1_EEPKS6_RKS9_
+    __ZNSt9bad_allocC1Ev
+    __ZNSt9bad_allocD1Ev
+    __ZNSt9exceptionD0Ev
+    __ZNSt9exceptionD1Ev
+    __ZSt7nothrow
+    __ZSt9terminatev
+    __ZTINSt3__111regex_errorE
+    __ZTINSt3__112system_errorE
+    __ZTINSt3__113basic_ostreamIcNS_11char_traitsIcEEEE
+    __ZTINSt3__114__codecvt_utf8IDsEE
+    __ZTINSt3__115basic_streambufIcNS_11char_traitsIcEEEE
+    __ZTINSt3__117bad_function_callE
+    __ZTINSt3__119__shared_weak_countE
+    __ZTINSt3__14__fs10filesystem16filesystem_errorE
+    __ZTINSt3__16locale5facetE
+    __ZTISt11range_error
+    __ZTISt12length_error
+    __ZTISt12out_of_range
+    __ZTISt13runtime_error
+    __ZTISt16invalid_argument
+    __ZTISt20bad_array_new_length
+    __ZTISt9bad_alloc
+    __ZTISt9exception
+    __ZTTNSt3__118basic_stringstreamIcNS_11char_traitsIcEENS_9allocatorIcEEEE
+    __ZTVN10__cxxabiv117__class_type_infoE
+    __ZTVN10__cxxabiv120__si_class_type_infoE
+    __ZTVNSt3__113basic_ostreamIcNS_11char_traitsIcEEEE
+    __ZTVNSt3__115basic_streambufIcNS_11char_traitsIcEEEE
+    __ZTVNSt3__115basic_stringbufIcNS_11char_traitsIcEENS_9allocatorIcEEEE
+    __ZTVNSt3__117bad_function_callE
+    __ZTVNSt3__118basic_stringstreamIcNS_11char_traitsIcEENS_9allocatorIcEEEE
+    __ZTVNSt3__14__fs10filesystem16filesystem_errorE
+    __ZTVSt11range_error
+    __ZTVSt12length_error
+    __ZTVSt12out_of_range
+    __ZTVSt16invalid_argument
+    __ZTVSt9exception
+    __ZTv0_n24_NSt3__113basic_ostreamIcNS_11char_traitsIcEEED0Ev
+    __ZTv0_n24_NSt3__113basic_ostreamIcNS_11char_traitsIcEEED1Ev
+    __ZdaPv
+    __ZdlPv
+    __Znam
+    __Znwm
+    __ZnwmRKSt9nothrow_t
+    ___cxa_allocate_exception
+    ___cxa_atexit
+    ___cxa_bad_cast
+    ___cxa_begin_catch
+    ___cxa_end_catch
+    ___cxa_free_exception
+    ___cxa_guard_abort
+    ___cxa_guard_acquire
+    ___cxa_guard_release
+    ___cxa_pure_virtual
+    ___cxa_throw
+    ___darwin_check_fd_set_overflow
+    ___divti3
+    ___dynamic_cast
+    ___error
+    ___gxx_personality_v0
+    ___maskrune
+    ___memcpy_chk
+    ___memmove_chk
+    ___memset_chk
+    ___sincosf_stret
+    ___stack_chk_fail
+    ___stack_chk_guard
+    ___stderrp
+    ___stdoutp
+    ___strcpy_chk
+    ___strlcat_chk
+    ___strlcpy_chk
+    ___swbuf
+    ___tolower
+    ___toupper
+    ___udivti3
+    ___vsnprintf_chk
+    __tlv_bootstrap
+    _abort
+    _accept
+    _atoi
+    _bind
+    _bzero
+    _calloc
+    _cbrtf
+    _clock
+    _clock_gettime
+    _close
+    _closedir
+    _connect
+    _dispatch_semaphore_create
+    _dispatch_semaphore_signal
+    _dispatch_semaphore_wait
+    _dispatch_time
+    _fclose
+    _fcntl
+    _ferror
+    _fflush
+    _fileno
+    _flockfile
+    _fopen
+    _fprintf
+    _fputc
+    _fread
+    _free
+    _freeaddrinfo
+    _fseek
+    _fseeko
+    _ftell
+    _ftello
+    _ftruncate
+    _funlockfile
+    _fwrite
+    _gai_strerror
+    _getaddrinfo
+    _getenv
+    _getnameinfo
+    _getpeername
+    _getsockname
+    _getsockopt
+    _gettimeofday
+    _gmtime_r
+    _in6addr_any
+    _in6addr_loopback
+    _inet_ntop
+    _inet_pton
+    _ioctl
+    _listen
+    _localtime
+    _localtime_r
+    _lseek
+    _malloc
+    _memchr
+    _memcmp
+    _memcpy
+    _memmove
+    _memset
+    _mkdir
+    _mmap
+    _munmap
+    _nanosleep
+    _open
+    _opendir
+    _poll
+    _powf
+    _printf
+    _pthread_attr_destroy
+    _pthread_attr_init
+    _pthread_attr_setschedparam
+    _pthread_attr_setschedpolicy
+    _pthread_attr_setstacksize
+    _pthread_cancel
+    _pthread_cond_broadcast
+    _pthread_cond_destroy
+    _pthread_cond_init
+    _pthread_cond_signal
+    _pthread_cond_timedwait
+    _pthread_cond_wait
+    _pthread_create
+    _pthread_detach
+    _pthread_equal
+    _pthread_join
+    _pthread_main_np
+    _pthread_mutex_destroy
+    _pthread_mutex_init
+    _pthread_mutex_lock
+    _pthread_mutex_trylock
+    _pthread_mutex_unlock
+    _pthread_override_qos_class_end_np
+    _pthread_override_qos_class_start_np
+    _pthread_self
+    _pthread_setcancelstate
+    _pthread_setname_np
+    _putchar
+    _puts
+    _qsort
+    _read
+    _readdir
+    _realloc
+    _recv
+    _recvfrom
+    _remove
+    _rename
+    _res_9_getservers
+    _res_9_ndestroy
+    _res_9_ninit
+    _select
+    _send
+    _sendto
+    _setlocale
+    _setsockopt
+    _setvbuf
+    _shutdown
+    _signal
+    _sin
+    _snprintf
+    _socket
+    _sscanf
+    _stat
+    _strcasecmp
+    _strchr
+    _strcmp
+    _strdup
+    _strerror
+    _strftime
+    _strlcat
+    _strlcpy
+    _strlen
+    _strncasecmp
+    _strncat
+    _strncmp
+    _strncpy
+    _strnlen
+    _strrchr
+    _strstr
+    _strtod
+    _strtol
+    _strtoul
+    _strtoull
+    _sysconf
+    _sysctlbyname
+    _time
+    _vfprintf
+    _vsnprintf
+    _wcslen
+    _write
+
+## Eingebettet in den gebauten Apps
+
+Store, generic/platform=iOS: Datei gleich der Scheibe ios-arm64: ja; Exporte und Importe gleich: ja; __TEXT,__text gleich: ja
+Store, Simulator: Datei gleich der Scheibe ios-arm64-simulator: ja; Exporte und Importe gleich: ja; __TEXT,__text gleich: ja
+JIT, Simulator: Datei gleich der Scheibe ios-arm64-simulator: ja; Exporte und Importe gleich: ja; __TEXT,__text gleich: ja

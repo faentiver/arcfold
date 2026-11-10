@@ -33,11 +33,15 @@ final class GameLibrary {
     }
 
     /// Imports the files one after another, then reloads. Returns one result
-    /// per file, in order.
+    /// per file, in order. Without a system, each file's extension picks it.
     @discardableResult
-    func importGames(from urls: [URL], system: GameSystem = .gba) async -> [Result<ImportOutcome, ImportError>] {
+    func importGames(from urls: [URL], system: GameSystem? = nil) async -> [Result<ImportOutcome, ImportError>] {
         var results: [Result<ImportOutcome, ImportError>] = []
         for url in urls {
+            guard let system = system ?? GameSystem.system(forFileExtension: url.pathExtension) else {
+                results.append(.failure(.unknownType(fileName: url.lastPathComponent)))
+                continue
+            }
             do throws(ImportError) {
                 results.append(.success(try await GameImporter.importGame(from: url, system: system, into: location)))
             } catch {

@@ -72,6 +72,62 @@ struct InputStateTests {
         #expect(input.lastPressedButtons == .start)
     }
 
+    // MARK: Pointer (ADR 0006)
+
+    @Test func thePointerIsPressedWhereItWasSetUntilItIsLifted() {
+        let input = InputState()
+        #expect(input.pointer == nil)
+        #expect(input.pollPointer() == .lifted)
+
+        let corner = PointerPosition(x: -32_767, y: 32_767)
+        input.setPointer(corner)
+        #expect(input.pointer == corner)
+        #expect(input.pollPointer() == PointerSample(position: corner, isPressed: true))
+        #expect(input.pollPointer() == PointerSample(position: corner, isPressed: true))
+
+        // A finger that slides moves the pointer without a new press.
+        let moved = PointerPosition(x: 128, y: -1)
+        input.setPointer(moved)
+        #expect(input.pollPointer() == PointerSample(position: moved, isPressed: true))
+        #expect(input.pointerPressCount == 1)
+
+        // Lifted, it keeps its last coordinates.
+        input.setPointer(nil)
+        #expect(input.pointer == nil)
+        #expect(input.pollPointer() == PointerSample(position: moved, isPressed: false))
+    }
+
+    @Test func aTouchBetweenTwoPollsLastsExactlyOneFrameAtItsStart() {
+        let input = InputState()
+        let start = PointerPosition(x: 1_000, y: 17_066)
+        input.setPointer(start)
+        input.setPointer(PointerPosition(x: 1_200, y: 17_100))
+        input.setPointer(nil)
+
+        #expect(input.pointer == nil)
+        #expect(input.pollPointer() == PointerSample(position: start, isPressed: true))
+        #expect(input.pollPointer().isPressed == false)
+    }
+
+    @Test func countsPointerPressesAndKeepsWhereTheLatestBegan() {
+        let input = InputState()
+        #expect(input.pointerPressCount == 0)
+        #expect(input.lastPointerPress == nil)
+
+        let first = PointerPosition(x: -100, y: 200)
+        input.setPointer(first)
+        input.setPointer(PointerPosition(x: -90, y: 210))
+        input.setPointer(nil)
+        let second = PointerPosition(x: 5, y: 6)
+        input.setPointer(second)
+        input.setPointer(nil)
+
+        #expect(input.pointerPressCount == 2)
+        #expect(input.lastPointerPress == second, "The start of the latest press stays after the release")
+        // Buttons count on their own.
+        #expect(input.pressCount == 0)
+    }
+
     @Test func writersOnSeveralThreadsNeverLoseAButton() async {
         let input = InputState()
         await withTaskGroup { group in

@@ -2,3 +2,4 @@
 # Large fixtures would need Git LFS; see docs/wissen/umgebung.md before adding one.
 Tests/Fixtures/**/*.elf binary
 Tests/Fixtures/**/*.gba binary
+Tests/Fixtures/**/*.nds binary

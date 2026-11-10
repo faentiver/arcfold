@@ -24,6 +24,8 @@ Option 3.
 
 **Exporte.** Gelinkt wird mit `-Wl,-exported_symbol,_retro_*`. Exportiert sind also nur Symbole mit dem Präfix `retro_`: bei mGBA genau die 25 Funktionen der Libretro-API. PPSSPP exportiert über dasselbe Muster zusätzlich 21 `retro_vfs_*_impl` aus libretro-common (`docs/wissen/psp-grafik.md`); die feste Liste der 25 Funktionen kommt in M3 (Plan, Abschnitt 10). So kollidiert ein Kern weder mit der App noch mit anderen Kernen.
 
+Geändert in M2 (ADR 0006, Abschnitt 2): `build-core.sh` linkt jeden Kern mit `-exported_symbols_list` und genau den 25 Funktionen und prüft nach jedem Bau mit `nm -gU`, dass der Kern genau diese exportiert. melonDS DS exportierte mit dem Muster 57 Symbole. Außerdem kann ein Rezept weitere Submodule des Repos nennen (`CORE_DEPENDENCIES`), die `bootstrap.sh` flach holt und deren Commits zum Fingerabdruck zählen.
+
 **Install-Name.** `@rpath/<CORE_NAME>.framework/<CORE_NAME>`, gesetzt mit `install_name_tool`. Danach signiert build-core.sh ad hoc. Xcode signiert beim Einbetten neu.
 
 **Einbettung ohne Linken.** In `project.yml` steht jeder Kern als `framework:`-Abhängigkeit mit `embed: true` und `link: false`. XcodeGen 2.45.4 trägt die Datei dann nur in die Phase „Embed Frameworks“ ein (Ziel `Frameworks`, Attribute `CodeSignOnCopy` und `RemoveHeadersOnCopy`), nicht in „Link Binary With Libraries“. Das zeigen die Projekt-Spezifikation (Linking options `embed`, `link`) und der Generator-Code (`PBXProjGenerator.swift`, Fall `.framework`): Ohne `link` entsteht kein Eintrag in der Link-Phase. Xcode 27.2 wählt beim Kopieren die passende Scheibe des xcframeworks und signiert sie.

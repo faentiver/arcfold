@@ -1,0 +1,82 @@
+M2 Spur L im Simulator: Falz-Layouts, Touchscreen, Pause, Ton mit DS-Rate, 7. November 2026
+==========================================================================================
+
+Gerät: eigener Simulator „Arcfold M2 L“ (iPhone Duo, iOS 27.1, 24A94425), nach dem Booten
+zugeklappt (Außendisplay 1398 x 2034 px, Faktor 3). Xcode 27.2 (27B52), Mac mini M4 Pro,
+macOS 27.2, Debug-Build des Schemes Store. Auf dem Mac liefen zugleich parallele Builds
+(Lastmittel zeitweise über 100); Leistungszahlen aus dem Simulator sind Plausibilitätswerte.
+
+0. Builds und Tests
+   Builds Store und JIT für den Simulator, Store für generic/platform=iOS mit
+   CODE_SIGNING_ALLOWED=NO, dazu Store Debug und Release frisch in einem leeren
+   Build-Ordner: ohne Warnung im eigenen Code (einzige Warnzeile: appintentsmetadataprocessor).
+   Tests auf „Arcfold M2 L“, keiner übersprungen:
+     Store 215 grün: ArcfoldTests 73, LibretroKitTests 63, FoldLayoutTests 28,
+                     RendererTests 39, ArcfoldUITests 12
+     JIT   203 grün (ohne UI-Tests)
+     swift test in Packages/FoldLayout auf dem Mac: 28 grün
+   Ausgangsstand vor dieser Spur: Store 164 grün (derselbe Simulator).
+
+1. Layout zugeklappt (UI-Tests FoldLayoutUITests, Bildschirmfotos falz-zu-*.png)
+   Debug-Overlay (Accessibility-Wert) und Bildschirmfoto stimmen überein:
+   GBA (vertikale Leiste oben):   posture=single, view=1398,2034, safe=246,0,102,0
+                                  5x 1200 x 800 px bei (99, 246)
+   DS  (vertikale Leiste rechts): posture=single, view=1398,2034, safe=0,0,102,252
+                                  4x 1024 x 768 px bei (61, 0) und (61, 768), Touchscreen #1
+   Geprüft im Bildschirmfoto: weißer Rahmen der Testmuster genau auf den ersten und letzten
+   k Gerätepixeln jedes Bildschirms (DS k = 4, GBA k = 5), Füllfarbe innen, Schwarz außen,
+   die Markenpixel des DS als Zellen von genau 4 x 4 Gerätepixeln, die acht Farbbalken des
+   GBA; mit selftest.nds die Hintergrundfarben beider
+   Bildschirme (oben 0x2884, unten 0x0920), mit selftest.gba das Bild auf seinem Rechteck.
+   Die Systemspalte rechts bzw. oben bleibt frei.
+
+2. DS-Touch Ende zu Ende (UI-Test DSTouchUITests.testEveryTapHitsItsDSPixel)
+   32 Taps mit selftest.nds: 19 Pixelmitten (darunter die vier Ecken), je der erste und
+   der letzte ganze Gerätepixel der Zellen (10, 20), (100, 101), (200, 150), (0, 0),
+   (255, 191) und der erste Gerätepixel der Zelle danach.
+   Ergebnis: 32 von 32 im Overlay (pointer=x,y aus InputState.lastPointerPress, presses
+   zählt jeden Tap genau einmal), 32 von 32 im Bild (roter Kreuzungspunkt des Fadenkreuzes
+   genau auf der Zelle von 4 x 4 Gerätepixeln, die Nachbarn auf dem Fadenkreuz weiß, die
+   diagonale Nachbarzelle nicht), Tastendrücke während der Taps 0.
+   testButtonsNeverReactOnTheTouchScreen: vom Touchscreen auf eine Taste gezogen zählt
+   nur der Stift, von der Taste auf den Touchscreen gezogen nur die Taste.
+
+3. Ton mit der Rate des DS (32 728,5 Hz)
+   AVAudioFormat behält die Bruchrate (sampleRate und mSampleRate genau 32728,5).
+   Kurzer Lauf zugeklappt, selftest.nds, Messzeilen der App alle 10 s, Quellknoten mit der
+   Bruchrate (Stand vor der Korrektur), drei Läufe zu 130 s:
+     Lauf 1: bis 85 s 0 Aussetzer; ab 85 bis 95 s Aussetzer, danach 20 je Sekunde
+             (610 nach 125 s), Füllstand 0 bis 17 ms, trim 0 (isConsuming falsch)
+     Lauf 2: ab 82 bis 92 s, dazu 98 632 verworfene Frames (Knoten zog eine Zeit lang nicht)
+     Lauf 3: ab 81 bis 91 s, 744 Aussetzer und 25 396 verworfene Frames nach 130 s
+   Emulation dabei unverändert 59,6 bis 60,0 Bilder/s, 0 Neusynchronisationen.
+   Gegenprobe selftest.gba (32 768 Hz) 130 s: 0 Aussetzer.
+   Gegenprobe selftest.nds mit gerundeter Rate 32 729 Hz für den Quellknoten:
+     130 s: 0 Aussetzer nach 85 s (13 Aussetzer und 14 Neusynchronisationen bei 35 s, alle
+            in einem Zeitfenster, als der Mac stockte)
+     250 s: 24 Messzeilen, 59,842 Bilder/s im Mittel (59,57 bis 60,01), 0 Neusynchroni-
+            sationen, 0 Aussetzer, 0 verworfene Frames
+   Mit der Korrektur in AudioOutput (ohne Versuchsschalter), 135 s:
+            59,835 Bilder/s im Mittel (59,76 bis 59,95), trim -0,025 bis +0,033 %,
+            0 Neusynchronisationen, 0 Aussetzer, 0 verworfene Frames, einmal aufgefüllt,
+            Füllstand 37 bis 51 ms, retro_run im Mittel 3,7 ms, längster 7,6 ms;
+            Anzeige 50 Hz, 5948 gezeigt, 1853 übersprungen (Display-Link im Simulator)
+   Beobachtung: 2^22 Frames bei 48 kHz sind 87,4 s. Ob der Wandler von AVAudioSourceNode
+   die Bruchrate mit begrenzter Genauigkeit führt, ist eine Vermutung; belegt ist nur das
+   Verhalten. Entscheidung: AudioOutput gibt dem Quellknoten die auf ganze Hertz gerundete
+   Kernrate (AudioOutput.nodeSampleRate, 32 728,5 -> 32 729 Hz, 15 ppm); die Emulation
+   folgt der Tonuhr ohnehin (ADR 0005, Abschnitt 3).
+
+4. Handprüfung vorbereitet (Scripts/pose-check.sh, ShellCheck ohne Befund)
+   Probelauf POSE_CHECK_NO_HUB=1 Scripts/pose-check.sh ds: eigenes Gerät „Arcfold Posen“
+   angelegt, App installiert, selftest.nds gestartet, sieben Schritte mit Bildschirmfotos
+   beider Displays und Display-Zustand, summary.txt geschrieben, Gerät gelöscht. Im Log:
+   Layout, „Hinge none -> closed“, Szene, Bildschirm (466 x 678 pt, 60 Hz), Display-Link,
+   Drawable 1398 x 2034 px, Messzeilen 59,78 bis 59,85 Bilder/s, 0 Neusynchronisationen,
+   0 Aussetzer. Die Posen selbst wechselt nur Device Hub (ADR 0006, Abschnitt 15).
+
+5. Offen (braucht Device Hub oder das Duo)
+   Echte Posenwechsel: Pose und Layout je Schritt, Wandern der Szene, Display-Link auf dem
+   anderen Display, .inactive beim Wechsel, Pause mit Menü außen beim Zuklappen und
+   Fortsetzen beim Aufklappen. Belegt sind die Regeln mit eingespeisten Scharnierfolgen
+   (PauseTests) und die Layouts aller Posen mit FoldLayoutTests und -ArcfoldFoldOverride.

@@ -19,7 +19,7 @@ build/
 # Built cores, reproducible with Scripts/build-core.sh
 Cores/Build/
 
-# Claude Code worktrees
+# Local worktrees (git worktree)
 .claude/worktrees/
 
 # Games, BIOS files, firmware and keys never go into the repo (hard rule, see CLAUDE.md)
@@ -28,6 +28,8 @@ Cores/Build/
 *.gbc
 *.nds
 *.dsi
+*.ids
+*.srl
 *.nes
 *.sfc
 *.smc
@@ -51,6 +53,7 @@ keys.txt
 *firmware*.bin
 *nand*.bin
 *sd_card*.bin
+*.img
 *.rom
 # Archives may contain games
 *.zip

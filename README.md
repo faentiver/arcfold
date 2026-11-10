@@ -2,7 +2,7 @@
 
 A multi-system emulator front end for iPhone, written in SwiftUI and designed around the fold of the iPhone Duo.
 
-> **Status:** early development. Milestone M1 is done: Game Boy Advance homebrew runs in the Simulator, with picture, sound, touch and controller input and battery saves. In progress: milestone M2, the Nintendo DS on the fold, and a Liquid Glass interface. Not yet tested on a device.
+> **Status:** early development. Milestone M1 is done in the Simulator, and M2 is done and checked there: Game Boy Advance and Nintendo DS homebrew run with picture, sound, touch and controller input and battery saves. The DS shows both screens at the fold with pixel-exact touch, and both systems have a layout for every posture of the iPhone Duo. Real posture changes have been checked in the Simulator as well; M2 is accepted. In progress: a Liquid Glass interface. Not yet tested on a device.
 
 ## Idea
 
@@ -67,6 +67,8 @@ Arcfold is a personal project in early development. Bug reports are welcome as i
 ## License
 
 Arcfold is licensed under the GNU General Public License, version 3 or (at your option) any later version (GPL-3.0-or-later), see [LICENSE](LICENSE). The emulation cores keep their own licenses, all of them compatible with GPL-3.0.
+
+The recipes in `Scripts/cores/` build the cores from their upstream sources. For melonDS DS and melonDS the recipe also changes the source (7 November 2026): melonDS DS builds without libpcap and without the download of DSi title metadata (`DownloadTmd`, `CacheTmd`), and the DSi's key material is removed from melonDS. The Licenses screen in the app names these changes.
 
 A few files in this repository come from other projects and keep their licenses:
 

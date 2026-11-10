@@ -16,7 +16,15 @@ Jeder Eintrag nennt Datei, Herkunft (URL und Commit oder Version), Autor, Lizenz
 
 ## DS
 
-Noch keine.
+### `ds/selftest.nds`
+
+- **Herkunft:** eigenes Testprogramm in diesem Repo, erzeugt mit `python3 -I Tests/Fixtures/ds/selftest/make_nds_selftest.py Tests/Fixtures/ds/selftest.nds` (Python 3, ohne SDK, ohne BIOS, ohne Firmware). Zwei Läufe ergaben dieselbe Prüfsumme, dieselbe wie in der Erkundung zu M2. Erstellt am 7. November 2026 für ADR 0006.
+- **Autor:** Fatih (faentiver).
+- **Lizenz:** GPL-3.0-or-later (SPDX-Angabe im Generator), wie alle eigenen Testprogramme (Plan, Abschnitt 12).
+- **Inhalt:** ARM9 zeichnet beide Bildschirme als 256 × 256-Bitmaps mit Direktfarbe: oben Blockzeilen für Bildzähler beider CPUs, 14 Tasten, Touch-Position und Rohwerte, Touch-, Boot- und Statuszähler, Herzschlag, dazu ein wandernder Balken; unten nach dem ersten Touch ein Fadenkreuz, dessen Kreuzungspunkt rot genau auf dem berührten Pixel liegt. ARM7 liest Tasten und Touch-Controller, spielt ein Rechteck auf PSG-Kanal 8 mit 439,95 Hz, bei gedrückter Taste A 880,09 Hz, und schreibt den Spielstand über AUXSPI: Bytes 0–3 „ARCF“, Byte 4 Boot-Zähler, Byte 5 Herzschlag alle 64 Bilder. Lage und Farben stehen im Docstring des Generators.
+- **Kopf:** Spielcode „ZARC“ (nicht in der ROM-Liste von melonDS) und ARM9 bei 0x4000, damit melonDS die Datei als Spielkarte mit 8-KiB-EEPROM behandelt; als Homebrew bekäme sie keinen Spielstand. Der Logo-Bereich ist leer. Nur weil melonDS DS die Felder bei Spielkarten prüft, stehen die Logo-Prüfsumme 0xCF56 und die Marker 0xE7FFDEFF eines entschlüsselten Secure Area im Kopf bzw. am Anfang des ARM9-Teils, beides reine Konstanten (ADR 0006).
+- **Startet** in melonDS DS 1.4.0 ohne BIOS- und Firmware-Dateien mit dem eingebauten Ersatz von melonDS (Beleg: Erkundung zu M2, ADR 0006, Abschnitt „Testprogramm“).
+- **SHA-256:** `9a21ca579b0f37e10f4d4fb6d469880055c3f8230c3ec50e6494729774e9a714` (19 456 Bytes)
 
 ## PSP
 

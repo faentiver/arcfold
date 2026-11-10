@@ -23,6 +23,11 @@ final class SessionFolder {
         url.appending(path: "battery.sav")
     }
 
+    /// The answer to `RETRO_ENVIRONMENT_GET_SYSTEM_DIRECTORY`; `load()` creates it.
+    var systemDirectory: URL {
+        url.appending(path: "System", directoryHint: .isDirectory)
+    }
+
     /// The session for `selftest.gba` from the test bundle with mGBA from the app bundle.
     func configuration(
         pacing: Pacing = .unthrottled, coreName: String = "mgba_libretro", game: URL? = nil
@@ -31,7 +36,7 @@ final class SessionFolder {
             coreName: coreName,
             game: try game ?? Fixture.gbaSelftest.url(),
             batterySave: batterySave,
-            systemDirectory: url.appending(path: "System", directoryHint: .isDirectory),
+            systemDirectory: systemDirectory,
             saveDirectory: url,
             // As in the app (ADR 0005): never pick up a BIOS file.
             coreOptions: ["mgba_use_bios": "OFF"],
@@ -128,7 +133,8 @@ final class SoundRecorder: AudioSink {
 
 /// An audio sink that plays at `sampleRate` on the host clock once it has
 /// buffered `targetFrames`, like an output after priming. It refills after it
-/// ran dry.
+/// ran dry, and after `suspend()`, which the app's output does before every
+/// pause (ADR 0005, section 9).
 final class ClockedSoundSink: AudioSink {
     private struct State {
         var level = 0.0
@@ -152,6 +158,15 @@ final class ClockedSoundSink: AudioSink {
     }
 
     var underruns: Int { state.withLock { $0.underruns } }
+
+    /// Stops playing and drops what is buffered without counting an underrun,
+    /// like `AudioOutput.suspend()`; the next writes prime the sink again.
+    func suspend() {
+        state.withLock { state in
+            state.isPlaying = false
+            state.level = 0
+        }
+    }
 
     func write(_ samples: Span<Int16>) -> AudioBufferStatus {
         let now = mach_absolute_time()

@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
 # mGBA (Game Boy Advance), MPL-2.0. Uses the upstream libretro target.
 # Game Boy support stays off because SameBoy covers GB and GBC (plan, M5).
 

@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# SPDX-License-Identifier: GPL-3.0-or-later
 #
 # Prepares the checkout for building and can run any number of times: it
 # fetches the submodules of the cores the app embeds, builds every core that
@@ -12,10 +13,13 @@
 #
 # The embedded cores are the Cores/Build/<CORE_NAME>.xcframework dependencies
 # in project.yml. Each one comes from the recipe in Scripts/cores/ that sets
-# that CORE_NAME. A core is outdated when its submodule commit, its recipe or
-# Scripts/build-core.sh changed since it was built, that is when the stamp
-# next to the xcframework no longer matches
-# `Scripts/build-core.sh <recipe> --fingerprint`. Build logs go to build/logs/.
+# that CORE_NAME. Its submodules are CORE_SOURCE and the recipe's
+# CORE_DEPENDENCIES (`Scripts/build-core.sh <recipe> --submodules`); they are
+# fetched shallow, at the commits this repository records. A core is
+# outdated when one of these commits, its recipe or Scripts/build-core.sh
+# changed since it was built, that is when the stamp next to the xcframework
+# no longer matches `Scripts/build-core.sh <recipe> --fingerprint`. Build logs
+# go to build/logs/.
 
 set -euo pipefail
 
@@ -25,7 +29,7 @@ readonly CORES_DIR="$REPO_ROOT/Cores/Build"
 readonly LOG_DIR="$REPO_ROOT/build/logs"
 
 usage() {
-  sed -n '3,18p' "$0" | sed 's/^# \{0,1\}//'
+  sed -n '4,22p' "$0" | sed 's/^# \{0,1\}//'
   exit 64
 }
 
@@ -68,32 +72,44 @@ recipe_for() {
   return 1
 }
 
-# Checks out the commit the repository records for the submodule at $1.
-# Does nothing when it is checked out already, as in CI after a shallow fetch.
-sync_submodule() {
-  local status
-  status="$(git -C "$REPO_ROOT" submodule status -- "$1")"
-  case "$status" in
-    " "*) ;;
-    "-"* | "+"*)
-      echo "    $1: checking out the recorded commit"
-      git -C "$REPO_ROOT" submodule update --init --recursive -- "$1"
-      ;;
-    "")
-      echo "error: $1 is not a submodule" >&2
-      exit 65
-      ;;
-    *)
-      echo "error: $1 has merge conflicts" >&2
-      exit 65
-      ;;
-  esac
+# Checks out the commits the repository records for the submodules given as
+# arguments, shallow and without their own submodules: a recipe names every
+# submodule its core needs. Does nothing for a submodule that is checked out
+# already, as in CI after a shallow fetch.
+sync_submodules() {
+  local path status stale=()
+  for path in "$@"; do
+    status="$(git -C "$REPO_ROOT" submodule status -- "$path")"
+    case "$status" in
+      " "*) ;;
+      "-"* | "+"*) stale+=("$path") ;;
+      "")
+        echo "error: $path is not a submodule" >&2
+        exit 65
+        ;;
+      *)
+        echo "error: $path has merge conflicts" >&2
+        exit 65
+        ;;
+    esac
+  done
+  if [[ ${#stale[@]} -gt 0 ]]; then
+    echo "    checking out the recorded commits of ${stale[*]}"
+    git -C "$REPO_ROOT" submodule update --init --depth 1 -- "${stale[@]}"
+  fi
 }
 
-# Prints missing, outdated or current.
+# Prints missing, outdated or current. The submodules follow the name.
 core_state() {
-  local recipe="$1" name="$2" source_dir="$3"
-  if [[ ! -e "$REPO_ROOT/$source_dir/.git" || ! -d "$CORES_DIR/$name.xcframework" ]]; then
+  local recipe="$1" name="$2" path
+  shift 2
+  for path in "$@"; do
+    if [[ ! -e "$REPO_ROOT/$path/.git" ]]; then
+      echo missing
+      return
+    fi
+  done
+  if [[ ! -d "$CORES_DIR/$name.xcframework" ]]; then
     echo missing
   elif [[ -f "$CORES_DIR/$name.stamp" &&
     "$("$REPO_ROOT/Scripts/build-core.sh" "$recipe" --fingerprint)" == "$(cat "$CORES_DIR/$name.stamp")" ]]; then
@@ -132,10 +148,17 @@ for name in ${cores[@]+"${cores[@]}"}; do
     exit 65
   }
   recipe="$(basename "$recipe_file" .sh)"
-  source_dir="$(recipe_value "$recipe_file" CORE_SOURCE)"
+  submodules=()
+  while IFS= read -r path; do
+    submodules+=("$path")
+  done < <("$REPO_ROOT/Scripts/build-core.sh" "$recipe" --submodules)
+  [[ ${#submodules[@]} -gt 0 ]] || {
+    echo "error: Scripts/build-core.sh $recipe --submodules named no submodule" >&2
+    exit 65
+  }
 
   if [[ "$check_only" == 1 ]]; then
-    state="$(core_state "$recipe" "$name" "$source_dir")"
+    state="$(core_state "$recipe" "$name" "${submodules[@]}")"
     if [[ "$state" != current ]]; then
       echo "error: Cores/Build/$name.xcframework is $state, run Scripts/bootstrap.sh" >&2
       failed=1
@@ -143,8 +166,8 @@ for name in ${cores[@]+"${cores[@]}"}; do
     continue
   fi
 
-  sync_submodule "$source_dir"
-  state="$(core_state "$recipe" "$name" "$source_dir")"
+  sync_submodules "${submodules[@]}"
+  state="$(core_state "$recipe" "$name" "${submodules[@]}")"
   if [[ "$state" == current ]]; then
     echo "    $name: up to date"
   else

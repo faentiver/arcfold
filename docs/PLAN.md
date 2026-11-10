@@ -1,10 +1,10 @@
 # Projektplan: Multi-System-Emulator fürs iPhone Duo
 
-Stand: 7. November 2026 · Owner: Fatih (GitHub: `faentiver`) · Arbeitsgrundlage für Claude Code
+Stand: 7. November 2026 · Owner: Fatih (GitHub: `faentiver`) · Arbeitsgrundlage
 
 ---
 
-## 0. Arbeitsregeln für Claude Code
+## 0. Arbeitsregeln
 
 - Lies diesen Plan vollständig, bevor du Code schreibst. Die harten Regeln in Abschnitt 8 gelten immer.
 - Arbeite Meilenstein für Meilenstein. Der nächste beginnt erst, wenn Fatih die Abnahme des vorigen bestätigt hat.
@@ -27,7 +27,7 @@ Eine offene SwiftUI-App, die mehrere Konsolen emuliert und jedes System für den
 | Apple-Account | Vorerst kostenlose Apple-ID. Das Developer Program kommt später für TestFlight und Store |
 | Ziel | Lernen und Portfolio, später App Store mit einem Store-Build ohne PS2 |
 | Reihenfolge | GBA, DS, PSP, danach PS2 als JIT-Build, dann GB/GBC, NES, SNES, PS1 |
-| Bauen und Testen | Claude Code auf dem Mac mini, zuerst im Duo-Simulator von Xcode 27.1 oder neuer. Installiert ist Xcode 27.2 mit iOS-SDK 27.2 |
+| Bauen und Testen | Auf dem Mac mini, zuerst im Duo-Simulator von Xcode 27.1 oder neuer. Installiert ist Xcode 27.2 mit iOS-SDK 27.2 |
 | Tests auf dem Duo | Mit kostenloser Apple-ID, sobald das Duo eingerichtet ist, weil der Simulator nichts über Bildrate, Wärme und JIT aussagt. Anleitung in `docs/wissen/geraetetest.md` (entschieden am 7. November 2026) |
 | Controller | Vorhanden |
 
@@ -79,7 +79,7 @@ Laufzeit (lokale Swift-Pakete)
   Eingabe         Touch-Overlay, GameController, Haptik
 
 Kerne (C/C++, je ein Framework, angesprochen über die Libretro-API)
-  mGBA, melonDS, PPSSPP, Play!, SameBoy, Mesen 2, bsnes, PCSX ReARMed
+  mGBA, melonDS DS (auf melonDS), PPSSPP, Play!, SameBoy, Mesen 2, bsnes, PCSX ReARMed
 ```
 
 Ablauf: Die Spielansicht startet und pausiert LibretroKit. LibretroKit ruft den Kern über die Libretro-API auf und reicht Bild und Ton an den Renderer. FoldLayout liefert der Spielansicht die Rechtecke für die aktuelle Pose.
@@ -91,10 +91,10 @@ Technische Leitplanken:
 3. **Callbacks ohne Kontext.** Die Libretro-Callbacks haben keinen User-Data-Zeiger. Es gibt daher genau einen aktiven Kern, und statische Trampolin-Funktionen leiten an die aktive Host-Instanz weiter.
 4. **Eigener Emulations-Thread.** Der Kern läuft nie auf dem Main Thread. Der Takt kommt aus `retro_get_system_av_info` und ist unabhängig von den 120 Hz des Displays.
 5. **Bild.** Software-Kerne liefern einen Pixelpuffer (RGB565 oder XRGB8888), den der Renderer als Metal-Textur in ganzen Vielfachen skaliert. GPU-Kerne (PSP, PS2) brauchen einen HW-Render-Kontext über `RETRO_ENVIRONMENT_SET_HW_RENDER`. PSP: Vulkan über MoltenVK, das Bild kommt als `MTLTexture` in den Renderer, der Software-Renderer bleibt als Ausweg (ADR 0001). Für PSP bekommt LibretroKit keinen OpenGL-ES-Code (ADR 0001). PS2: Play!s libretro-Kern kann nur OpenGL ES 3. Wo der OpenGL-ES-3-Kontext für Play! entsteht (LibretroKit, `App/JIT` oder ein eigenes Paket), wird vor der PS2-Spur entschieden (ADR 0002).
-6. **Ton.** Samples landen in einem lock-freien Ringpuffer, den ein `AVAudioSourceNode` mit einem Echtzeit-Render-Block in C abspielt. Taktunterschiede gleicht kein Resampling aus: Die Emulation folgt der Tonuhr, indem der Füllstand des Puffers die Bildperiode um höchstens ±0,5 % trimmt (ADR 0005, vorgeschlagen).
-7. **Eingabe.** Touch-Overlay und GameController-Framework schreiben in einen gemeinsamen Eingabezustand, den der Kern über `input_state` abfragt.
+6. **Ton.** Samples landen in einem lock-freien Ringpuffer, den ein `AVAudioSourceNode` mit einem Echtzeit-Render-Block in C abspielt. Taktunterschiede gleicht kein Resampling aus: Die Emulation folgt der Tonuhr, indem der Füllstand des Puffers die Bildperiode um höchstens ±0,5 % trimmt (ADR 0005). Der Quellknoten wandelt aus der auf ganze Hertz gerundeten Kernrate, weil die Wandlung aus der Bruchrate des DS im Simulator nach 80 bis 90 s einbrach (ADR 0006, Abschnitt 5).
+7. **Eingabe.** Touch-Overlay und GameController-Framework schreiben in einen gemeinsamen Eingabezustand, den der Kern über `input_state` abfragt. Der Touchscreen des DS kommt als libretro-Zeiger dazu (ADR 0006).
 8. **Spielstände.** Batteriespeicher über `retro_get_memory_data(RETRO_MEMORY_SAVE_RAM)`, Save States über `retro_serialize`, jeweils mit Vorschaubild.
-9. **FoldLayout.** Liest `onHingeChange` und `reservedRegions(kind: .division)` und berechnet pro System die Rechtecke. Wechsel sind animiert, die Emulation läuft weiter.
+9. **FoldLayout.** Liest `onHingeChange` und `reservedRegions(kind: .division)` und berechnet pro System die Rechtecke, ganzzahlig in Pixeln. Bei einem Wechsel springen die Bilder auf ihre neue Lage, die Tasten wechseln animiert, die Emulation läuft weiter. Was Berührungen nimmt (Tasten, Touchscreen, Pausentaste), bleibt aus dem Schutzrand der obersten 64 pt (ADR 0006).
 10. **Plattform.** Deployment-Target iOS 27.0, Duo-APIs hinter `if #available(iOS 27.1, *)`. Swift 6 mit Strict Concurrency.
 
 ## 6. Systeme und Kerne
@@ -102,7 +102,7 @@ Technische Leitplanken:
 | Meilenstein | System | Kern | Lizenz | BIOS | Bildausgabe | Risiko |
 | --- | --- | --- | --- | --- | --- | --- |
 | M1 | GBA | [mGBA](https://github.com/mgba-emu/mgba) | MPL-2.0 | nicht nötig, eingebauter Ersatz | Software | niedrig |
-| M2 | DS | [melonDS](https://github.com/melonDS-emu/melonDS) | GPL-3.0 | nicht nötig, freier Ersatz; DSi braucht echtes BIOS | Software | mittel |
+| M2 | DS | [melonDS DS](https://github.com/JesseTG/melonds-ds) auf [melonDS](https://github.com/melonDS-emu/melonDS) (ADR 0006) | GPL-3.0-or-later | nicht nötig, freier Ersatz (FreeBIOS) und erzeugte Firmware; DSi braucht echtes BIOS | Software | mittel |
 | M3 | PSP | [PPSSPP](https://github.com/hrydgard/ppsspp) | GPL-2.0 oder später; der gebaute Kern steht wegen gebündelter Teile effektiv unter GPL-3.0 (ADR 0001) | nicht nötig | GPU über Vulkan mit MoltenVK, Ausweg Software-Renderer (ADR 0001) | mittel, Spike bestanden |
 | nach M3, JIT-Build | PS2 | [Play!](https://github.com/jpd002/Play-), Alternative [ARMSX2](https://github.com/ARMSX2/ARMSX2) | Play!: BSD, ARMSX2: GPL-3.0 | Play!: nicht nötig, eingebauter Ersatz; ARMSX2: eigener Dump | GPU über OpenGL ES 3 (ADR 0002) | sehr hoch, nur mit JIT |
 | M5 | GB, GBC | [SameBoy](https://github.com/LIJI32/SameBoy) | MIT | nicht nötig, eigene Boot-ROMs | Software | niedrig |
@@ -119,12 +119,14 @@ Ausgeschlossen: snes9x (nur nicht-kommerziell), Genesis Plus GX (keine kommerzie
 | System | Zugeklappt | Flach aufgeklappt | Tabletop |
 | --- | --- | --- | --- |
 | PSP | Bild groß, Tasten am Rand | Bild über die ganze Breite, 5-fach (2400 × 1360 px), Tasten seitlich | Bild oben, alle Tasten unten. Gibt es so bisher in keiner App |
-| DS | Beide Bildschirme klein, Tasten über dem Bild | Oben und unten am Falz getrennt, Tasten seitlich | Oberer Bildschirm 6-fach in der oberen Hälfte (1536 × 1152 von 1878 × 1335 px), Touch und Tasten unten |
+| DS | Beide Bildschirme 4-fach übereinander, L und R über den unteren Ecken des oberen, übrige Tasten darunter | Hochkant oben und unten am Falz getrennt, Tasten seitlich; quer und im Buch links und rechts vom Falz, Tasten darunter (ADR 0006) | Oberer Bildschirm 6-fach in der oberen Hälfte (1536 × 1152 von 1878 × 1335 px), Touch und Tasten unten |
 | GBA und weitere | Wie PSP, im Seitenverhältnis des Systems | Wie PSP | Bild oben, Tasten unten |
 
 - Zuklappen während des Spiels pausiert wie beim DS. Fortsetzen geht dann auf dem Außendisplay.
 - Halb geklappt wie ein Buch wird in Version 1 wie flach behandelt.
-- Skaliert wird in ganzen Vielfachen, damit Pixel scharf bleiben. Die Pixelzahlen oben sind eigene Rechnungen aus der Panel-Auflösung.
+- Skaliert wird in ganzen Vielfachen, damit Pixel scharf bleiben. Die Pixelzahlen oben sind eigene Rechnungen aus der Panel-Auflösung. Mit den 2007 × 2853 px, die der Duo-Simulator für das Innendisplay meldet, wird der obere DS-Bildschirm im Tabletop 7-fach, solange das Falzband höchstens 55 pt hoch ist; die Layouts rechnen immer mit dem Rahmen der Ansicht (ADR 0006).
+- Zugeklappt verlegt die GBA-Ansicht die vertikale Systemleiste nach oben und wird 5-fach statt 4-fach; der DS behält sie und bleibt 4-fach, ohne sie wären es 3-fach (ADR 0006).
+- In den obersten 64 pt liegt nichts, was Berührungen nimmt: Die Oberkante gehört den Randgesten des Systems, und Daumen erreichen sie schlecht. Bilder ohne Touch dürfen hinein (ADR 0006, „Nachbesserungen nach der Prüfung“).
 
 ## 8. Harte Regeln
 
@@ -146,8 +148,8 @@ Ausgeschlossen: snes9x (nur nicht-kommerziell), Genesis Plus GX (keine kommerzie
 │   ├── LibretroKit/     Emulations-Thread, Libretro-Brücke, Spielstände
 │   ├── FoldLayout/      Posen, Falz-Rechteck, Layouts je System
 │   └── Renderer/        Metal für das Bild, Audio-Ausgabe
-├── Cores/               Kerne als Git-Submodule, auf Tags oder Commits fixiert; Build/ mit den xcframeworks (ignoriert)
-├── Scripts/             bootstrap.sh, build-core.sh, cores/ mit einem Rezept je Kern
+├── Cores/               Kerne als Git-Submodule, auf Tags oder Commits fixiert, melonds-ds-deps/ mit den Abhängigkeiten von melonDS DS; Build/ mit den xcframeworks (ignoriert)
+├── Scripts/             bootstrap.sh, build-core.sh, cores/ mit einem Rezept je Kern, pose-check.sh
 ├── Spikes/              Spike-Code aus M0 als Referenz, nicht Teil der App
 ├── Tests/               ArcfoldTests (Unit-Tests mit der App als Host), ArcfoldUITests, Fixtures/ (Homebrew-ROMs, Lizenzen)
 ├── docs/
@@ -164,8 +166,8 @@ Ausgeschlossen: snes9x (nur nicht-kommerziell), Genesis Plus GX (keine kommerzie
 - Das Xcode-Projekt entsteht per XcodeGen aus `project.yml` (ADR 0004), damit es textbasiert und im Review lesbar bleibt. `Scripts/bootstrap.sh` baut vorher die eingebetteten Kerne.
 - Gearbeitet wird in Branches `m<Nummer>/<thema>` mit Pull Requests, die Fatih am iPhone prüfen kann.
 - Commit-Messages im Stil von Conventional Commits.
-- Tests: Emulation ist deterministisch. Unit-Tests prüfen deshalb die Bild-Prüfsumme nach einer festen Zahl Frames. Für GBA dient das eigene Testprogramm `Tests/Fixtures/gba/selftest.gba` (Bild, Ton, Eingabe, Batteriespeicher); die Kern-Tests laufen kopflos ohne Echtzeittakt, UI-Tests in `ArcfoldUITests` (ADR 0005). Bei PSP geht das nur auf dem Vulkan- oder Software-Weg, OpenGL ES ist im Simulator nicht bitgenau (ADR 0001). Auch PS2 ist im Simulator nur mit Toleranz vergleichbar, weil Play! nur über OpenGL ES rendert (ADR 0002).
-- CI: GitHub Actions baut für den Simulator und führt die Tests aus. Das Vorschau-Image `xcode-27` hat inzwischen Xcode 27.1 und den Duo-Simulator mit iOS 27.1 (Image vom 26. Oktober 2026), darauf läuft der Workflow. Fehlt Xcode 27.1 auf dem Runner, meldet der Job das und überspringt den Rest; dann baut der Mac mini lokal. Solange das Repo privat ist, zählt jede macOS-Minute zehnfach. Geplant war die CI deshalb nur bei Pull Requests und auf manuellen Start. Seit 7. November 2026 läuft sie vorerst nur auf manuellen Start (`workflow_dispatch`, `docs/wissen/bauen-und-ci.md`); geprüft wird lokal auf dem Mac mini.
+- Tests: Emulation ist deterministisch. Unit-Tests prüfen deshalb die Bild-Prüfsumme nach einer festen Zahl Frames. Für GBA dient das eigene Testprogramm `Tests/Fixtures/gba/selftest.gba` (Bild, Ton, Eingabe, Batteriespeicher), für DS `Tests/Fixtures/ds/selftest.nds` (beide Bildschirme, Touch mit Fadenkreuz, Ton, Eingabe, Batteriespeicher, ADR 0006); die Kern-Tests laufen kopflos ohne Echtzeittakt, UI-Tests in `ArcfoldUITests` (ADR 0005). UI-Tests hängen von keiner Pose ab. Im Debug-Build speist `DebugRemote` Falz und Scharnier per Darwin-Benachrichtigung in ein laufendes Spiel ein; damit prüfen die UI-Tests Layout-Logik, Emulation, Ton, Touch und Pause in jeder Pose, auf der Geometrie des Außendisplays. Echte Posenwechsel, also den Wechsel des Displays und die Layouts des Innendisplays, prüft `Scripts/pose-check.sh`, mit Posen per Software über ein privates Werkzeug außerhalb des Repos (`POSE_CHECK_POSTURE_TOOL`) oder von Hand mit Device Hub (ADR 0006). Bei PSP geht das nur auf dem Vulkan- oder Software-Weg, OpenGL ES ist im Simulator nicht bitgenau (ADR 0001). Auch PS2 ist im Simulator nur mit Toleranz vergleichbar, weil Play! nur über OpenGL ES rendert (ADR 0002).
+- CI: GitHub Actions baut für den Simulator und führt die Tests aus. Das Vorschau-Image `xcode-27` hat inzwischen Xcode 27.1 und den Duo-Simulator mit iOS 27.1 (Image vom 26. Oktober 2026), darauf läuft der Workflow. Fehlt Xcode 27.1 auf dem Runner, meldet der Job das und überspringt den Rest; dann baut der Mac mini lokal. Geplant war die CI bei Pull Requests und auf manuellen Start; seit das Repo öffentlich ist, sind die Minuten frei. Die CI läuft vorerst nur auf manuellen Start (`workflow_dispatch`, `docs/wissen/bauen-und-ci.md`); geprüft wird lokal auf dem Mac mini.
 - Debug-Overlay mit Bildrate, Audio-Aussetzern und `ProcessInfo.thermalState`, damit Abnahmen auf Messwerten stehen.
 
 ## 10. Meilensteine
@@ -197,9 +199,11 @@ Abgenommen am 7. November 2026 im Duo-Simulator (ADR 0005, Abschnitt „Umsetzun
 
 ### M2 · DS am Falz
 
-melonDS-Kern. Der Kern liefert beide Bildschirme in einem Puffer, der Renderer teilt ihn in zwei Texturen. Touch-Abbildung auf den unteren Bildschirm, FoldLayout mit `onHingeChange` und `reservedRegions`, Layouts für alle Posen, Pause beim Zuklappen.
+melonDS-DS-Kern. Der Kern liefert beide Bildschirme in einem Puffer, der Renderer zeigt sie aus einer Textur mit je einem Viewport. Touch-Abbildung auf den unteren Bildschirm über den libretro-Zeiger, FoldLayout mit `onHingeChange` und `reservedRegions`, Layouts für alle Posen, auch für den GBA, damit es nur einen Layout-Mechanismus gibt, Pause beim Zuklappen und Fortsetzen auf dem Außendisplay. Entwurf und Schnittstellen: ADR 0006 (angenommen).
 
 **Abnahme:** Touch pixelgenau, Posenwechsel ohne Ruckler und ohne Emulationsstopp, alle Posen im Duo-Simulator geprüft.
+
+Im Duo-Simulator geprüft am 7. November 2026, auch mit echten Posen, abgenommen am 10. November 2026 anhand des Pull Requests (ADR 0006, Abschnitte „Umsetzung in M2“, „Nachbesserungen nach der Prüfung“ und „Posenprüfung per Software“), auf dem Branch `m2/ds-falz` mit den Spuren K (Kern und LibretroKit) und L (FoldLayout, Renderer, App). Die echten Posen wechselt ein privates Werkzeug außerhalb des Repos per Software, das `Scripts/pose-check.sh` über `POSE_CHECK_POSTURE_TOOL` einbindet; `Scripts/pose-check.sh ds` und `gba` belegen damit die Layouts des Innendisplays, den Wechsel des Displays, Posenwechsel ohne Lücke und Emulationsstopp und die Pause beim Zuklappen. UI-Tests prüfen Layout, Emulation, Touch und Pause zusätzlich mit eingespeistem Falz und Scharnier (`DebugRemote`, nur im Debug-Build). M3 darf beginnen. Der Gerätetest steht aus (Abschnitt 12, `docs/wissen/geraetetest.md`).
 
 ### M3 · PSP
 
@@ -210,9 +214,10 @@ Aus dem Spike (ADR 0001, Abschnitt Folgen) kommen dazu:
 - PPGe-Atlas und Ersatzschriften aus freien Schriften;
 - GPU-Synchronisation über `MTLSharedEvent` und ein Test des gepufferten Renderns;
 - den Kern erst nach dem ersten emulierten Bild entladen;
+- alle Kerne mit `-ffile-prefix-map` bauen, damit sie unabhängig vom Pfad der Arbeitskopie bitgleich sind und keine lokalen Pfade enthalten (melonDS DS enthält acht, `docs/wissen/bauen-und-ci.md`);
 - die Link-Prüfung des Kerns behalten; streicht ein SDK die GL-Header, das GL-Backend per Patch entfernen;
 - der Bildschirm „Lizenzen“ aus M1, erweitert um die Komponenten aus `docs/adr/0001/kern-komponenten.md` und MoltenVK;
-- in `Scripts/build-core.sh` eine feste Liste der 25 libretro-Funktionen statt `_retro_*` (PPSSPP exportiert sonst 21 `retro_vfs_*_impl` mit) und ein Rezept-Haken für die nötigen Unter-Submodule, damit `bootstrap.sh` nicht alle 23 von PPSSPP holt (allein FFmpeg rund 800 MB). Zusammen mit dem Haken liest auch die CI die Kerne und ihre Submodule aus `project.yml` und den Rezepten, statt sie in `.github/workflows/ci.yml` zu wiederholen.
+- in `Scripts/build-core.sh` eine feste Liste der 25 libretro-Funktionen statt `_retro_*` (PPSSPP exportiert sonst 21 `retro_vfs_*_impl` mit) und ein Rezept-Haken für die nötigen Unter-Submodule, damit `bootstrap.sh` nicht alle 23 von PPSSPP holt (allein FFmpeg rund 800 MB). Zusammen mit dem Haken liest auch die CI die Kerne und ihre Submodule aus `project.yml` und den Rezepten, statt sie in `.github/workflows/ci.yml` zu wiederholen. Die feste Liste und der Haken für weitere Submodule des Repos (`CORE_DEPENDENCIES`) kamen schon mit M2 (ADR 0006); für PPSSPP fehlen noch verschachtelte Submodule im Haken und die CI-Liste aus den Rezepten.
 
 **Abnahme:** volle Geschwindigkeit in einer anspruchsvollen Homebrew-Demo, 30 Minuten ohne thermische Drosselung auf dem Duo.
 
@@ -263,6 +268,7 @@ Fork von `hrydgard/ppsspp`, Tabletop-Layout über `UIHingeInteraction`, Test auf
 | StikDebug muss während des Spielens verbunden bleiben | Umständliche Bedienung im JIT-Build | Klärt Gerätetest A (ADR 0002) |
 | GPL und App Store | Keine Store-Veröffentlichung | Erst eigene Geräte, vor einer Einreichung die Kern-Entwickler fragen |
 | Neue Duo-APIs, lückenhafte Doku | Verhalten weicht ab | Hinter `#available(iOS 27.1, *)` kapseln, früh auf dem Duo testen |
+| Posen im Simulator nur über private Schnittstellen automatisierbar | Ein Update von Xcode oder der Runtime bricht die Posenprüfung per Software | Das Werkzeug dafür bleibt privat und außerhalb des Repos und wird nach jedem Update geprüft (`docs/wissen/falz.md`); Rückfall ist Device Hub (ohne `POSE_CHECK_POSTURE_TOOL` oder mit `POSE_CHECK_HUB=1`); UI-Tests mit eingespeister Pose (`DebugRemote`) hängen nicht daran (ADR 0006) |
 | Knacken im Ton, unruhiger Takt bei 120 Hz | Spielgefühl leidet | Eigener Takt je Kern, der der Tonuhr folgt statt Resampling (ADR 0005), Messwerte im Debug-Overlay |
 | Wärme und Akku | Lange Sessions brechen ein | Messung in jedem Meilenstein, Bildraten-Begrenzer |
 | Markenrecht | Abmahnung oder Ablehnung | Neutraler Name, eigene Skins, keine Logos |
@@ -273,13 +279,17 @@ Fork von `hrydgard/ppsspp`, Tabletop-Layout über `UIHingeInteraction`, Test auf
 - [x] Projektname festlegen (englisch), danach App Store und GitHub auf Konflikte prüfen. Ergebnis: Arcfold, geprüft am 6. November 2026.
 - [x] Sichtbarkeit des Repos: öffentlich seit 7. November 2026, damit die CI kostenlos läuft (Fatih, 7. November 2026). Bis dahin war es privat (6. November 2026). Vor dem Umschalten wurde der ganze Verlauf geprüft: keine Zugangsdaten, keine Spiele, BIOS-Dateien oder Schlüssel; fehlende Lizenztexte für `psp/gu-test.elf` und die Play!-Patches liegen seitdem bei. Für die Veröffentlichung wurde das Repo neu angelegt, weil GitHub einen ersetzten Commit mit einer früheren Identität abrufbar hielt. Das erste Repo heißt jetzt `arcfold-alt`, ist privat und archiviert; seine Pull Requests #1 und #2 stehen als Issues #1 und #2 im neuen Repo.
 - [x] ADR 0001 angenommen: Vulkan über MoltenVK für PSP (Fatih, mit der M0-Abnahme am 6. November 2026).
-- [x] Store-Build: PPSSPPs ARM64-JIT-Code kommt aus dem Store-Kern heraus, per Build-Option oder Patch im Rezept; der Store-Kern nutzt nur den IR-Interpreter. Ein Test prüft das Store-Bundle auf JIT-Symbole (etwa `pthread_jit_write_protect_np`, `MAP_JIT`). Grund: Die harte Regel verbietet im Store-Build jeden JIT-Code-Pfad, auch einen nie ausgeführten, und App Review prüft Binärdateien statisch. Umsetzung in M3 (entschieden am 7. November 2026).
+- [x] Store-Build: PPSSPPs ARM64-JIT-Code kommt aus dem Store-Kern heraus, per Build-Option oder Patch im Rezept; der Store-Kern nutzt nur den IR-Interpreter. Ein Test prüft das Store-Bundle auf JIT-Symbole (etwa `pthread_jit_write_protect_np`, `MAP_JIT`). Grund: Die harte Regel verbietet im Store-Build jeden JIT-Code-Pfad, auch einen nie ausgeführten, und App Review prüft Binärdateien statisch. Umsetzung in M3 (entschieden am 7. November 2026). Schon seit M2 prüft `Scripts/build-core.sh` jeden Kern nach dem Bau auf solche Importe, auf `mmap` mit `PROT_EXEC` oder `MAP_JIT`, auf rohe Systemaufrufe (`svc`) und auf JIT-Namen in Symbolen und Zeichenketten und bricht sonst ab (ADR 0006, Abschnitt 2); der Kern von PPSSPP muss diese Prüfungen bestehen.
 - [x] Tests auf dem Duo mit kostenloser Apple-ID, sobald das Duo eingerichtet ist (7. November 2026).
-- [ ] Gerätetest auf dem Duo für M1 (ADR 0005) und PS2 mit JIT (ADR 0002), Anleitung in `docs/wissen/geraetetest.md` (Fatih, braucht das Gerät).
+- [ ] Gerätetest auf dem Duo für M1 (ADR 0005), M2 (ADR 0006) und PS2 mit JIT (ADR 0002), Anleitung in `docs/wissen/geraetetest.md` (Fatih, braucht das Gerät).
 - [x] Lizenzvariante: GPL-3.0-or-later für die App und alle eigenen Testprogramme. Grund: Die übliche Wahl lässt spätere GPL-Fassungen zu, und solange Fatih einziger Autor ist, kostet die Festlegung nichts; später bräuchte jede Änderung die Zustimmung aller Beitragenden (7. November 2026).
 - [x] ADR 0005 angenommen am 7. November 2026: Belegung nach Position, bevorzugt 120 Hz mit Rückfall auf 60 Hz nach dem Gerätetest, `.ambient` im Lautlos-Modus (ADR 0005, „Entscheidungen bei der Annahme“).
 - [x] Innendisplay und Systemspalte blockieren M2 nicht: Die Layouts rechnen mit dem Rahmen der Ansicht, nie mit festen Pixelmaßen, und zugeklappt bleibt das Bild im sicheren Bereich (Faktor 4). Der Duo-Simulator meldet das Innendisplay mit 2007 × 2853 px statt 1878 × 2670 (Abschnitt 3); die echten Maße misst der Gerätetest (7. November 2026).
 - [ ] CI wieder bei Pull Requests starten: Die CI läuft vorerst nur auf manuellen Start (`workflow_dispatch`, `docs/wissen/bauen-und-ci.md`, Fatih).
+- [x] Echte Posenwechsel im Duo-Simulator prüfen, Bedingung für die Abnahme von M2: per Software statt von Hand (privates Werkzeug außerhalb des Repos, eingebunden über `POSE_CHECK_POSTURE_TOOL`), `Scripts/pose-check.sh ds` und `gba` am 7. November 2026. Beim Wechsel wandert dieselbe Szene, der Display-Link läuft auf dem anderen Display weiter, die Layouts des Innendisplays folgen Abschnitt 8 von ADR 0006, keine Lücke, Neusynchronisation oder Pause beim Wechsel, Zuklappen pausiert, Aufklappen setzt fort (ADR 0006, „Posenprüfung per Software“).
+- [x] Touch im oberen Streifen: Die verlorenen Berührungen in den obersten 60 bis 70 pt kamen von der App, nicht vom Simulator. Das Spiel lag als Vollbild über dem `NavigationStack` der Bibliothek; seit es die Bibliothek ersetzt, kommt jede Berührung an (ADR 0006, „Nachbesserungen nach der Prüfung“, 7. November 2026). Der Schutzrand von 64 pt bleibt als Vorsicht; die Oberkante auf dem Gerät prüft der Gerätetest, Punkt 25.
+- [x] Schlüssel und Download im Kern von melonDS DS: Die Download-Routine für DSiWare-Metadaten entfernt der Patch im Rezept, das Schlüsselmaterial des DSi entfernen Ersetzungen, die keinen Wert ins Repo bringen; das Rezept prüft beides nach jedem Bau, die Werte liest es dafür aus der unveränderten Quelle, und dazu, dass die KEY1-Tabelle in der FreeBIOS des ARM7 leer ist (ADR 0006, Abschnitte 2 und 3, 7. November 2026).
+- [ ] Vor einer Store-Einreichung die Melonen-Grafiken des Fehlerbilds im Kern von melonDS DS ansehen (ADR 0006, Abschnitt 3).
 - [ ] Libretro-Schnittstelle von Mesen 2 prüfen (M5).
 - [x] Vor dem Öffentlichschalten die Quellen in Abschnitt 13 (Emulations-Ratgeber) auf ROM- und BIOS-Download-Links prüfen und notfalls durch Primärquellen ersetzen. Geprüft am 7. November 2026: Keine der Quellen verlinkt solche Downloads.
 

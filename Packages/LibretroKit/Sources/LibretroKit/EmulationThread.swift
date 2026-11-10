@@ -158,6 +158,11 @@ final class EmulationThread {
                 throw .gameRejected
             }
             do throws(SessionError) {
+                // melonDS DS shows an error screen instead of failing, and
+                // then reports no system RAM (ADR 0006).
+                if configuration.requiresSystemMemory, core.memory(CUnsignedInt(RETRO_MEMORY_SYSTEM_RAM)) == nil {
+                    throw .gameNotRunnable
+                }
                 guard context.pixelFormat.isSupported else {
                     throw .unsupportedPixelFormat(context.pixelFormat)
                 }
@@ -170,7 +175,7 @@ final class EmulationThread {
                 let battery = BatterySaveMonitor(
                     url: configuration.batterySave, capacity: memory?.count ?? 0, events: control.eventSink
                 )
-                try battery.load(into: memory)
+                try battery.load(into: memory, blankByte: configuration.blankSaveMemoryByte)
                 let info = SessionInfo(
                     system: system, geometry: geometry, timing: AVTiming(avInfo.timing),
                     pixelFormat: context.pixelFormat

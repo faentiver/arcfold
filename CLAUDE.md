@@ -3,18 +3,17 @@
 ## Status
 
 - **Ziel:** Eine offene SwiftUI-App, die mehrere Konsolen emuliert und jedes System für den Falz des iPhone Duo auslegt.
-- **Stand:** M0 (Fundament) ist abgenommen: XcodeGen-Projekt mit den Schemes Store und JIT, die Pakete LibretroKit, FoldLayout und Renderer, mGBA 0.10.5 als eingebettetes, nicht gelinktes Framework, der CI-Workflow (vorerst nur auf manuellen Start), ADR 0001 angenommen, ADR 0002 mit ausstehendem Gerätetest.
+- **Stand:** M0 (Fundament), M1 (GBA läuft) und M2 (DS am Falz) sind abgenommen und auf `main`; ADR 0005 und ADR 0006 sind angenommen. M2 wurde am 10. November 2026 anhand des Pull Requests abgenommen. Das Repo ist seit 7. November 2026 öffentlich.
 
-  M1 · GBA läuft (Plan, Abschnitt 10) ist abgenommen (7. November 2026, im Duo-Simulator) und gemergt:
-  - LibretroKit: Emulations-Thread mit Takt, der der Tonuhr folgt, Callbacks, Environment, Eingabe, Batteriespeicher, Messwerte,
-  - Renderer: Bild über Metal mit `CAMetalDisplayLink`, Ton über einen Ring in C und `AVAudioEngine`,
-  - App: Bibliothek mit Import über `.fileImporter`, Spielansicht mit Touch-Tasten, Controller und Tastatur, Debug-Overlay, Bildschirm „Lizenzen“,
-  - Builds Store und JIT ohne Warnung, Tests grün (Store 136, JIT 130),
-  - im Simulator: `selftest.gba` zehn Minuten mit 59,73 Bildern/s, ohne Aussetzer und Neusynchronisation, Spielstand übersteht `simctl terminate`,
-  - eine unabhängige Prüfung fand keine Fehler, von ihren acht kleineren Befunden sind sieben behoben (ADR 0005, „Nachbesserungen nach der Prüfung“), der achte ist entschieden (kein Mindestabstand für Sicherungen),
-  - ADR 0005 (Laufzeit für Software-Kerne) ist angenommen, mit den Entscheidungen zu Belegung, Bildrate und Lautlos-Modus; die Lizenz ist GPL-3.0-or-later.
-- **Nächster Schritt:** M2 · DS am Falz (Plan, Abschnitt 10). Offen bleibt der Gerätetest auf dem Duo für M1 und ADR 0002 (Anleitung `docs/wissen/geraetetest.md`). Die CI läuft vorerst nur auf manuellen Start (`docs/wissen/bauen-und-ci.md`).
-- **Datum:** 7. November 2026
+  M2 · DS am Falz (Plan, Abschnitt 10) ist im Duo-Simulator geprüft, auch mit echten Posen, mit den Nachbesserungen nach der Prüfung:
+  - melonDS DS 1.4.0 als eingebettetes Framework ohne JIT, ohne Schlüsselmaterial des DSi und ohne Download von Nintendos Servern (Patch und Ersetzungen im Rezept ohne einen Schlüsselwert im Repo, Prüfung nach jedem Bau mit den Werten aus der unveränderten Quelle, Beleg aus dem Store-Bundle), DNS-Option so gesetzt, dass die erzeugte Firmware keinen Server nennt, Testprogramm `selftest.nds`, Lizenzbildschirm mit 24 Einträgen, allen Urhebern, Urhebervermerk und Quellort von Arcfold und Arcfolds Änderungen an melonDS DS und melonDS mit Datum,
+  - FoldLayout mit Pose aus der Division-Region und Layouts für alle Posen, ein Mechanismus für DS und GBA, Schutzrand oben von 64 pt für alles, was Berührungen nimmt; Renderer mit einem Viewport je Bildschirm aus einer Textur,
+  - Touchscreen pixelgenau über den libretro-Zeiger, Pause beim Zuklappen, Fortsetzen auf dem Außendisplay; ein Spiel ersetzt die Bibliothek im Fenster (`RootView`), weil ein Vollbild über ihr oben Berührungen verschluckte,
+  - echte Posen im Simulator per Software (privates Werkzeug außerhalb des Repos, eingebunden über `POSE_CHECK_POSTURE_TOOL`): `Scripts/pose-check.sh` für DS und GBA ohne Lücke, Neusynchronisation oder Pause beim Wechsel, Zuklappen pausiert, Aufklappen läuft weiter, eine Szene für beide Displays; für UI-Tests zusätzlich eingespeiste Posen über `DebugRemote` (Debug-Build),
+  - Builds Store und JIT ohne Warnung im eigenen Code, Tests grün (Store 249, JIT 229),
+  - ADR 0006 angenommen, Belege in den Abschnitten „Umsetzung in M2“, „Nachbesserungen nach der Prüfung“ und „Posenprüfung per Software“.
+- **Nächster Schritt:** M3 · PSP (Plan, Abschnitt 10). Die Liquid-Glass-Oberfläche aus M4 ist vorgezogen und folgt als eigener Pull Request. Offen bleibt der Gerätetest auf dem Duo für M1, M2 und ADR 0002 (`docs/wissen/geraetetest.md`). Die CI läuft vorerst nur auf manuellen Start (`workflow_dispatch`, `docs/wissen/bauen-und-ci.md`).
+- **Datum:** 10. November 2026
 
 ## Arbeitsregeln
 
@@ -42,8 +41,9 @@
 project.yml     Xcode-Projekt für XcodeGen (ADR 0004)
 App/            SwiftUI-App: Quellen, String Catalog, Entitlements des JIT-Builds
 Packages/       LibretroKit, FoldLayout, Renderer (lokale Swift-Pakete)
-Cores/          Kerne als Git-Submodule, auf Tags oder Commits fixiert; Build/ mit den xcframeworks (ignoriert)
-Scripts/        bootstrap.sh, build-core.sh, cores/ mit einem Rezept je Kern
+Cores/          Kerne als Git-Submodule, auf Tags oder Commits fixiert, melonds-ds-deps/ mit den Abhängigkeiten
+                von melonDS DS; Build/ mit den xcframeworks (ignoriert)
+Scripts/        bootstrap.sh, build-core.sh, cores/ mit einem Rezept je Kern, pose-check.sh
 Spikes/         Spike-Code aus M0 (PSPGPU, PS2JIT) als Referenz, nicht Teil der App
 Tests/          ArcfoldTests (Unit-Tests mit der App als Host), ArcfoldUITests, Fixtures/ (Homebrew-ROMs, Lizenzen)
 docs/           PLAN.md, adr/, wissen/
@@ -65,12 +65,15 @@ Scripts/bootstrap.sh --check
 # Einen Kern von Hand bauen, etwa nach einer Änderung am Rezept
 CMAKE_BUILD_PARALLEL_LEVEL=6 Scripts/build-core.sh mgba
 
+# Die Prüfungen nach jedem Bau ohne Bau wiederholen (Exporte, Importe, mmap, JIT-Spuren, Rezept)
+Scripts/build-core.sh melondsds --check   # ebenso mgba
+
 # Bauen: Store und JIT für den Simulator, Store für ein Gerät ohne Signatur
 xcodebuild build -project Arcfold.xcodeproj -scheme Store -destination 'generic/platform=iOS Simulator' -derivedDataPath build/DerivedData
 xcodebuild build -project Arcfold.xcodeproj -scheme JIT -destination 'generic/platform=iOS Simulator' -derivedDataPath build/DerivedData
 xcodebuild build -project Arcfold.xcodeproj -scheme Store -destination 'generic/platform=iOS' -derivedDataPath build/DerivedData CODE_SIGNING_ALLOWED=NO
 
-# Testen (ArcfoldTests, LibretroKitTests, RendererTests; ArcfoldUITests nur mit Store) auf dem
+# Testen (ArcfoldTests, LibretroKitTests, FoldLayoutTests, RendererTests; ArcfoldUITests nur mit Store) auf dem
 # Duo-Simulator mit iOS 27.1, ebenso mit -scheme JIT
 xcodebuild test -project Arcfold.xcodeproj -scheme Store -destination 'platform=iOS Simulator,name=iPhone Duo,OS=27.1' -derivedDataPath build/DerivedData
 
@@ -83,15 +86,32 @@ xcrun simctl launch <UDID> com.faentiver.arcfold -ArcfoldAutorun "$PWD/Tests/Fix
 xcrun simctl spawn <UDID> log stream --predicate 'subsystem == "com.faentiver.arcfold" AND category == "stats"'
 xcrun simctl io <UDID> screenshot --display=1 shot.png   # Duo: 1 außen, 3 innen
 
+# Seit M2, nur Debug-Build: Spielansicht mit Testmuster ohne Kern, künstlicher Falz beim Start
+xcrun simctl launch <UDID> com.faentiver.arcfold -ArcfoldTestPattern ds -ArcfoldFoldOverride tabletop
+# Posen bei laufendem Spiel (DebugRemote): fold.flat|book|tabletop|measured,
+# hinge.closed|open, overlay.hide|show; Pose, Layout und Lücken stehen im Log (Kategorie fold)
+xcrun simctl spawn <UDID> notifyutil -p com.faentiver.arcfold.debug.fold.tabletop
+xcrun simctl spawn <UDID> log stream --predicate 'subsystem == "com.faentiver.arcfold" AND category == "fold"'
+
+# Posenprüfung mit echten Posen (ADR 0006, Abschnitt 15). Per Software mit einem privaten
+# Posen-Werkzeug außerhalb des Repos, das "<UDID> closed|open|book|tabletop
+# [--orientation landscape-left] --quiet" versteht (je etwa 2 Minuten, docs/wissen/falz.md);
+# außen quer stellt es mit "closed --orientation landscape-left"
+POSE_CHECK_POSTURE_TOOL=<Werkzeug> Scripts/pose-check.sh ds    # danach gba
+# Ohne Werkzeug (oder mit POSE_CHECK_HUB=1) fragt das Skript je Schritt nach dem Wechsel in
+# Device Hub (je etwa 5 Minuten)
+Scripts/pose-check.sh ds
+
 # CI-Workflow prüfen (optional, braucht actionlint)
 actionlint -ignore 'label "xcode-27" is unknown' .github/workflows/ci.yml
 ```
 
 - Projekteinstellungen nur in `project.yml` ändern, danach `xcodegen generate`. `Arcfold.xcodeproj` wird nicht committet.
-- Ein neuer Kern braucht ein Rezept in `Scripts/cores/` und einen Eintrag unter den Abhängigkeiten in `project.yml`; bootstrap baut ihn dann mit. Außerdem braucht er in `.github/workflows/ci.yml` den Submodul-Schritt („Fetch core sources“) und den Cache-Schlüssel („Compute core cache key“), bis die CI die Liste selbst aus `project.yml` liest (geplant für M3 zusammen mit dem Rezept-Haken für Unter-Submodule).
+- Ein neuer Kern braucht ein Rezept in `Scripts/cores/` und einen Eintrag unter den Abhängigkeiten in `project.yml`; bootstrap baut ihn dann mit. Braucht er weitere Submodule des Repos, nennt das Rezept sie in `CORE_DEPENDENCIES`; bootstrap holt alle Submodule eines Kerns flach (`--depth 1`). Außerdem braucht er in `.github/workflows/ci.yml` seine Submodule im Schritt „Fetch core sources“ und im Cache-Schlüssel („Compute core cache key“), bis die CI die Liste selbst aus `project.yml` und den Rezepten liest (geplant für M3). Jeder Kern exportiert genau die 25 libretro-Funktionen. `build-core.sh` prüft nach jedem Bau jede Scheibe: die Exporte, die Importe (nichts, was Speicher ausführbar macht, Code lädt, ein Programm startet oder die Codesignatur lockert), jeden `mmap`-Aufruf (konstantes `prot` ohne `PROT_EXEC`, `flags` ohne `MAP_JIT`), rohe Systemaufrufe (`svc`) und JIT-Spuren in Symbolen und Zeichenketten, danach die Prüfungen des Rezepts über `core_check` (bei melonDS DS Schlüsselmaterial, `nintendowifi` und die KEY1-Tabelle der FreeBIOS). Schlägt eine fehl, bricht der Bau mit Exit 70 ab. `Scripts/build-core.sh <kern> --check` wiederholt sie ohne Bau an den Scheiben in `Cores/Build/` (`docs/wissen/bauen-und-ci.md`).
 - Meldet Xcode „There is no XCFramework found at …/Cores/Build/…“, fehlt ein Kern: `Scripts/bootstrap.sh` ausführen.
 - Der Duo-Simulator braucht die Runtime iOS 27.1; sie ist lokal installiert. Die Runtime iOS 27.2 schließt das Duo aus, für Tests mit iOS 27.2 dient deshalb das iPhone 18 Pro (siehe `docs/wissen/umgebung.md`).
-- CI: `.github/workflows/ci.yml` auf dem Image `xcode-27`, derzeit nur auf manuellen Start, weil GitHub jeden Lauf des Repos vor dem Start abbricht. Details, Kosten und Ursache in `docs/wissen/bauen-und-ci.md`.
+- Echte Posen wechseln im Simulator Device Hub oder ein privates Posen-Werkzeug außerhalb des Repos, das `Scripts/pose-check.sh` über `POSE_CHECK_POSTURE_TOOL` einbindet. Es nutzt private Schnittstellen des Simulators und kommt deshalb nie ins Repo oder in die App; nach einem Update von Xcode oder der Runtime prüfen, ob es noch geht (`docs/wissen/falz.md`). UI-Tests können die Pose nicht selbst wechseln und nehmen `DebugRemote` (Darwin-Benachrichtigungen, nur Debug-Build); den Wechsel des Displays zeigt das nicht. Ein Vollbild über einem `NavigationStack` verschluckte nach einer Berührung der Oberkante alle späteren in den obersten 60 bis 70 pt; Spiele ersetzen deshalb die Bibliothek (`RootView`, `docs/wissen/falz.md`).
+- CI: `.github/workflows/ci.yml` auf dem Image `xcode-27`. Die CI läuft vorerst nur auf manuellen Start (`workflow_dispatch`); Details und Kosten in `docs/wissen/bauen-und-ci.md`.
 
 ## Wissen
 
@@ -99,10 +119,11 @@ actionlint -ignore 'label "xcode-27" is unknown' .github/workflows/ci.yml
 - `docs/adr/`: Architektur-Entscheidungen
 - `docs/wissen/umgebung.md`: Werkzeuge, Versionen, Stolperfallen und wie man alles wieder entfernt
 - `docs/wissen/bauen-und-ci.md`: bootstrap.sh, Stempel, XcodeGen, Eigenheiten von Xcode 27.2, GitHub Actions
-- `docs/wissen/libretrokit.md`: Aufbau und Entscheidungen in LibretroKit, Takt, Environment, Batteriespeicher, Stolperfallen
-- `docs/wissen/renderer.md`: Bildpostfach, Metal-Ansicht, Tonring in C, Audioausgabe, Stolperfallen
-- `docs/wissen/app.md`: Bibliothek, Import, Spielansicht, Lebenszyklus, Eingabe, Debug-Overlay, Lizenzen, Stolperfallen
+- `docs/wissen/libretrokit.md`: Aufbau und Entscheidungen in LibretroKit, Takt, Environment, Batteriespeicher, Zeiger, Eigenheiten von mGBA und melonDS DS, Stolperfallen
+- `docs/wissen/renderer.md`: Bildpostfach, Metal-Ansicht mit Viewports je Bildschirm, Tonring in C, Audioausgabe mit gerundeter Rate, Stolperfallen
+- `docs/wissen/app.md`: Bibliothek, Import, Spielansicht mit Falz-Layouts, Touchscreen, Lebenszyklus mit Pause beim Zuklappen, Eingabe, Debug-Overlay, Debug-Start, Lizenzen, Stolperfallen
+- `docs/wissen/falz.md`: Duo-APIs (Scharnier, reservierte Regionen, vertikale Leiste), Duo-Simulator, echte Posen per Software (privates Werkzeug über `POSE_CHECK_POSTURE_TOOL`) und mit Device Hub, Maße, FoldLayout, `DebugRemote`, Stolperfallen (zu ADR 0006)
 - `docs/wissen/psp-grafik.md`: PPSSPP als libretro-Kern bauen und hosten, Grafikwege, Stolperfallen (zu ADR 0001)
-- `docs/wissen/geraetetest.md`: Anleitung für alle ausstehenden Gerätetests auf dem Duo (M1, ADR 0002), mit Kriterien
+- `docs/wissen/geraetetest.md`: Anleitung für alle ausstehenden Gerätetests auf dem Duo (M1, M2, ADR 0002), mit Kriterien
 - `docs/wissen/ps2-jit.md`: PS2 mit JIT, StikDebug und TXM, Einbau in den JIT-Build, Anleitung für den Gerätetest (zu ADR 0002)
 - `Spikes/`: Spike-Code aus M0 als Referenz, nicht Teil der App

@@ -55,6 +55,8 @@ final class CallbackContext {
     private(set) var audioFramesWritten = 0
     /// The buttons of this frame, taken in `inputPoll`.
     private var buttons: UInt32 = 0
+    /// The pointer of this frame, taken in `inputPoll`.
+    private var pointer = PointerSample.lifted
     /// Single samples from `retro_audio_sample`, written at the end of the frame.
     private let singleSamples: UnsafeMutableBufferPointer<Int16>
     private var singleSampleCount = 0
@@ -310,23 +312,38 @@ final class CallbackContext {
 
     // MARK: Input
 
-    /// `retro_input_poll_t`: takes this frame's buttons.
+    /// `retro_input_poll_t`: takes this frame's buttons and pointer.
     func inputPoll() {
         buttons = input.poll()
+        pointer = input.pollPointer()
     }
 
-    /// `retro_input_state_t`: the RetroPad on port 0, as a mask or bit by bit.
+    /// `retro_input_state_t`: the RetroPad on port 0, as a mask or bit by bit,
+    /// and one pointer, the touch screen (ADR 0006).
     func inputState(_ port: UInt32, _ device: UInt32, _ index: UInt32, _ id: UInt32) -> Int16 {
         // RETRO_DEVICE_MASK, which Swift does not import: the base device without subclass.
         let deviceMask = UInt32(1 << RETRO_DEVICE_TYPE_SHIFT) - 1
-        guard port == 0, device & deviceMask == UInt32(RETRO_DEVICE_JOYPAD) else {
+        guard port == 0 else { return 0 }
+        switch device & deviceMask {
+        case UInt32(RETRO_DEVICE_JOYPAD):
+            if id == UInt32(RETRO_DEVICE_ID_JOYPAD_MASK) {
+                return Int16(truncatingIfNeeded: buttons)
+            }
+            guard id < 16 else { return 0 }
+            return Int16((buttons >> id) & 1)
+        case UInt32(RETRO_DEVICE_POINTER):
+            // One finger: index 0 is the only pointer.
+            guard index == 0 else { return 0 }
+            switch id {
+            case UInt32(RETRO_DEVICE_ID_POINTER_X): return pointer.position.x
+            case UInt32(RETRO_DEVICE_ID_POINTER_Y): return pointer.position.y
+            case UInt32(RETRO_DEVICE_ID_POINTER_PRESSED), UInt32(RETRO_DEVICE_ID_POINTER_COUNT):
+                return pointer.isPressed ? 1 : 0
+            default: return 0
+            }
+        default:
             return 0
         }
-        if id == UInt32(RETRO_DEVICE_ID_JOYPAD_MASK) {
-            return Int16(truncatingIfNeeded: buttons)
-        }
-        guard id < 16 else { return 0 }
-        return Int16((buttons >> id) & 1)
     }
 }
 
