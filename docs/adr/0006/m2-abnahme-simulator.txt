@@ -1,0 +1,126 @@
+M2 im Duo-Simulator: Integration und Abnahme, 7. November 2026
+================================================================
+
+Gerät: eigener Simulator „Arcfold M2 Integration“ (iPhone Duo, iOS 27.1, 24A94425), nach dem
+Booten zugeklappt: Außendisplay 1398 x 2034 px, Faktor 3; das Innendisplay ist aus (Bildschirm-
+foto mit --display=3 schwarz). Xcode 27.2 (27B52), Mac mini M4 Pro, macOS 27.2, Debug-Build des
+Schemes Store, Branch m2/ds-falz. Werte aus dem Simulator sind Plausibilitätswerte.
+
+Posen außer „zu“ sind mit DebugRemote eingespeist (Darwin-Benachrichtigungen, nur Debug-Build),
+weil im Simulator nur Device Hub die Pose wechselt. Die Geometrie bleibt die des Außendisplays;
+flach, Buch und Tabletop ergeben dort entartete Layouts (Faktor 1 bis 4). Den Wechsel des
+Displays zeigt das nicht; er bleibt der Handprüfung mit Device Hub.
+
+0. Builds und Tests
+   Builds frisch in einem leeren Build-Ordner: Store für den Simulator mit den Test-Bundles,
+   JIT für den Simulator, Store für generic/platform=iOS mit CODE_SIGNING_ALLOWED=NO; ohne
+   Warnung im eigenen Code, die einzigen Warnzeilen stammen von appintentsmetadataprocessor.
+   Tests auf „Arcfold M2 Integration“, je ein voller Lauf, keiner übersprungen:
+     Store 238 grün: ArcfoldTests 90, LibretroKitTests 63, FoldLayoutTests 28,
+                     RendererTests 39, ArcfoldUITests 18
+     JIT   220 grün (ohne UI-Tests)
+   Direkt nach dem Merge der Spuren (vor den Korrekturen der Integration): Store 232 grün.
+   Nach dem vollen Lauf wurden in UITestSupport nur zwei ungenutzte Konstanten entfernt; der
+   frische Build der Test-Bundles lief danach.
+
+1. Abnahmelauf (Hilfsskript, nicht im Repo): je System 75 s zugeklappt, dann jede Pose
+   10 s bei laufendem Spiel, dann das Scharnier: aufklappen, zuklappen, aufklappen. Zählerstände
+   des Testprogramms aus Bildschirmfotos ohne Overlay (overlay.hide), Messzeilen der App alle
+   10 s (Kategorie stats), Log der Kategorie fold mit Layout, Pause und Lücken über 50 ms.
+
+   DS, selftest.nds
+     zu, 75 s       7 Messzeilen: 59,813 Bilder/s im Mittel (59,73 bis 59,99), trim -0,010 bis
+                    +0,028 %, Ton 35,2 bis 52,5 ms bei 35 ms Reserve, Anzeige 48 bis 53 Hz,
+                    0 Neusynchronisationen, 0 Aussetzer, 0 verworfen, thermalState nominal
+     Bildzähler     ARM7 des Programms 768 -> 5438 in 78,050 s = 59,833 Bilder/s (Soll 59,826)
+     ganze Sitzung  182 s, also über die 80 bis 90 s hinaus, nach denen der Ton mit der Bruchrate
+                    einbrach (Quellknoten jetzt 32 728 Hz): 17 Messzeilen, 59,816 Bilder/s im
+                    Mittel, 0 Neusynchronisationen, 0 Aussetzer, 0 verworfen, zweimal aufgefüllt
+                    (Start und Fortsetzen nach dem Zuklappen), keine Zeile „Emulation gap“
+     Posen, je 10 s ab dem Wechsel: keine Lücke über 50 ms, keine Neusynchronisation, keine Pause
+       flach        beide 1x bei (445, 412) und (445, 1378), Falz inaktiv waagerecht   ARM7  6544
+       Buch         beide 1x bei (209, 0) und (806, 0), Falz aktiv senkrecht           ARM7  7547
+       Tabletop     oben 4x bei (61, 112), Touchscreen 1x bei (445, 1390)              ARM7  8550
+       zu           je 4x bei (61, 0) und (61, 768), wie vor den Wechseln              ARM7  9558
+       Zähler zwischen den Fotos: +1106 in 18,50 s, dann +1003, +1003, +1008 in 16,79, 16,75,
+       16,84 s, also 59,75 bis 59,89 Bilder/s über jeden Wechsel hinweg
+     Scharnier      aufklappen (zu -> offen): nichts pausiert; zuklappen: „Paused: folded“,
+                    Pausenmenü außen, ARM7 10034 und 7,1 s später 10034; aufklappen: „Resumed“,
+                    ARM7 10516. Von 9558 bis 10516 vergingen 30,91 s mit 14,93 s Pause:
+                    958 Bilder, rechnerisch 955,8
+     Spielstand     battery.sav vor dem Lauf 8192 Byte, „ARCF“, Boot-Zähler 20; nach dem Lauf
+                    und simctl terminate 21, wie im Bild; nach dem Neustart zeigt das Programm
+                    Boot-Zähler 22 und Status 0x0F (Kennung gefunden), die Datei trägt 22
+
+   GBA, selftest.gba
+     zu, 75 s       7 Messzeilen: 59,731 Bilder/s im Mittel (59,65 bis 59,87), trim -0,051 bis
+                    +0,008 %, Ton 30,8 bis 52,5 ms, Anzeige 46 bis 54 Hz, 0 Neusynchronisationen,
+                    0 Aussetzer, 0 verworfen, thermalState nominal
+     Bildzähler     757 -> 5465 in 78,835 s = 59,720 Bilder/s (Soll 59,7275)
+     ganze Sitzung  17 Messzeilen, 59,726 Bilder/s im Mittel, 0 Neusynchronisationen,
+                    0 Aussetzer, 0 verworfen, zweimal aufgefüllt, keine Zeile „Emulation gap“
+     Posen, je 10 s ab dem Wechsel: keine Lücke über 50 ms, keine Neusynchronisation, keine Pause
+       flach        4x bei (219, 311), Falz inaktiv waagerecht                          6570
+       Buch         3x bei (339, 849) über dem senkrechten Falz (ein Bild darf das)     7567
+       Tabletop     4x bei (219, 299) über dem waagerechten Falz                        8567
+       zu           5x bei (99, 246), Leiste oben, wie vor den Wechseln                 9565
+       Zähler zwischen den Fotos: +1105 in 18,51 s, dann +997, +1000, +998 in 16,71, 16,71,
+       16,69 s, also 59,65 bis 59,84 Bilder/s
+     Scharnier      wie beim DS: „Paused: folded“, „Resumed“. Von 9565 bis 10519 vergingen
+                    30,94 s mit 14,95 s Pause: 954 Bilder, rechnerisch 955,1. Die Zählerzeile
+                    liegt zugeklappt unter dem Pausenmenü; die Lesungen während der Pause
+                    (16381) sind deshalb ungültig.
+
+2. UI-Tests mit eingespeister Pose (Ergebnis des Laufs „final-Store“)
+   PoseUITests.testBothTestProgramsStartFromTheLibrary
+       selftest.nds und selftest.gba importiert, dann in der Bibliothek angetippt: der DS mit
+       zwei Bildschirmen und Touchscreen, der GBA mit einem, beide über 120 Bilder, „Quit Game“
+       führt zurück in die Bibliothek.
+   PoseUITests.testPoseChangesKeepTheDSRunning, testPoseChangesKeepTheGBARunning
+       flach, Buch, Tabletop, zu: in jedem Wechsel Pose und Layout im Overlay, mindestens
+       100 Bilder in 2 s, nicht pausiert, Neusynchronisationen, Aussetzer und verworfene Frames
+       unverändert; der Bildzähler des Programms (DS ARM7 oder ARM9, GBA Bildzähler) im
+       Bildschirmfoto ohne Overlay jeweils mindestens 100 weiter.
+   PoseUITests.testClosingPausesAndResumePlaysOnTheOuterDisplay
+       aufklappen ändert nichts; zuklappen: paused=true, Menü, Bildzahl steht 2 s; „Resume“:
+       spielt außen weiter; zuklappen und aufklappen: setzt von selbst fort; kein Aussetzer.
+   DSTouchUITests.testEveryTapHitsItsDSPixel
+       zugeklappt 4x: 32 von 32 Taps im Overlay und im Fadenkreuz, kein Tastendruck.
+   DSTouchUITests.testTapsHitTheirPixelsInEveryPose
+       je Pose 19 Stellen: vier Ecken, Mitte, vier Kantenmitten, (37, 150), Stellen am unteren
+       Rand und erster und letzter Gerätepixel der Zellen (100, 101) und (60, 188).
+       zu 4x bei (61, 768): 19 von 19; flach 1x bei (445, 1378): 19 von 19; Tabletop 1x bei
+       (445, 1390): 19 von 19; Buch 1x bei (806, 0): 10 von 10, 9 Stellen im oberen Streifen
+       ausgelassen (Punkt 3). Jeder Tap im Overlay (pointer, pointerPresses) und im Fadenkreuz
+       von selftest.nds, unter dem Overlay mit ausgeblendetem Overlay geprüft; kein Tastendruck.
+   LaunchTests.testLicensesListEveryComponentOfBothCores
+       alle 23 Einträge mit ihrer Lizenz in der Reihenfolge des Katalogs.
+
+3. Oberer Streifen des Außendisplays ohne Touch (Versuchs-UI-Test und Log der Berührungen in
+   TouchSurface, beides danach entfernt). Korrektur nach der Prüfung: Die Deutung unten ist
+   falsch. Der Streifen entsteht erst nach einer Berührung der Oberkante, reicht 60 bis 70 pt
+   tief und kommt von der App: Das Spiel lag als Vollbild über dem NavigationStack der
+   Bibliothek. Seit das Spiel die Bibliothek ersetzt (RootView), kommt jede Berührung an
+   (ADR 0006, Abschnitt „Nachbesserungen nach der Prüfung“). Die Messung hier begann bei
+   y = 5 pt und löste den Streifen damit selbst aus.
+   Buch eingespeist, Taps bei x = 30, 150, 311, 370, 420 pt und y = 5, 20, 40, 55 pt: keiner
+   erreicht die App; y = 56, 58, 60, 62, 64, 65, 72, 80, 90 pt: alle. Der präsentierte Hosting-
+   Controller meldet preferredScreenEdgesDeferringSystemGestures = 15 (alle Kanten) und
+   prefersStatusBarHidden = true. SpringBoard hat ein Fenster über das ganze Außendisplay mit
+   einem Element von 466 x 100 pt oben. Gegenprobe auf einem eigenen Simulator iPhone 18 Pro
+   (iOS 27.2) mit -ArcfoldTestPattern ds: Taps bei y = 3 bis 100 pt erreichen die App alle.
+
+4. Kern ohne JIT im Store-Bundle: docs/adr/0006/kern-store-ohne-jit.txt
+   Neu erzeugt aus den frischen Builds mit dem Prüfskript der Spur K:
+   beide Scheiben genau die 25 libretro-Funktionen, 0 verbotene Importe, 0 Symbole und
+   Zeichenketten mit ARMJIT, Arm64Gen, JitBlock, MAP_JIT oder jit_write_protect, ein mmap mit
+   PROT_READ und MAP_SHARED, ENABLE_JIT OFF, JIT_ENABLED 0-mal in build.ninja. Die in Store
+   (Gerät und Simulator) und JIT eingebetteten Binärdateien sind byteweise die Scheiben.
+   Gegenüber dem Beleg der Spur K weichen nur Kopf und die SHA-256 der Scheiben ab: Der Kern
+   enthält acht absolute Quellpfade und wurde in einer anderen Arbeitskopie gebaut.
+
+5. Offen
+   Echte Posenwechsel mit Device Hub (Scripts/pose-check.sh): Szene, Display-Link und Drawable
+   auf dem anderen Display, .inactive beim Wechsel; davon hängt die Abnahme von M2 ab (Korrektur
+   nach der Prüfung, ADR 0006). Die Oberkante auf dem Gerät. Bildrate, Wärme, Ton und Touch auf
+   Glas: Gerätetest, Teil 3.

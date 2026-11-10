@@ -1,0 +1,259 @@
+M2 im Duo-Simulator: Posenprüfung mit echten Posen per Software, 7. November 2026
+===================================================================================
+
+Geräte: je Lauf ein eigener Simulator „Arcfold Posen“ (iPhone Duo, iOS 27.1, 24A94425),
+angelegt und danach gelöscht von Scripts/pose-check.sh. Xcode 27.2 (27B52), Mac mini M4 Pro,
+macOS 27.2, Debug-Build des Schemes Store, Branch m2/ds-falz. Die Posen wechselt ein
+privates Werkzeug außerhalb des Repos per Software (POSE_CHECK_POSTURE_TOOL; zu 0°, offen
+180°, Buch 130°, Tabletop 90° quer, flach hochkant 180° quer). Werte aus dem Simulator
+sind Plausibilitätswerte.
+Gekürzt: Wiederholte Zeilen „Hinge X → X“, die der Simulator meldet, solange sich der
+Winkel bewegt, sind weggelassen; jeder Wechsel des Zustands steht drin.
+
+-----------------------------------------------------------------------------------
+Scripts/pose-check.sh ds
+-----------------------------------------------------------------------------------
+Check of the poses with ds (selftest.nds), 2026-11-07 09:40
+Poses changed: by software (posture tool outside the repository)
+
+Expected (ADR 0006, sections 8 to 10): per step the pose and layout of section 8;
+no 'Emulation resynchronized' and no 'Emulation gap' line in the window of a
+CHANGE (gaps in the window of a screenshot come from the screenshot); no 'Game
+view disappeared' before the end; on 06-closed 'Paused: folded' and the pause
+menu on the outer display; on 07-open 'Resumed'.
+
+Steps (times in seconds since 1970: the change, then the screenshots):
+09:39:49 01-closed change=1794040789.226 photos=1794040793.250-1794040795.345
+09:39:55 02-open change=1794040795.357 photos=1794040804.088-1794040806.081
+09:40:06 03-book change=1794040806.092 photos=1794040814.260-1794040816.295
+09:40:16 04-tabletop change=1794040816.309 photos=1794040824.426-1794040826.365
+09:40:26 05-flat-upright change=1794040826.376 photos=1794040834.589-1794040836.548
+09:40:36 06-closed change=1794040836.560 photos=1794040844.616-1794040846.549
+09:40:46 07-open change=1794040846.559 photos=1794040854.584-1794040856.483
+
+Gaps and resynchronisations by window:
+none
+
+Game view, hinge, scene phases, pauses, gaps:
+2026-11-07 09:39:42.015 Game view appeared, phase idle
+2026-11-07 09:39:42.040 Hinge none → closed
+2026-11-07 09:39:57.452 Hinge closed → partially open
+2026-11-07 09:39:57.853 Hinge partially open → fully open
+2026-11-07 09:40:07.236 Hinge fully open → partially open
+2026-11-07 09:40:28.298 Hinge partially open → fully open
+2026-11-07 09:40:37.524 Hinge fully open → partially open
+2026-11-07 09:40:37.969 Hinge partially open → closed
+2026-11-07 09:40:37.990 Paused: folded
+2026-11-07 09:40:47.736 Hinge closed → partially open
+2026-11-07 09:40:47.739 Resumed
+2026-11-07 09:40:48.320 Hinge partially open → fully open
+
+Layouts:
+2026-11-07 09:39:42.025 Layout: Fold single · view 1398×2034 px · safe t0 l0 b102 r252 · fold – · occlusion (1199, 88, 111×111) (1146, 0, 252×522) | Screens 4× (61, 0, 1024×768) · 4× (61, 768, 1024×768) · touch #1
+2026-11-07 09:39:42.041 Layout: Fold single · view 1398×2034 px · safe t0 l0 b102 r252 · fold – · occlusion (1199, 88, 111×111) (1146, 0, 252×246) | Screens 4× (61, 0, 1024×768) · 4× (61, 768, 1024×768) · touch #1
+2026-11-07 09:39:57.513 Layout: Fold single · view 1398×2034 px · safe t246 l0 b102 r0 · fold – · occlusion (1199, 87, 111×112) (1146, 0, 252×246) | Screens 3× (315, 246, 768×576) · 3× (315, 822, 768×576) · touch #1
+2026-11-07 09:39:57.526 Layout: Fold single · view 2853×2007 px · safe t0 l0 b102 r0 · fold – · occlusion (1199, 88, 111×111) (1146, 0, 252×246) | Screens 4× (914, 184, 1024×768) · 4× (914, 952, 1024×768) · touch #1
+2026-11-07 09:39:57.528 Layout: Fold single · view 2853×2007 px · safe t0 l0 b102 r0 · fold – · occlusion (2654, 1199, 111×111) (2607, 1146, 246×252) | Screens 4× (914, 184, 1024×768) · 4× (914, 952, 1024×768) · touch #1
+2026-11-07 09:39:57.534 Layout: Fold flat · view 2853×2007 px · safe t0 l0 b102 r0 · fold (1366, 0, 121×2007) inactive · occlusion – | Screens 5× (73, 192, 1280×960) · 5× (1530, 192, 1280×960) · touch #1
+2026-11-07 09:40:08.140 Layout: Fold flat · view 2853×2007 px · safe t0 l0 b102 r0 · fold (1366, 0, 121×2007) active · occlusion – | Screens 5× (73, 192, 1280×960) · 5× (1530, 192, 1280×960) · touch #1
+2026-11-07 09:40:17.365 Layout: Fold flat · view 2007×2853 px · safe t0 l0 b102 r0 · fold (1366, 0, 121×2007) active · occlusion – | Screens 2× (457, 192, 512×384) · 2× (1491, 192, 512×384) · touch #1
+2026-11-07 09:40:17.370 Layout: Fold tabletop · view 2007×2853 px · safe t0 l0 b102 r0 · fold (0, 1366, 2007×121) active · occlusion – | Screens 7× (107, 41, 1792×1344) · 5× (363, 1639, 1280×960) · touch #1
+2026-11-07 09:40:28.301 Layout: Fold flat · view 2007×2853 px · safe t0 l0 b102 r0 · fold (0, 1366, 2007×121) inactive · occlusion – | Screens 5× (363, 233, 1280×960) · 5× (363, 1639, 1280×960) · touch #1
+2026-11-07 09:40:37.563 Layout: Fold flat · view 2853×2007 px · safe t0 l0 b102 r0 · fold (0, 1366, 2007×121) inactive · occlusion – | Screens 2× (1170, 521, 512×384) · 2× (1170, 1504, 512×384) · touch #1
+2026-11-07 09:40:37.566 Layout: Fold flat · view 2853×2007 px · safe t0 l0 b102 r0 · fold (1366, 0, 121×2007) inactive · occlusion – | Screens 5× (73, 192, 1280×960) · 5× (1530, 192, 1280×960) · touch #1
+2026-11-07 09:40:38.025 Layout: Fold flat · view 1398×2034 px · safe t0 l0 b102 r252 · fold (1366, 0, 32×2007) inactive · occlusion – | Screens 1× (445, 192, 256×192) · 1× (1018, 192, 256×192) · touch #1
+2026-11-07 09:40:38.030 Layout: Fold flat · view 1398×2034 px · safe t0 l0 b102 r252 · fold (0, 1366, 1398×121) inactive · occlusion – | Screens 1× (445, 617, 256×192) · 1× (445, 1613, 256×192) · touch #1
+2026-11-07 09:40:38.040 Layout: Fold single · view 1398×2034 px · safe t0 l0 b102 r252 · fold – · occlusion (1199, 88, 111×111) (1146, 0, 252×246) | Screens 4× (61, 0, 1024×768) · 4× (61, 768, 1024×768) · touch #1
+2026-11-07 09:40:47.773 Layout: Fold single · view 2853×2007 px · safe t0 l0 b102 r0 · fold – · occlusion (1199, 88, 111×111) (1146, 0, 252×246) | Screens 4× (914, 184, 1024×768) · 4× (914, 952, 1024×768) · touch #1
+2026-11-07 09:40:47.774 Layout: Fold single · view 2853×2007 px · safe t0 l0 b102 r0 · fold – · occlusion (2654, 1199, 111×111) (2607, 1146, 246×252) | Screens 4× (914, 184, 1024×768) · 4× (914, 952, 1024×768) · touch #1
+2026-11-07 09:40:47.782 Layout: Fold flat · view 2853×2007 px · safe t0 l0 b102 r0 · fold (1366, 0, 121×2007) inactive · occlusion – | Screens 5× (73, 192, 1280×960) · 5× (1530, 192, 1280×960) · touch #1
+
+Scene, screen, drawable, display link:
+2026-11-07 09:39:42.587 Scene shown in 6F550786-0406-4370-8934-29CE21C4B2FB
+2026-11-07 09:39:42.587 Screen is 466×678 pt, native scale 3.0, 60 Hz maximum, id 7174040943334289685
+2026-11-07 09:39:42.587 Display link started, 60 Hz preferred
+2026-11-07 09:39:42.588 Drawable 0×0 → 1398×2034 px at 3 px/pt
+2026-11-07 09:39:57.529 Screen changed to 951×669 pt, native scale 3.0, 60 Hz maximum, id 5282095227362456360
+2026-11-07 09:39:57.529 Display link started, 60 Hz preferred
+2026-11-07 09:39:57.529 Drawable 1398×2034 → 2853×2007 px at 3 px/pt
+2026-11-07 09:40:17.370 Screen changed to 669×951 pt, native scale 3.0, 60 Hz maximum, id 5282095227362456360
+2026-11-07 09:40:17.370 Drawable 2853×2007 → 2007×2853 px at 3 px/pt
+2026-11-07 09:40:37.566 Screen changed to 951×669 pt, native scale 3.0, 60 Hz maximum, id 5282095227362456360
+2026-11-07 09:40:37.566 Drawable 2007×2853 → 2853×2007 px at 3 px/pt
+2026-11-07 09:40:38.030 Screen changed to 466×678 pt, native scale 3.0, 60 Hz maximum, id 7174040943334289685
+2026-11-07 09:40:38.030 Display link started, 60 Hz preferred
+2026-11-07 09:40:38.030 Drawable 2853×2007 → 1398×2034 px at 3 px/pt
+2026-11-07 09:40:47.775 Screen changed to 951×669 pt, native scale 3.0, 60 Hz maximum, id 7100220539543101415
+2026-11-07 09:40:47.775 Display link started, 60 Hz preferred
+2026-11-07 09:40:47.775 Drawable 1398×2034 → 2853×2007 px at 3 px/pt
+
+Measurements every 10 s:
+2026-11-07 09:39:52.626 selftest: Emulation 59.83 fps · run 2.82 ms (max 3.47) · trim -0.008 % · late 367 · resync 0 · pauses 0 | Display 53 Hz · shown 458 · repeated 0 · skipped 143 · late 0 · GPU busy 0 · overwritten 16 | Audio 36.7 ms (target 35.0) · underruns 0 · dropped 0 · primes 1 · IO 2.7 ms · 48000 Hz | Input held – · last – · presses 0 | Touch last – · presses 0 · held – | Thermal nominal · Low Power off
+2026-11-07 09:40:02.627 selftest: Emulation 59.86 fps · run 2.59 ms (max 3.49) · trim 0.006 % · late 651 · resync 0 · pauses 0 | Display 52 Hz · shown 920 · repeated 2 · skipped 279 · late 0 · GPU busy 0 · overwritten 17 | Audio 54.5 ms (target 35.0) · underruns 0 · dropped 0 · primes 1 · IO 2.7 ms · 48000 Hz | Input held – · last – · presses 0 | Touch last – · presses 0 · held – | Thermal nominal · Low Power off
+2026-11-07 09:40:12.654 selftest: Emulation 59.80 fps · run 2.80 ms (max 2.94) · trim 0.020 % · late 1072 · resync 0 · pauses 0 | Display 50 Hz · shown 1373 · repeated 4 · skipped 420 · late 1 · GPU busy 0 · overwritten 22 | Audio 40.4 ms (target 35.0) · underruns 0 · dropped 0 · primes 1 · IO 2.7 ms · 48000 Hz | Input held – · last – · presses 0 | Touch last – · presses 0 · held – | Thermal nominal · Low Power off
+2026-11-07 09:40:22.712 selftest: Emulation 59.83 fps · run 2.58 ms (max 4.36) · trim -0.018 % · late 1540 · resync 0 · pauses 0 | Display 50 Hz · shown 1820 · repeated 4 · skipped 551 · late 1 · GPU busy 0 · overwritten 47 | Audio 44.4 ms (target 35.0) · underruns 0 · dropped 0 · primes 1 · IO 2.7 ms · 48000 Hz | Input held – · last – · presses 0 | Touch last – · presses 0 · held – | Thermal nominal · Low Power off
+2026-11-07 09:40:32.726 selftest: Emulation 59.84 fps · run 2.77 ms (max 3.70) · trim -0.002 % · late 2024 · resync 0 · pauses 0 | Display 53 Hz · shown 2264 · repeated 6 · skipped 701 · late 1 · GPU busy 0 · overwritten 52 | Audio 40.9 ms (target 35.0) · underruns 0 · dropped 0 · primes 1 · IO 2.7 ms · 48000 Hz | Input held – · last – · presses 0 | Touch last – · presses 0 · held – | Thermal nominal · Low Power off
+2026-11-07 09:40:52.788 selftest: Emulation 59.83 fps · run 4.83 ms (max 5.75) · trim 0.017 % · late 2536 · resync 0 · pauses 1 | Display 50 Hz · shown 2731 · repeated 8 · skipped 850 · late 1 · GPU busy 0 · overwritten 53 | Audio 39.4 ms (target 35.0) · underruns 0 · dropped 0 · primes 2 · IO 2.7 ms · 48000 Hz | Input held – · last – · presses 0 | Touch last – · presses 0 · held – | Thermal nominal · Low Power off
+
+Screenshots:
+./01-closed-inner.png
+./01-closed-outer.png
+./02-open-inner.png
+./02-open-outer.png
+./03-book-inner.png
+./03-book-outer.png
+./04-tabletop-inner.png
+./04-tabletop-outer.png
+./05-flat-upright-inner.png
+./05-flat-upright-outer.png
+./06-closed-inner.png
+./06-closed-outer.png
+./07-open-inner.png
+./07-open-outer.png
+
+-----------------------------------------------------------------------------------
+Scripts/pose-check.sh gba
+-----------------------------------------------------------------------------------
+Check of the poses with gba (selftest.gba), 2026-11-07 09:42
+Poses changed: by software (posture tool outside the repository)
+
+Expected (ADR 0006, sections 8 to 10): per step the pose and layout of section 8;
+no 'Emulation resynchronized' and no 'Emulation gap' line in the window of a
+CHANGE (gaps in the window of a screenshot come from the screenshot); no 'Game
+view disappeared' before the end; on 06-closed 'Paused: folded' and the pause
+menu on the outer display; on 07-open 'Resumed'.
+
+Steps (times in seconds since 1970: the change, then the screenshots):
+09:41:44 01-closed change=1794040904.481 photos=1794040908.513-1794040910.486
+09:41:50 02-open change=1794040910.499 photos=1794040921.308-1794040923.216
+09:42:03 03-book change=1794040923.227 photos=1794040931.110-1794040933.071
+09:42:13 04-tabletop change=1794040933.082 photos=1794040941.139-1794040943.065
+09:42:23 05-flat-upright change=1794040943.075 photos=1794040951.156-1794040953.066
+09:42:33 06-closed change=1794040953.075 photos=1794040961.140-1794040963.082
+09:42:43 07-open change=1794040963.091 photos=1794040971.145-1794040973.118
+
+Gaps and resynchronisations by window:
+none
+
+Game view, hinge, scene phases, pauses, gaps:
+2026-11-07 09:41:37.050 Game view appeared, phase idle
+2026-11-07 09:41:37.091 Hinge none → closed
+2026-11-07 09:41:54.553 Hinge closed → partially open
+2026-11-07 09:41:55.087 Hinge partially open → fully open
+2026-11-07 09:42:04.187 Hinge fully open → partially open
+2026-11-07 09:42:24.867 Hinge partially open → fully open
+2026-11-07 09:42:34.069 Hinge fully open → partially open
+2026-11-07 09:42:34.453 Hinge partially open → closed
+2026-11-07 09:42:34.467 Paused: folded
+2026-11-07 09:42:44.269 Hinge closed → partially open
+2026-11-07 09:42:44.272 Resumed
+2026-11-07 09:42:44.853 Hinge partially open → fully open
+
+Layouts:
+2026-11-07 09:41:37.064 Layout: Fold single · view 1398×2034 px · safe t0 l0 b102 r252 · fold – · occlusion (1199, 88, 111×111) (1146, 0, 252×522) | Screens 4× (93, 0, 960×640)
+2026-11-07 09:41:37.067 Layout: Fold single · view 1398×2034 px · safe t246 l0 b102 r0 · fold – · occlusion (1199, 87, 111×112) (1146, 0, 252×522) | Screens 5× (99, 246, 1200×800)
+2026-11-07 09:41:37.814 Layout: Fold single · view 1398×2034 px · safe t246 l0 b102 r0 · fold – · occlusion (1199, 87, 111×112) (1146, 0, 252×246) | Screens 5× (99, 246, 1200×800)
+2026-11-07 09:41:54.621 Layout: Fold single · view 2853×2007 px · safe t0 l0 b102 r0 · fold – · occlusion (1199, 88, 111×111) (1146, 0, 252×246) | Screens 11× (106, 72, 2640×1760)
+2026-11-07 09:41:54.624 Layout: Fold single · view 2853×2007 px · safe t0 l0 b102 r0 · fold – · occlusion (2654, 1199, 111×111) (2607, 1146, 246×252) | Screens 11× (106, 72, 2640×1760)
+2026-11-07 09:41:54.635 Layout: Fold flat · view 2853×2007 px · safe t0 l0 b102 r0 · fold (1366, 0, 121×2007) inactive · occlusion – | Screens 9× (346, 232, 2160×1440)
+2026-11-07 09:42:05.061 Layout: Fold flat · view 2853×2007 px · safe t0 l0 b102 r0 · fold (1366, 0, 121×2007) active · occlusion – | Screens 9× (346, 232, 2160×1440)
+2026-11-07 09:42:14.083 Layout: Fold flat · view 2007×2853 px · safe t0 l0 b102 r0 · fold (1366, 0, 121×2007) active · occlusion – | Screens 5× (403, 975, 1200×800)
+2026-11-07 09:42:14.086 Layout: Fold tabletop · view 2007×2853 px · safe t0 l0 b102 r0 · fold (0, 1366, 2007×121) active · occlusion – | Screens 8× (43, 73, 1920×1280)
+2026-11-07 09:42:24.869 Layout: Fold flat · view 2007×2853 px · safe t0 l0 b102 r0 · fold (0, 1366, 2007×121) inactive · occlusion – | Screens 8× (43, 73, 1920×1280)
+2026-11-07 09:42:34.034 Layout: Fold flat · view 2853×2007 px · safe t0 l0 b102 r0 · fold (0, 1366, 2007×121) inactive · occlusion – | Screens 8× (466, 73, 1920×1280)
+2026-11-07 09:42:34.037 Layout: Fold flat · view 2853×2007 px · safe t0 l0 b102 r0 · fold (1366, 0, 121×2007) inactive · occlusion – | Screens 9× (346, 232, 2160×1440)
+2026-11-07 09:42:34.486 Layout: Fold flat · view 1398×2034 px · safe t246 l0 b102 r0 · fold (1366, 0, 32×2007) inactive · occlusion – | Screens 3× (339, 849, 720×480)
+2026-11-07 09:42:34.490 Layout: Fold flat · view 1398×2034 px · safe t246 l0 b102 r0 · fold (0, 1366, 1398×121) inactive · occlusion – | Screens 5× (99, 436, 1200×800)
+2026-11-07 09:42:34.498 Layout: Fold single · view 1398×2034 px · safe t246 l0 b102 r0 · fold – · occlusion (1199, 87, 111×112) (1146, 0, 252×246) | Screens 5× (99, 246, 1200×800)
+2026-11-07 09:42:44.311 Layout: Fold single · view 2853×2007 px · safe t0 l0 b102 r0 · fold – · occlusion (1199, 88, 111×111) (1146, 0, 252×246) | Screens 11× (106, 72, 2640×1760)
+2026-11-07 09:42:44.312 Layout: Fold single · view 2853×2007 px · safe t0 l0 b102 r0 · fold – · occlusion (2654, 1199, 111×111) (2607, 1146, 246×252) | Screens 11× (106, 72, 2640×1760)
+2026-11-07 09:42:44.322 Layout: Fold flat · view 2853×2007 px · safe t0 l0 b102 r0 · fold (1366, 0, 121×2007) inactive · occlusion – | Screens 9× (346, 232, 2160×1440)
+
+Scene, screen, drawable, display link:
+2026-11-07 09:41:37.802 Scene shown in 46408541-EAD1-4667-9F7D-F9EC69E7EABC
+2026-11-07 09:41:37.802 Screen is 466×678 pt, native scale 3.0, 60 Hz maximum, id -3090389830051618624
+2026-11-07 09:41:37.802 Display link started, 60 Hz preferred
+2026-11-07 09:41:37.803 Drawable 0×0 → 1398×2034 px at 3 px/pt
+2026-11-07 09:41:54.624 Screen changed to 951×669 pt, native scale 3.0, 60 Hz maximum, id 114172850909420938
+2026-11-07 09:41:54.624 Display link started, 60 Hz preferred
+2026-11-07 09:41:54.624 Drawable 1398×2034 → 2853×2007 px at 3 px/pt
+2026-11-07 09:42:14.086 Screen changed to 669×951 pt, native scale 3.0, 60 Hz maximum, id 114172850909420938
+2026-11-07 09:42:14.086 Drawable 2853×2007 → 2007×2853 px at 3 px/pt
+2026-11-07 09:42:34.037 Screen changed to 951×669 pt, native scale 3.0, 60 Hz maximum, id 114172850909420938
+2026-11-07 09:42:34.037 Drawable 2007×2853 → 2853×2007 px at 3 px/pt
+2026-11-07 09:42:34.490 Screen changed to 466×678 pt, native scale 3.0, 60 Hz maximum, id -3090389830051618624
+2026-11-07 09:42:34.490 Display link started, 60 Hz preferred
+2026-11-07 09:42:34.490 Drawable 2853×2007 → 1398×2034 px at 3 px/pt
+2026-11-07 09:42:44.312 Screen changed to 951×669 pt, native scale 3.0, 60 Hz maximum, id 1546486453211626669
+2026-11-07 09:42:44.312 Display link started, 60 Hz preferred
+2026-11-07 09:42:44.312 Drawable 1398×2034 → 2853×2007 px at 3 px/pt
+
+Measurements every 10 s:
+2026-11-07 09:41:47.554 selftest: Emulation 59.78 fps · run 0.24 ms (max 0.67) · trim -0.091 % · late 233 · resync 0 · pauses 0 | Display 49 Hz · shown 388 · repeated 1 · skipped 158 · late 0 · GPU busy 0 · overwritten 56 | Audio 38.1 ms (target 35.0) · underruns 0 · dropped 0 · primes 1 · IO 2.7 ms · 48000 Hz | Input held – · last – · presses 0 | Thermal nominal · Low Power off
+2026-11-07 09:41:57.562 selftest: Emulation 59.70 fps · run 0.23 ms (max 0.31) · trim -0.069 % · late 417 · resync 0 · pauses 0 | Display 51 Hz · shown 803 · repeated 2 · skipped 326 · late 0 · GPU busy 0 · overwritten 71 | Audio 34.2 ms (target 35.0) · underruns 0 · dropped 0 · primes 1 · IO 2.7 ms · 48000 Hz | Input held – · last – · presses 0 | Thermal nominal · Low Power off
+2026-11-07 09:42:07.570 selftest: Emulation 59.83 fps · run 0.20 ms (max 0.26) · trim -0.014 % · late 637 · resync 0 · pauses 0 | Display 51 Hz · shown 1260 · repeated 3 · skipped 466 · late 0 · GPU busy 0 · overwritten 71 | Audio 41.0 ms (target 35.0) · underruns 0 · dropped 0 · primes 1 · IO 2.7 ms · 48000 Hz | Input held – · last – · presses 0 | Thermal nominal · Low Power off
+2026-11-07 09:42:17.587 selftest: Emulation 59.78 fps · run 0.71 ms (max 0.99) · trim -0.004 % · late 1021 · resync 0 · pauses 0 | Display 52 Hz · shown 1709 · repeated 6 · skipped 601 · late 0 · GPU busy 0 · overwritten 84 | Audio 53.9 ms (target 35.0) · underruns 0 · dropped 0 · primes 1 · IO 2.7 ms · 48000 Hz | Input held – · last – · presses 0 | Thermal nominal · Low Power off
+2026-11-07 09:42:27.624 selftest: Emulation 59.70 fps · run 0.61 ms (max 0.66) · trim 0.004 % · late 1499 · resync 0 · pauses 0 | Display 52 Hz · shown 2159 · repeated 7 · skipped 751 · late 0 · GPU busy 0 · overwritten 84 | Audio 45.5 ms (target 35.0) · underruns 0 · dropped 0 · primes 1 · IO 2.7 ms · 48000 Hz | Input held – · last – · presses 0 | Thermal nominal · Low Power off
+2026-11-07 09:42:47.755 selftest: Emulation 59.79 fps · run 0.72 ms (max 1.37) · trim 0.050 % · late 1977 · resync 0 · pauses 1 | Display 48 Hz · shown 2619 · repeated 9 · skipped 911 · late 0 · GPU busy 0 · overwritten 84 | Audio 41.7 ms (target 35.0) · underruns 0 · dropped 0 · primes 2 · IO 2.7 ms · 48000 Hz | Input held – · last – · presses 0 | Thermal nominal · Low Power off
+
+Screenshots:
+./01-closed-inner.png
+./01-closed-outer.png
+./02-open-inner.png
+./02-open-outer.png
+./03-book-inner.png
+./03-book-outer.png
+./04-tabletop-inner.png
+./04-tabletop-outer.png
+./05-flat-upright-inner.png
+./05-flat-upright-outer.png
+./06-closed-inner.png
+./06-closed-outer.png
+./07-open-inner.png
+./07-open-outer.png
+
+-----------------------------------------------------------------------------------
+Tests: volle Läufe und die UI-Tests in echten Posen (Pose vorher mit dem Werkzeug gesetzt)
+-----------------------------------------------------------------------------------
+Scheme Store, voller Lauf: Passed 249
+  ArcfoldTests: Passed 95
+  ArcfoldUITests: Passed 20
+  FoldLayoutTests: Passed 31
+  LibretroKitTests: Passed 64
+  RendererTests: Passed 39
+Scheme JIT, voller Lauf: Passed 229
+  ArcfoldTests: Passed 95
+  FoldLayoutTests: Passed 31
+  LibretroKitTests: Passed 64
+  RendererTests: Passed 39
+
+Pose zu: 5 von 5 bestanden
+  testButtonsNeverReactOnTheTouchScreen() Passed (21s)
+  testEveryTapHitsItsDSPixel() Passed (58s)
+  testTheDSGameSitsOnItsRectangles() Passed (9s)
+  testTheGBAGameSitsOnItsRectangle() Passed (10s)
+  testTouchButtonsReachTheSession() Passed (15s)
+Pose offen: 5 von 5 bestanden
+  testButtonsNeverReactOnTheTouchScreen() Passed (41s)
+  testEveryTapHitsItsDSPixel() Passed (1min 59s)
+  testTheDSGameSitsOnItsRectangles() Passed (9s)
+  testTheGBAGameSitsOnItsRectangle() Passed (11s)
+  testTouchButtonsReachTheSession() Passed (16s)
+Pose Buch: 5 von 5 bestanden
+  testButtonsNeverReactOnTheTouchScreen() Passed (19s)
+  testEveryTapHitsItsDSPixel() Passed (1min 26s)
+  testTheDSGameSitsOnItsRectangles() Passed (10s)
+  testTheGBAGameSitsOnItsRectangle() Passed (11s)
+  testTouchButtonsReachTheSession() Passed (16s)
+Pose Tabletop: 5 von 5 bestanden
+  testButtonsNeverReactOnTheTouchScreen() Passed (18s)
+  testEveryTapHitsItsDSPixel() Passed (1min)
+  testTheDSGameSitsOnItsRectangles() Passed (9s)
+  testTheGBAGameSitsOnItsRectangle() Passed (10s)
+  testTouchButtonsReachTheSession() Passed (15s)
+Pose flach hochkant: 5 von 5 bestanden
+  testButtonsNeverReactOnTheTouchScreen() Passed (18s)
+  testEveryTapHitsItsDSPixel() Passed (1min)
+  testTheDSGameSitsOnItsRectangles() Passed (8s)
+  testTheGBAGameSitsOnItsRectangle() Passed (10s)
+  testTouchButtonsReachTheSession() Passed (15s)

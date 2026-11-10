@@ -1,0 +1,119 @@
+M2 im Duo-Simulator: Nachbesserungen nach der Prüfung, 7. November 2026
+=======================================================================
+
+Gerät: eigener Simulator „Arcfold M2 Nachbesserung“ (iPhone Duo, iOS 27.1, 24A94425), nach dem
+Booten zugeklappt: Außendisplay 1398 x 2034 px, Faktor 3. Xcode 27.2 (27B52), Mac mini M4 Pro,
+macOS 27.2, Debug-Build des Schemes Store, Branch m2/ds-falz. Werte aus dem Simulator sind
+Plausibilitätswerte. Posen außer „zu“ sind mit DebugRemote eingespeist und bleiben auf der
+Geometrie des Außendisplays (entartete Layouts, Faktor 1 bis 4).
+
+0. Builds und Tests
+   Kern melonDS DS neu gebaut mit den Patches (Scripts/build-core.sh melondsds): 144 Warnungen
+   wie vorher, alle im Fremdcode; bootstrap.sh --check grün.
+   Builds frisch in einem leeren Build-Ordner: Store für den Simulator mit den Test-Bundles,
+   JIT für den Simulator, Store für generic/platform=iOS mit CODE_SIGNING_ALLOWED=NO; ohne
+   Warnung im eigenen Code, die einzigen Warnzeilen stammen von appintentsmetadataprocessor.
+   Tests auf „Arcfold M2 Nachbesserung“, je ein voller Lauf, keiner übersprungen:
+     Store 246 grün: ArcfoldTests 92, LibretroKitTests 64, FoldLayoutTests 31,
+                     RendererTests 39, ArcfoldUITests 20
+     JIT   226 grün (ohne UI-Tests)
+   Vorher, nach der Integration: Store 238, JIT 220.
+
+1. Oberer Streifen ohne Touch: Ursache (Sonden-Apps, nicht im Repo)
+   Arcfold vor der Nachbesserung, DS zugeklappt, L und R über den oberen Ecken (y 7 bis 52 pt):
+     A bei (351, 578), L und R bei 30 und 45 pt, Touchscreen bei 300 pt: alle gezählt.
+     Ein Tipp bei (190, 5) pt: zählt nichts. Danach L und R bei 30 pt: nicht gezählt; A bei
+     578 pt, Touchscreen bei 262 und 300 pt: gezählt; 5 und 20 s später L und R: nicht gezählt.
+     Dasselbe mit defersSystemGestures aus, mit sichtbarer Statusleiste und mit
+     persistentSystemOverlays(.automatic) (Versuchsfassung mit Schaltern, danach verworfen).
+   Sonden-App (Vollbild-Ansicht, zählt jede Berührung über SpatialEventGesture, mit denselben
+   Modifikatoren wie die Spielansicht; ab dem zweiten Lauf wie Arcfold mit LSSupportsGameMode
+   und der Kategorie Spiele):
+     ohne NavigationStack darunter, mit und ohne defersSystemGestures: je 38 von 38 Tipps, auch
+       bei 4 pt und danach bei 20 bis 300 pt, auch nach 5 und 20 s; mit Game Mode ebenso;
+     NavigationStack mit großem Titel und Toolbar unter dem Vollbild: Tipp bei (190, 5) geht
+       verloren, danach 60, 45 und 30 pt verloren, 70 bis 300 pt gezählt, nach 5 und 20 s
+       gleich;
+     dasselbe ohne Toolbar-Knöpfe: gleich;
+     Wurzeltausch statt Vollbild: alle gezählt, auch der Tipp an die Kante.
+     In allen Varianten ging nur ein Tipp in die Kameraecke bei (420, 4) pt verloren; sie liegt
+     außerhalb des sicheren Bereichs, SpringBoard nimmt ihn. SpringBoard hat in allen Varianten
+     oben ein Element von 466 x 100 pt, auch wenn alles ankommt.
+   Arcfold nach der Nachbesserung (RootView), Versuchsfassung ohne Schutzrand: Touchscreen des
+     eingespeisten Buchs bei y = 0; Tipps bei 5, 20, 40 und 60 pt vor dem Tipp an die Kante, bei
+     3 pt an der Kante, bei 5 bis 60 pt danach und 5 s später: 16 von 16 gezählt, jeweils am
+     erwarteten Pixel; app.navigationBars.count = 0.
+   Arcfold nach der Nachbesserung mit Schutzrand: L und R bei 203 bis 249 pt vor und nach dem
+     Tipp an die Kante gezählt; Touchscreen im eingespeisten Buch bei y = 64 pt (192 px), nach
+     dem Tipp an die Kante bei 66, 70, 80 und 100 pt 4 von 4.
+
+2. Abnahmelauf (Skript der Integration, angepasst an den Pausenzähler in der Zeile „Emulation“)
+   DS, selftest.nds
+     zu, 75 s       7 Messzeilen: 59,830 Bilder/s im Mittel (59,75 bis 59,94), trim -0,028 bis
+                    -0,001 %, Ton 32,0 bis 44,2 ms, Anzeige 49 bis 52 Hz, 0 Neusynchronisationen,
+                    0 Aussetzer, 0 verworfen, 0 Pausen, thermalState nominal
+     Bildzähler     ARM7 des Programms 779 -> 5466 in 78,315 s = 59,848 Bilder/s (Soll 59,826)
+     ganze Sitzung  17 Messzeilen, 59,811 Bilder/s im Mittel, 0 Neusynchronisationen,
+                    0 Aussetzer, 0 verworfen, zweimal aufgefüllt, 1 Pause (das Zuklappen),
+                    keine Zeile „Emulation gap“
+     Posen, je 10 s ab dem Wechsel: keine Lücke über 50 ms, keine Neusynchronisation, keine Pause
+       flach        beide 1x bei (445, 412) und (445, 1378), Falz inaktiv waagerecht   ARM7  6572
+       Buch         beide 1x bei (209, 192) und (806, 192), Falz aktiv senkrecht       ARM7  7569
+       Tabletop     oben 4x bei (61, 112), Touchscreen 1x bei (445, 1390)              ARM7  8572
+       zu           je 4x bei (61, 0) und (61, 768)                                    ARM7  9573
+     Verdeckungsregionen außen in jeder Pose: (1199, 88, 111 x 111) und (1146, 0, 252 x 246) px,
+                    also die Kamera und die Ecke der vertikalen Leiste
+     Scharnier      aufklappen: nichts pausiert; zuklappen: „Paused: folded“, ARM7 10048 und 7 s
+                    später 10048; aufklappen: „Resumed“, ARM7 10529
+     Spielstand     battery.sav vor dem Lauf Boot-Zähler 14; nach Lauf und simctl terminate 15;
+                    nach dem Neustart zeigt das Programm 16, die Datei trägt 16
+
+   GBA, selftest.gba
+     zu, 75 s       7 Messzeilen: 59,716 Bilder/s im Mittel (59,62 bis 59,90), trim -0,098 bis
+                    +0,016 %, Ton 31,7 bis 51,6 ms, Anzeige 47 bis 51 Hz, 0 Neusynchronisationen,
+                    0 Aussetzer, 0 verworfen, 0 Pausen, thermalState nominal
+     Bildzähler     761 -> 5421 in 78,029 s = 59,721 Bilder/s (Soll 59,7275)
+     ganze Sitzung  17 Messzeilen, 59,731 Bilder/s im Mittel, 0 Neusynchronisationen,
+                    0 Aussetzer, 0 verworfen, zweimal aufgefüllt, 1 Pause (das Zuklappen)
+     Posen, je 10 s ab dem Wechsel: keine Lücke über 50 ms, keine Neusynchronisation, keine Pause
+       flach        4x bei (219, 311)                                                   6526
+       Buch         3x bei (339, 849) über dem senkrechten Falz                         7523
+       Tabletop     4x bei (219, 299)                                                   8523
+       zu           5x bei (99, 246), Leiste oben                                       9520
+     Scharnier      wie beim DS: „Paused: folded“, „Resumed“; die Zählerzeile liegt zugeklappt
+                    unter dem Pausenmenü, die Lesung dort (16383) ist ungültig
+
+3. UI-Tests (Lauf „run1-Store“, 20 von 20 grün)
+   DSTouchUITests.testTapsHitTheirPixelsInEveryPose
+       je Pose ein Tipp an die Oberkante bei 3 pt, der nichts drückt, dann 19 Stellen: vier
+       Ecken, Mitte, vier Kantenmitten, (37, 150), Stellen am unteren Rand und erster und letzter
+       Gerätepixel der Zellen (100, 101) und (60, 188); zu 4x, flach, Buch und Tabletop 1x: je
+       19 von 19 im Overlay und im Fadenkreuz, keine Stelle ausgelassen, kein Tastendruck; der
+       Touchscreen liegt in jeder Pose unter dem Schutzrand (y >= 192 px).
+   DSTouchUITests.testEveryTapHitsItsDSPixel: zugeklappt 4x, 32 von 32.
+   PoseUITests.testShoulderButtonsOfTheDSWorkInEveryPose, testShoulderButtonsOfTheGBAWorkInEveryPose
+       zu, flach, Buch, Tabletop, zu: Tipp an die Oberkante drückt nichts, danach drücken L und R
+       (buttonPresses + 1, lastButtons L bzw. R), beide mit y >= 64 pt.
+   PoseUITests.testPoseChangesKeepTheDSRunning, testPoseChangesKeepTheGBARunning
+       wie in der Integration, dazu Pausenzähler und Auffüllen des Tons über jeden Wechsel gleich.
+   PoseUITests.testClosingPausesAndResumePlaysOnTheOuterDisplay: wie in der Integration, dazu
+       genau eine Pause je Zuklappen.
+   PoseUITests.testBothTestProgramsStartFromTheLibrary: beide Programme aus der Bibliothek,
+       „Quit Game“ bringt die Bibliothek zurück (RootView).
+   LaunchTests.testLicensesListEveryComponentOfBothCores: alle 24 Einträge mit ihrer Lizenz.
+
+4. Kern: docs/adr/0006/kern-store-ohne-jit.txt
+   Neu erzeugt aus den frischen Builds mit dem Prüfskript der Spur K, erweitert um das
+   Schlüsselmaterial: beide Scheiben genau die 25 libretro-Funktionen, 0 verbotene Importe,
+   ein mmap mit PROT_READ und MAP_SHARED, 0 Symbole und Zeichenketten mit ARMJIT, Arm64Gen,
+   JitBlock, MAP_JIT oder jit_write_protect; 0-mal die Bytefolgen des boot2-Schlüssels, des
+   eMMC-KeyY, der KeyX von Platz 1 und von Modcrypt und der Scrambler-Konstante; keine
+   Zeichenkette nintendowifi, kein Symbol DownloadTmd oder CacheTmd; DeriveNormalKey mit
+   9 Befehlen bis einschließlich ret, ohne die Sofortwerte der Scrambler-Konstante. Im Kern vor der Nachbesserung
+   (Scheibe ios-arm64, wie in den Builds der Integration) standen der boot2-Schlüssel bei Offset 2 259 920, der eMMC-KeyY
+   bei 2 264 000 und die KeyX von Modcrypt mit der von Platz 1 bei 2 259 856, DeriveNormalKey hatte
+   130 Befehle mit Sofortwerten der Konstante (beide Zahlen nachgezählt am 7. November 2026; vorher
+   standen hier 10 und 131, mitgezählt war die Funktionsmarke). Die Scheibe für Geräte ist 4 502 416 statt
+   4 520 656 Byte groß. Die in Store (Gerät, Simulator) und JIT eingebetteten Binärdateien sind
+   byteweise die Scheiben. Der Kern enthält weiter acht absolute Quellpfade, sieben davon jetzt
+   unter build/cores/, weil melonDS aus dem gepatchten Abzug gebaut wird (Abhilfe in M3).

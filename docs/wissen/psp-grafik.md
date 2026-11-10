@@ -99,7 +99,7 @@ Die Toolchain ist das Release v20261101 von PSPDEV (`pspdev-macos-latest-arm64.t
 | Werkzeug | Version | Herkunft | Wofür |
 | --- | --- | --- | --- |
 | MoltenVK | 1.4.2 | offizielles Release, `Spikes/PSPGPU/Scripts/fetch-moltenvk.sh` lädt nach `build/moltenvk` | Vulkan im Spike |
-| PSPDEV | v20261101 | GitHub-Release, nur im Scratchpad | Testprogramm bauen |
+| PSPDEV | v20261101 | GitHub-Release, nur vorübergehend entpackt | Testprogramm bauen |
 | libmpc | 1.4.1 | Homebrew, für Arcfold installiert | PSPDEV-Compiler |
 | mpfr | 4.2.2 | Homebrew, als Abhängigkeit von libmpc | PSPDEV-Compiler |
 
