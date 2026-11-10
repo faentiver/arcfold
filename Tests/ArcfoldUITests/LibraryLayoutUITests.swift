@@ -3,8 +3,9 @@ import XCTest
 /// The library in the window the device gives it, whatever the pose: the
 /// grid begins at the large title, a tile keeps its name in view at every
 /// text size, and nothing lies on a fold that divides the window from top to
-/// bottom. The tests take the pose as it is, so they run closed in a normal
-/// test run and again in every real pose of the Duo.
+/// bottom or closer to it than the system's margin. The tests take the pose
+/// as it is, so they run closed in a normal test run and again in every real
+/// pose of the Duo.
 ///
 /// A real fold reaches a test only from outside: `ARCFOLD_LIBRARY_FOLD`
 /// (through `TEST_RUNNER_ARCFOLD_LIBRARY_FOLD`) names its left and right edge
@@ -129,6 +130,10 @@ final class LibraryLayoutUITests: XCTestCase {
         namedFold == nil ? ["-ArcfoldFoldOverride", "book"] : []
     }
 
+    /// The distance everything keeps from a fold that divides the window:
+    /// the system's margin of the Duo.
+    private static let foldMargin: CGFloat = 20
+
     @MainActor
     func testNoTileLiesOnAFoldThatDividesTheWindow() {
         for textSize in ["UICTContentSizeCategoryL", "UICTContentSizeCategoryAccessibilityL"] {
@@ -136,14 +141,24 @@ final class LibraryLayoutUITests: XCTestCase {
             let window = app.gameWindow.frame
             let fold = fold(in: window)
             let tiles = libraryTiles(in: app)
-            let before = tiles.filter { $0.maxX <= fold.lowerBound + 0.5 }
-            let after = tiles.filter { $0.minX >= fold.upperBound - 0.5 }
+            // On neither side a tile sticks to the fold.
+            let before = tiles.filter { $0.maxX <= fold.lowerBound - Self.foldMargin + 0.5 }
+            let after = tiles.filter { $0.minX >= fold.upperBound + Self.foldMargin - 0.5 }
             note("fold \(fold.lowerBound)-\(fold.upperBound): \(before.count) tiles before, \(after.count) after, "
-                + "edges \(Set(tiles.map(\.minX)).sorted()) width \(tiles.first?.width ?? 0) \(textSize)")
+                + "edges \(Set(tiles.map(\.minX)).sorted()) width \(tiles.first?.width ?? 0), "
+                + "\(fold.lowerBound - (before.map(\.maxX).max() ?? 0)) pt before the fold, "
+                + "\((after.map(\.minX).min() ?? 0) - fold.upperBound) pt behind it \(textSize)")
             XCTAssertEqual(before.count + after.count, tiles.count,
-                           "A tile lies on the fold \(fold) (\(textSize), window \(window.size))")
+                           "A tile lies on the fold \(fold) or at its edge (\(textSize), window \(window.size))")
             XCTAssertFalse(before.isEmpty, "No tile before the fold (\(textSize))")
             XCTAssertFalse(after.isEmpty, "No tile after the fold (\(textSize))")
+            // The second page begins the margin behind the fold, with tiles
+            // as wide as those of the first.
+            if let second = after.map(\.minX).min(), let width = tiles.first?.width {
+                XCTAssertEqual(second, fold.upperBound + Self.foldMargin, accuracy: 1,
+                               "The second page does not begin the margin behind the fold (\(textSize))")
+                XCTAssertTrue(tiles.allSatisfy { abs($0.width - width) < 0.5 }, "The tiles differ in width (\(textSize))")
+            }
             // The first page still begins at the large title.
             let title = app.navigationBars["Library"].staticTexts["Library"]
             if title.exists, let first = tiles.first {
@@ -172,11 +187,13 @@ final class LibraryLayoutUITests: XCTestCase {
         XCTAssertTrue(app.staticTexts["GPL-3.0-or-later"].firstMatch.waitForExistence(timeout: 5))
     }
 
-    /// The texts on screen that lie on `fold`, with their frames.
+    /// The texts on screen that lie on `fold` or closer to it than the
+    /// margin, with their frames.
     @MainActor
-    private func textsOnTheFold(_ fold: ClosedRange<CGFloat>, in app: XCUIApplication) -> [String] {
+    private func textsAtTheFold(_ fold: ClosedRange<CGFloat>, in app: XCUIApplication) -> [String] {
         app.staticTexts.allElementsBoundByIndex
-            .filter { $0.exists && !$0.frame.isEmpty && $0.frame.maxX > fold.lowerBound + 0.5 && $0.frame.minX < fold.upperBound - 0.5 }
+            .filter { $0.exists && !$0.frame.isEmpty }
+            .filter { $0.frame.maxX > fold.lowerBound - Self.foldMargin + 0.5 && $0.frame.minX < fold.upperBound + Self.foldMargin - 0.5 }
             .map { "\($0.label) \($0.frame)" }
     }
 
@@ -190,8 +207,9 @@ final class LibraryLayoutUITests: XCTestCase {
         let fold = fold(in: app.gameWindow.frame)
         note("empty library: button \(importGames.frame), fold \(fold.lowerBound)-\(fold.upperBound)")
         // The glass button and the texts lie on the first page.
-        XCTAssertLessThanOrEqual(importGames.frame.maxX, fold.lowerBound + 0.5, "Import Games lies on or after the fold")
-        XCTAssertEqual(textsOnTheFold(fold, in: app), [])
+        XCTAssertLessThanOrEqual(importGames.frame.maxX, fold.lowerBound - Self.foldMargin + 0.5,
+                                 "Import Games lies at or after the fold")
+        XCTAssertEqual(textsAtTheFold(fold, in: app), [])
         keepLibraryScreenshot(of: app, named: "library-empty")
     }
 
@@ -208,7 +226,7 @@ final class LibraryLayoutUITests: XCTestCase {
         XCTAssertTrue(app.staticTexts.matching(NSPredicate(format: "label CONTAINS 'zzz'")).firstMatch.waitForExistence(timeout: 5),
                       "No message for a search without results")
         note("search: field \(field.frame), fold \(fold.lowerBound)-\(fold.upperBound)")
-        XCTAssertEqual(textsOnTheFold(fold, in: app), [])
+        XCTAssertEqual(textsAtTheFold(fold, in: app), [])
         // The system keeps its search field off a real fold.
         if Self.namedFold != nil {
             XCTAssertTrue(field.frame.maxX <= fold.lowerBound + 0.5 || field.frame.minX >= fold.upperBound - 0.5,
@@ -228,10 +246,17 @@ final class LibraryLayoutUITests: XCTestCase {
         cores.tap()
         XCTAssertTrue(app.navigationBars["Cores"].waitForExistence(timeout: 5))
         XCTAssertTrue(app.staticTexts["mGBA"].waitForExistence(timeout: 10), "The list of cores is empty")
-        XCTAssertEqual(textsOnTheFold(fold, in: app), [])
-        // Name and version of a core both lie on the first page.
+        XCTAssertEqual(textsAtTheFold(fold, in: app), [])
+        // Name and version of a core both lie on the first page, and the
+        // rows end the margin before the fold.
         for text in app.cells.staticTexts.allElementsBoundByIndex where text.exists {
-            XCTAssertLessThanOrEqual(text.frame.maxX, fold.lowerBound + 0.5, "\(text.label) lies after the fold")
+            XCTAssertLessThanOrEqual(text.frame.maxX, fold.lowerBound - Self.foldMargin + 0.5, "\(text.label) lies at or after the fold")
+        }
+        let rows = app.cells.allElementsBoundByIndex.filter(\.exists).map(\.frame)
+        note("cores: rows \(rows), fold \(fold.lowerBound)-\(fold.upperBound)")
+        XCTAssertFalse(rows.isEmpty, "The list of cores has no rows")
+        for row in rows {
+            XCTAssertLessThanOrEqual(row.maxX, fold.lowerBound - Self.foldMargin + 0.5, "A row \(row) of the cores lies at the fold")
         }
         keepLibraryScreenshot(of: app, named: "cores")
     }
@@ -249,18 +274,21 @@ final class LibraryLayoutUITests: XCTestCase {
         keepLibraryScreenshot(of: app, named: "licenses")
         guard let fold = Self.namedFold else { return }
 
-        XCTAssertEqual(textsOnTheFold(fold, in: app), [])
-        // The list on the first page, the text of Arcfold on the second.
-        XCTAssertLessThanOrEqual(row.frame.maxX, fold.lowerBound + 0.5)
+        XCTAssertEqual(textsAtTheFold(fold, in: app), [])
+        // The list on the first page, the margin before the fold; the text
+        // of Arcfold on the second, the margin behind it.
+        XCTAssertLessThanOrEqual(row.frame.maxX, fold.lowerBound - Self.foldMargin + 0.5)
         let names = app.staticTexts.matching(identifier: "Arcfold").allElementsBoundByIndex.map(\.frame)
-        note("licenses: Arcfold at \(names), fold \(fold.lowerBound)-\(fold.upperBound)")
-        XCTAssertTrue(names.contains { $0.minX >= fold.upperBound - 0.5 }, "No license text on the second page")
+        note("licenses: row \(row.frame), Arcfold at \(names), fold \(fold.lowerBound)-\(fold.upperBound)")
+        XCTAssertTrue(names.contains { abs($0.minX - fold.upperBound - Self.foldMargin) <= 1 },
+                      "No license text the margin behind the fold")
 
         // Another component: its text takes the second page.
         row.tap()
         let heading = app.staticTexts.matching(identifier: "mGBA").allElementsBoundByIndex.map(\.frame)
-        XCTAssertTrue(heading.contains { $0.minX >= fold.upperBound - 0.5 }, "The text of mGBA is not on the second page")
-        XCTAssertEqual(textsOnTheFold(fold, in: app), [])
+        XCTAssertTrue(heading.contains { abs($0.minX - fold.upperBound - Self.foldMargin) <= 1 },
+                      "The text of mGBA does not begin the margin behind the fold")
+        XCTAssertEqual(textsAtTheFold(fold, in: app), [])
         keepLibraryScreenshot(of: app, named: "licenses-mgba")
     }
 

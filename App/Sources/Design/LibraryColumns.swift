@@ -19,11 +19,16 @@ import UIKit
 ///   tile narrower, so a name keeps the width its text size asks for.
 /// - A fold that divides the window from top to bottom (the Duo held like a
 ///   book) divides the grid into two pages, as the system divides its own
-///   apps there: the same number of equal columns on each side, from the
-///   margin and from the fold on, and no tile on the division region; the
-///   pages stay at least one tile distance apart. A
-///   fold across the window and an inactive fold divide nothing, as in the
-///   system.
+///   apps there: the same number of equal columns on each page, as wide as
+///   the narrower page allows. The first page begins at the margin, where
+///   the large title begins; the second begins the system's margin behind
+///   the division region, and no tile lies on the region or closer to it
+///   than that margin. What the wider page has left stays free at its far
+///   end. In the book of the Duo that is the first page, because the system
+///   column takes 84 pt of the second: its tiles end 84 pt before the fold,
+///   so both pages look alike, 20 pt before the tiles and 84 pt behind them.
+///   A fold across the window and an inactive fold divide nothing, as in
+///   the system.
 nonisolated struct LibraryColumns: Sendable, Equatable {
     /// The room the grid has.
     struct Space: Sendable, Equatable {
@@ -110,15 +115,15 @@ nonisolated struct LibraryColumns: Sendable, Equatable {
     }
 
     /// The parts of the width that take tiles: between the margins, or on
-    /// each side of the fold. A side too narrow for a tile stays empty.
+    /// each side of the fold, the system's margin away from the division
+    /// region, as a list or a text beside the fold keeps it
+    /// (`FoldDivision.pageMargin`). A side too narrow for a tile stays empty.
     static func pages(in space: Space) -> [ClosedRange<CGFloat>] {
         let start = space.margins.leading
         let end = max(space.width - space.margins.trailing, start + 1)
         guard let fold = space.fold else { return [start...end] }
-        // A fold narrower than the distance between two tiles, such as a
-        // bare crease, still keeps the tiles that far apart.
-        let gutter = max(Metrics.gridSpacing(for: end - start).horizontal - (fold.upperBound - fold.lowerBound), 0) / 2
-        let sides = [(start, min(fold.lowerBound - gutter, end)), (max(fold.upperBound + gutter, start), end)]
+        let margin = FoldDivision.pageMargin
+        let sides = [(start, min(fold.lowerBound - margin, end)), (max(fold.upperBound + margin, start), end)]
             .filter { $0.1 - $0.0 >= Self.narrowestTile }
             .map { $0.0...$0.1 }
         return sides.isEmpty ? [start...end] : sides

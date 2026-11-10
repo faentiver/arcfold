@@ -10,7 +10,7 @@ import UIKit
 /// text size: the grid begins and ends at the system's margins, its columns
 /// are equal and apart, a tile with its name fits into what the window
 /// shows at once and is as wide as its text size asks, and no tile lies on
-/// a fold that divides the window.
+/// a fold that divides the window or closer to it than the system's margin.
 struct LibraryColumnsTests {
     /// A window as the library finds it: the width of its scroll view inside
     /// the safe area and the system's margins in it.
@@ -75,18 +75,15 @@ struct LibraryColumnsTests {
         }
         #expect(layout.gridItems.count == columns.count, comment)
         guard let fold = space.fold else { return }
-        // Two pages: no tile on the fold, the same columns on each side.
-        let before = columns.filter { $0.maxX <= fold.lowerBound + 0.01 }
-        let after = columns.filter { $0.x >= fold.upperBound - 0.01 }
-        #expect(before.count + after.count == columns.count, "a tile lies on the fold: \(comment)")
+        // Two pages: no tile on the fold or closer to it than the system's
+        // margin, the same columns on each side.
+        let margin = FoldDivision.pageMargin
+        let before = columns.filter { $0.maxX <= fold.lowerBound - margin + 0.01 }
+        let after = columns.filter { $0.x >= fold.upperBound + margin - 0.01 }
+        #expect(before.count + after.count == columns.count, "a tile lies on the fold or at its edge: \(comment)")
         #expect(before.count == after.count, comment)
-        // The second page begins at the fold, or a tile distance from the
-        // first page when the fold is narrower than that.
-        let gap = (after.first?.x ?? 0) - (before.last?.maxX ?? 0)
-        #expect(gap >= fold.upperBound - fold.lowerBound - 0.01 && gap >= 14, comment)
-        if fold.upperBound - fold.lowerBound >= 20 {
-            #expect(abs((after.first?.x ?? 0) - fold.upperBound) < 0.01, comment)
-        }
+        // The second page begins the margin behind the fold.
+        #expect(abs((after.first?.x ?? 0) - (fold.upperBound + margin)) < 0.01, comment)
     }
 
     @Test(arguments: windows)
@@ -140,24 +137,71 @@ struct LibraryColumnsTests {
         #expect(abs(fold.lowerBound - 455.33) < 0.01 && abs(fold.upperBound - 495.67) < 0.01)
         #expect(space.width == 867 && space.visibleHeight == 553)
 
-        // Two columns on each page, as wide as the narrower page allows:
-        // (867 - 495.67 - 14) / 2.
+        // Two columns on each page, as wide as the narrower page allows. That
+        // is the second one, 20 pt behind the fold to the bar:
+        // (867 - 495.67 - 20 - 14) / 2.
         let standard = LibraryColumns(space: space, typeSize: .large)
         Self.check(standard, in: space, "book")
         #expect(standard.columns.count == 4)
-        #expect(abs(standard.columns[0].width - 178.67) < 0.01)
-        #expect(standard.columns.map { ($0.x * 100).rounded() / 100 } == [20, 212.67, 495.67, 688.33])
+        #expect(abs(standard.columns[0].width - 168.67) < 0.01)
+        #expect(standard.columns.map { ($0.x * 100).rounded() / 100 } == [20, 202.67, 515.67, 698.33])
         #expect(abs(standard.columns[3].maxX - 867) < 0.01)
+        // Both pages look alike: 20 pt before the tiles, from the edge of
+        // the display and from the division region, and 84 pt behind them,
+        // to the division region and to the edge of the display, where the
+        // system column lies.
+        #expect(abs(standard.columns[2].x - fold.upperBound - 20) < 0.01)
+        #expect(abs(fold.lowerBound - standard.columns[1].maxX - 84) < 0.01)
+        #expect(abs(951 - standard.columns[3].maxX - 84) < 0.01)
 
         // Large text: one tile on each page.
         let large = LibraryColumns(space: space, typeSize: .accessibility2)
         Self.check(large, in: space, "book, large text")
         #expect(large.columns.count == 2)
-        #expect(abs(large.columns[1].x - 495.67) < 0.01)
+        #expect(abs(large.columns[0].width - 351.33) < 0.01)
+        #expect(abs(large.columns[1].x - 515.67) < 0.01)
         for typeSize in Self.typeSizes {
             let layout = LibraryColumns(space: space, typeSize: typeSize)
             Self.check(layout, in: space, "book, \(typeSize)")
             #expect(Self.tileHeight(layout, typeSize) <= 553 - LibraryColumns.topPadding)
+        }
+    }
+
+    /// The book in both reading directions and with every set of margins,
+    /// and every fold from top to bottom of the geometries: the grid begins
+    /// at the edge of the large title, its tiles are equally wide on both
+    /// pages, and none lies on the division region or sticks to its edge.
+    @Test func inTheBookNoTileLiesOnTheFoldOrAtItsEdge() throws {
+        var books = [(name: "book", geometry: Self.book)]
+        books += DuoGeometries.cases.filter { $0.name.hasPrefix("fold down") || $0.name.hasPrefix("book") }
+            .map { (name: $0.name, geometry: $0.geometry) }
+            .filter { $0.geometry.isFoldActive }
+        #expect(books.count == 10)
+        for (name, geometry) in books {
+            for margins in Self.margins {
+                for isRightToLeft in [false, true] {
+                    let space = LibraryColumns.Space(geometry: geometry, margins: margins, isRightToLeft: isRightToLeft)
+                    let fold = try #require(space.fold, "\(name) has no dividing fold")
+                    for typeSize in Self.typeSizes {
+                        let direction = isRightToLeft ? "right to left" : "left to right"
+                        let comment: Comment = "\(name), margins \(margins.leading)/\(margins.trailing), \(direction), \(typeSize)"
+                        let layout = LibraryColumns(space: space, typeSize: typeSize)
+                        Self.check(layout, in: space, comment)
+                        let columns = layout.columns
+                        // The edge of the large title is the edge of the grid.
+                        #expect(abs(columns[0].x - margins.leading) < 0.01, comment)
+                        // Nothing on the division region, nothing within 20 pt of it.
+                        for column in columns {
+                            #expect(column.maxX <= fold.lowerBound - 20 + 0.01 || column.x >= fold.upperBound + 20 - 0.01, comment)
+                            #expect(abs(column.width - columns[0].width) < 0.01, comment)
+                        }
+                        // Each page begins with a tile: the first at the
+                        // margin, the second 20 pt behind the fold.
+                        let second = columns[columns.count / 2]
+                        #expect(columns.count.isMultiple(of: 2) && abs(second.x - fold.upperBound - 20) < 0.01, comment)
+                    }
+                }
+            }
         }
     }
 
@@ -181,7 +225,8 @@ struct LibraryColumnsTests {
     @Test func aSideTooNarrowForATileStaysEmpty() {
         let space = LibraryColumns.Space(width: 382, margins: .standard, fold: 60...76)
         let layout = LibraryColumns(space: space, typeSize: .large)
-        #expect(layout.columns.allSatisfy { $0.x >= 76 })
+        // The other side still keeps the margin from the fold.
+        #expect(abs((layout.columns.first?.x ?? 0) - 96) < 0.01)
         #expect(abs((layout.columns.last?.maxX ?? 0) - 362) < 0.01)
     }
 

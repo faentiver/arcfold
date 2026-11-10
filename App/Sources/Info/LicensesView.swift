@@ -34,7 +34,7 @@ struct LicensesView: View {
                 }
                 .contentMargins(.trailing, FoldDivision.pageMargin, for: .scrollContent)
             } secondary: {
-                LicenseText(component: shown, showsName: true)
+                LicenseText(component: shown, isBesideTheList: true)
                     .id(shown.id)
             }
         } else {
@@ -67,7 +67,7 @@ struct LicenseTextView: View {
     let component: LicenseComponent
 
     var body: some View {
-        LicenseText(component: component, showsName: false)
+        LicenseText(component: component, isBesideTheList: false)
             // Folded like a book while it shows: beside the fold, not across it.
             .onFirstFoldPage()
             .navigationTitle(Text(verbatim: component.name))
@@ -76,17 +76,19 @@ struct LicenseTextView: View {
 }
 
 /// The text of one license, split into paragraphs so that long texts like the
-/// GPL lay out lazily. Beside the list it begins with the name of the
-/// component, because no navigation bar names it there.
+/// GPL lay out lazily. Beside the list, on the second page at a fold, it
+/// begins with the name of the component, because no navigation bar names it
+/// there, and the system's margin behind the fold, like the second page of
+/// the library.
 private struct LicenseText: View {
     let component: LicenseComponent
-    let showsName: Bool
+    let isBesideTheList: Bool
     @State private var paragraphs: [String]?
 
     var body: some View {
         ScrollView {
             LazyVStack(alignment: .leading, spacing: 12) {
-                if showsName {
+                if isBesideTheList {
                     Text(verbatim: component.name)
                         .font(.headline)
                 }
@@ -105,7 +107,8 @@ private struct LicenseText: View {
             }
             .font(.system(.footnote, design: .monospaced))
             .textSelection(.enabled)
-            .padding()
+            .padding([.vertical, .trailing])
+            .padding(.leading, isBesideTheList ? FoldDivision.pageMargin : nil)
             .frame(maxWidth: .infinity, alignment: .leading)
         }
         .task {
