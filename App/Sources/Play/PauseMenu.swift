@@ -62,24 +62,32 @@ struct PauseMenu: View {
     let quit: () -> Void
 
     @State private var detent = PresentationDetent.medium
+    /// The safe area the sheet gives its content at the sides, as measured:
+    /// the system column of the outer display insets one of them.
+    @State private var sideInsets = PauseSheetMargins.Insets()
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @Environment(\.prefersFades) private var prefersFades
     @Environment(\.verticalSizeClass) private var verticalSizeClass
-    @Environment(\.layoutDirection) private var layoutDirection
 
     var body: some View {
+        let margins = PauseSheetMargins(insets: sideInsets, isMediumHeight: detent == .medium,
+                                        isUpright: verticalSizeClass == .regular)
         // Scrolls only when larger text no longer fits the medium detent.
         ScrollView {
             content
+                .padding(.leading, margins.leading)
+                .padding(.trailing, margins.trailing)
         }
         .scrollBounceBehavior(.basedOnSize)
-        // Upright at medium height the sheet reaches over the system column
-        // of the outer display, below its status bar, but the content kept
-        // the column's inset and sat 38 pt left of centre (measured). That
-        // part of the column holds nothing, so the content takes the sheet's
-        // width. At large height the status bar and the sensors lie beside
-        // the content, so the inset stays.
-        .ignoresSafeArea(.container, edges: detent == .medium && verticalSizeClass == .regular ? columnEdge : [])
+        // The content sits in the middle of the sheet, with equal margins,
+        // whichever side the system column insets (PauseSheetMargins).
+        .ignoresSafeArea(.container, edges: margins.spannedEdges)
+        // Read outside the modifier above, so the insets stay the sheet's.
+        .onGeometryChange(for: PauseSheetMargins.Insets.self) { proxy in
+            PauseSheetMargins.Insets(leading: proxy.safeAreaInsets.leading, trailing: proxy.safeAreaInsets.trailing)
+        } action: { insets in
+            sideInsets = insets
+        }
         // A container, or the identifier would replace those of the buttons.
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("pause-menu")
@@ -87,12 +95,6 @@ struct PauseMenu: View {
         .navigationTransition(prefersFades
             ? AnyNavigationTransition(.crossFade)
             : AnyNavigationTransition(.zoom(sourceID: Self.transitionID, in: transition)))
-    }
-
-    /// The column lies on the right of the outer display, whatever the
-    /// direction of the language.
-    private var columnEdge: Edge.Set {
-        layoutDirection == .rightToLeft ? .leading : .trailing
     }
 
     private var content: some View {
@@ -152,6 +154,49 @@ struct PauseMenu: View {
         .padding(.horizontal, 20)
         .padding(.top, 24)
         .padding(.bottom, 16)
+    }
+}
+
+/// How the content of the pause sheet evens out the inset that the system
+/// column of the outer display leaves on one side, from the safe area the
+/// sheet measures; where the column lies and how wide it is are read, not
+/// assumed.
+///
+/// Upright at medium height the sheet lies below the status bar and the
+/// sensors, so that part of the column holds nothing: the content takes the
+/// sheet's width. Sideways the column lies beside the whole sheet, with the
+/// camera in it: the content keeps clear of it and gets the same margin on
+/// the other side. Upright at large height, which only large text reaches,
+/// the status bar and the sensors lie beside the content and the inset
+/// stays, because the text needs the width more than the symmetry.
+nonisolated struct PauseSheetMargins: Equatable {
+    /// The safe area at the sides of the sheet's content, in points.
+    struct Insets: Hashable {
+        var leading: CGFloat = 0
+        var trailing: CGFloat = 0
+    }
+
+    /// The content ignores the safe area on these edges.
+    var spannedEdges: Edge.Set = []
+    /// Padding that makes both margins equal.
+    var leading: CGFloat = 0
+    var trailing: CGFloat = 0
+
+    init(insets: Insets, isMediumHeight: Bool, isUpright: Bool) {
+        guard abs(insets.leading - insets.trailing) > 0.5 else { return }
+        if !isUpright {
+            leading = max(0, insets.trailing - insets.leading)
+            trailing = max(0, insets.leading - insets.trailing)
+        } else if isMediumHeight {
+            spannedEdges = insets.leading > insets.trailing ? .leading : .trailing
+        }
+    }
+
+    /// The distance of the content from the sides of the sheet, for a
+    /// content padding of `padding`.
+    func contentMargins(insets: Insets, padding: CGFloat) -> (leading: CGFloat, trailing: CGFloat) {
+        ((spannedEdges.contains(.leading) ? 0 : insets.leading) + leading + padding,
+         (spannedEdges.contains(.trailing) ? 0 : insets.trailing) + trailing + padding)
     }
 }
 
