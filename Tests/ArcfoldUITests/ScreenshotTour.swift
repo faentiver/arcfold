@@ -7,9 +7,16 @@ import XCTest
 /// attachments. Each screenshot is named `<variant>-<nn>-<state>`; the
 /// measurements go into `<variant>-metrics`.
 ///
-/// In its pose part the script sets each real pose of the Duo with
-/// the private posture tool outside the repository and runs the states of the game in it (30 and
-/// 31, and 12 sideways); the pose comes as `ARCFOLD_TOUR_POSE`.
+/// In its pose part the script sets each real pose of the Duo with the
+/// private posture tool outside the repository and runs the states of the
+/// whole app in it, once per variant: the game (30 and 31, with the pause
+/// sheet), the library (32), the menu (33), the search (34), the licenses
+/// (35), a long notice with the status chip (36) and the failure view (37),
+/// and 12 sideways; the pose comes as `ARCFOLD_TOUR_POSE`. Every
+/// measurement of the variants that makes sense in a pose is taken there too:
+/// the edge of the large title, the margins of the sheet, the contrast of the
+/// keys and of the accent buttons, the overlap of the pause button and the
+/// notices with the keys.
 final class ScreenshotTour: GlassUITestCase {
     /// The variant the script set up. Without it, as in a plain test run of
     /// the Store scheme, the tour skips every state.
@@ -472,8 +479,9 @@ final class ScreenshotTour: GlassUITestCase {
     }
 
     /// A game in the real pose the script set: the layout the overlay
-    /// reports, a screenshot of the display it runs on, then the pause sheet
-    /// out of the pause button and a screenshot of it, and Resume.
+    /// reports, the keys and the pause button against each other, a
+    /// screenshot of the display it runs on, then the pause sheet out of the
+    /// pause button with its margins and a screenshot of it, and Resume.
     @MainActor
     private func shootTheGame(fileExtension: String, system: String, number: Int) throws {
         try onlyInAPose()
@@ -492,19 +500,156 @@ final class ScreenshotTour: GlassUITestCase {
             + "safe \(values.pairs["safe"] ?? "–") fold \(values.pairs["fold"] ?? "–") screens \(values.pairs["screens"] ?? "–")")
         let pause = app.buttons["pause"]
         XCTAssertTrue(pause.waitForExistence(timeout: 5))
-        XCTAssertTrue(pause.frame.width >= 44 && pause.frame.height >= 44, "pause \(pause.frame)")
+        XCTAssertTrue((44...52).contains(pause.frame.width) && (44...52).contains(pause.frame.height), "pause \(pause.frame)")
         XCTAssertGreaterThanOrEqual(pause.frame.minY, 64, "the pause button lies in the top edge guard")
+        let overlapping = Self.keys(in: app).filter { $0.1.intersects(pause.frame.insetBy(dx: 4, dy: 4)) }.map(\.0)
+        record("pose \(Self.pose) \(system): pause \(pause.frame) keys under it \(overlapping.isEmpty ? "none" : overlapping.joined(separator: ","))")
+        XCTAssertTrue(overlapping.isEmpty, "\(Self.pose) \(system): the pause button lies on \(overlapping)")
+        let (pixels, scale) = try pixels(of: app)
+        measureKeys(Self.keys(in: app), named: "\(Self.pose)-\(system)", in: pixels, scale: scale, checksEdges: true)
         shoot(app, number, "\(Self.pose)-\(system)")
 
         pause.tap()
         let resume = app.buttons["resume"]
         XCTAssertTrue(resume.waitForExistence(timeout: 5), "\(Self.pose): the pause sheet did not open")
         Thread.sleep(forTimeInterval: 1.5)
-        record("pose \(Self.pose) \(system): sheet \(app.descendants(matching: .any)["pause-menu"].firstMatch.frame)")
+        let sheet = app.descendants(matching: .any)["pause-menu"].firstMatch
+        record("pose \(Self.pose) \(system): sheet \(sheet.frame)")
+        // Along the axis the button is long in, the content sits in the middle of the sheet.
+        let margins = resume.frame.width >= resume.frame.height
+            ? (resume.frame.minX - sheet.frame.minX, sheet.frame.maxX - resume.frame.maxX)
+            : (resume.frame.minY - sheet.frame.minY, sheet.frame.maxY - resume.frame.maxY)
+        record("pose \(Self.pose) \(system): sheet margins \(Self.format(margins.0)) \(Self.format(margins.1))")
+        XCTAssertEqual(margins.0, margins.1, accuracy: 2, "\(Self.pose) \(system): the content of the sheet sits off centre")
+        try measureAccentButton(resume, named: "resume-\(Self.pose)-\(system)", in: app)
         shoot(app, number, "\(Self.pose)-\(system)-sheet")
         resume.tap()
         XCTAssertTrue(waitUntilGone(resume), "\(Self.pose): the sheet stayed")
         XCTAssertTrue(waitUntil(overlay, hasValue: "paused=false;"), "\(Self.pose): Resume did not resume")
+    }
+
+    // MARK: Real poses: the rest of the app
+
+    /// The library in the pose: the grid begins at the edge of the large
+    /// title, and the first row with its names stands in the window.
+    @MainActor
+    func test32LibraryInThePose() throws {
+        try onlyInAPose()
+        let app = launchGallery("library-shelf")
+        XCTAssertTrue(app.buttons["game-gba-Arc-Light"].waitForExistence(timeout: 10))
+        let window = app.gameWindow.frame
+        let tile = app.buttons["game-gba-Arc-Light"].frame
+        let title = app.navigationBars["Library"].staticTexts["Library"]
+        record("pose \(Self.pose) library: columns \(columns(in: app)) window \(window) first tile \(tile)")
+        XCTAssertTrue(window.contains(tile), "\(Self.pose): the first tile \(tile) leaves the window \(window)")
+        if title.exists {
+            record("pose \(Self.pose) library: margin tile \(tile.minX) title \(title.frame.minX)")
+            XCTAssertEqual(tile.minX, title.frame.minX, accuracy: 1.5, "\(Self.pose): the grid does not line up with the title")
+        } else {
+            record("pose \(Self.pose) library: title not found")
+        }
+        shoot(app, 32, "\(Self.pose)-library")
+    }
+
+    @MainActor
+    func test33MenuInThePose() throws {
+        try onlyInAPose()
+        let app = XCUIApplication()
+        app.launchArguments = ["-ArcfoldImport", try selftestPath()]
+        app.launch()
+        let more = app.buttons["info-menu"]
+        XCTAssertTrue(more.waitForExistence(timeout: 20))
+        more.tap()
+        XCTAssertTrue(app.buttons["Licenses"].waitForExistence(timeout: 5), "\(Self.pose): the menu did not open")
+        Thread.sleep(forTimeInterval: 1)
+        shoot(app, 33, "\(Self.pose)-menu")
+    }
+
+    @MainActor
+    func test34SearchInThePose() throws {
+        try onlyInAPose()
+        let app = XCUIApplication()
+        app.launchArguments = ["-ArcfoldImport", try selftestPath()]
+        app.launch()
+        XCTAssertTrue(app.buttons["game-gba-selftest"].waitForExistence(timeout: 20))
+        let search = app.buttons["Search"]
+        XCTAssertTrue(search.waitForExistence(timeout: 5))
+        search.tap()
+        let field = app.searchFields.firstMatch
+        XCTAssertTrue(field.waitForExistence(timeout: 5), "\(Self.pose): the search field did not open")
+        field.typeText("self")
+        XCTAssertTrue(app.buttons["game-gba-selftest"].waitForExistence(timeout: 5))
+        Thread.sleep(forTimeInterval: 1)
+        shoot(app, 34, "\(Self.pose)-search")
+    }
+
+    @MainActor
+    func test35LicensesInThePose() throws {
+        try onlyInAPose()
+        let app = XCUIApplication()
+        app.launch()
+        let more = app.buttons["info-menu"]
+        XCTAssertTrue(more.waitForExistence(timeout: 20))
+        more.tap()
+        app.buttons["Licenses"].tap()
+        XCTAssertTrue(app.navigationBars["Licenses"].waitForExistence(timeout: 5), "\(Self.pose): the licenses did not open")
+        Thread.sleep(forTimeInterval: 1)
+        shoot(app, 35, "\(Self.pose)-licenses")
+    }
+
+    /// A real long notice (a failed battery save, through the session's own
+    /// path) with the status chip over a running game: the chip and the
+    /// notice stand in the window, do not overlap and cover no key.
+    @MainActor
+    func test36NoticesInThePose() throws {
+        try onlyInAPose()
+        for (system, fileExtension) in [("ds", "nds"), ("gba", "gba")] {
+            let app = XCUIApplication()
+            app.launchArguments = ["-ArcfoldAutorun", try fixturePath("selftest", fileExtension)]
+            app.launch()
+            let overlay = overlayWithLayout(in: app)
+            XCTAssertTrue(waitUntil(overlay, framesBeyond: 120), "The game does not run")
+            postDebugNotification("chip.show")
+            let chip = app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH 'The audio engine could not start'")).firstMatch
+            XCTAssertTrue(chip.waitForExistence(timeout: 5), "\(Self.pose) \(system): no chip")
+            postDebugNotification("notice.long")
+            let notice = app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH 'The save could not be written'")).firstMatch
+            XCTAssertTrue(notice.waitForExistence(timeout: 5), "\(Self.pose) \(system): no notice")
+            // The chip moves up for the notice; read both once they rest.
+            Thread.sleep(forTimeInterval: 0.6)
+            let window = app.gameWindow.frame
+            record("pose \(Self.pose) \(system): chip \(chip.frame) notice \(notice.frame)")
+            XCTAssertFalse(chip.frame.isEmpty || notice.frame.isEmpty, "\(Self.pose) \(system): the notice went away too early")
+            XCTAssertTrue(window.insetBy(dx: -1, dy: -1).contains(chip.frame) && window.insetBy(dx: -1, dy: -1).contains(notice.frame),
+                          "\(Self.pose) \(system): the chip or the notice leaves the window \(window)")
+            XCTAssertFalse(chip.frame.insetBy(dx: -2, dy: -2).intersects(notice.frame.insetBy(dx: -2, dy: -2)),
+                           "\(Self.pose) \(system): the chip and the notice overlap")
+            var under = Self.keys(in: app).filter { $0.1.intersects(chip.frame) || $0.1.intersects(notice.frame) }.map(\.0)
+            if app.buttons["pause"].frame.intersects(notice.frame) || app.buttons["pause"].frame.intersects(chip.frame) {
+                under.append("pause")
+            }
+            XCTAssertTrue(under.isEmpty, "\(Self.pose) \(system): the chip or the notice covers \(under)")
+            shoot(app, 36, "\(Self.pose)-\(system)-notice")
+            app.terminate()
+        }
+    }
+
+    /// The failure view of a game that could not start, in the pose.
+    @MainActor
+    func test37FailureInThePose() throws {
+        try onlyInAPose()
+        for (system, fileExtension) in [("ds", "nds"), ("gba", "gba")] {
+            let app = XCUIApplication()
+            app.launchArguments = ["-ArcfoldAutorun", try fixturePath("selftest", fileExtension), "-ArcfoldFailStart", "YES"]
+            app.launch()
+            let close = app.buttons["Close"]
+            XCTAssertTrue(close.waitForExistence(timeout: 30), "\(Self.pose) \(system): no failure view")
+            let window = app.gameWindow.frame
+            XCTAssertTrue(window.insetBy(dx: -1, dy: -1).contains(close.frame), "\(Self.pose) \(system): Close leaves the window")
+            try measureAccentButton(close, named: "close-\(Self.pose)-\(system)", in: app)
+            shoot(app, 37, "\(Self.pose)-\(system)-failure")
+            app.terminate()
+        }
     }
 
     /// The posture each real pose must give (ADR 0006, section 7).
