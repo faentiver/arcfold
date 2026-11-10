@@ -75,7 +75,7 @@ struct GlassGallery: View {
         case .libraryInner:
             ScaledToFit(size: CGSize(width: 669, height: 951)) {
                 ScrollView {
-                    GameGrid(games: Self.shelf, width: 669) { _ in }
+                    GameGrid(games: Self.shelf, space: .init(width: 669)) { _ in }
                         .padding(.top, 8)
                 }
                 .background(Color(uiColor: .systemBackground))

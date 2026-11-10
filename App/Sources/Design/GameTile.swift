@@ -36,37 +36,26 @@ struct TileButtonStyle: ButtonStyle {
     }
 }
 
-/// The grid of tiles, shared by the library and the debug gallery. Columns,
-/// spacing and corners follow the width class of the grid, never the device.
+/// The grid of tiles, shared by the library and the debug gallery. Where
+/// the columns lie follows `LibraryColumns`.
 struct GameGrid: View {
     let games: [Game]
-    let width: CGFloat
-    /// The width with the system column of the outer display, when it is
-    /// wider than the grid. The margin follows its width class, as the large
-    /// title does, so the grid lines up with the title: 20 pt beside the
-    /// column, not 16 for the 382 pt of the grid.
-    var windowWidth: CGFloat?
+    /// The room of the scroll view around the grid.
+    let space: LibraryColumns.Space
     let play: (Game) -> Void
 
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @Environment(\.prefersFades) private var prefersFades
 
     var body: some View {
-        let margin = Metrics.margin(for: max(windowWidth ?? 0, width))
-        let spacing = Metrics.gridSpacing(for: width)
-        let corner = Metrics.tileCorner(for: width)
-        // From the accessibility sizes on, one tile per row.
-        let minimum = dynamicTypeSize.isAccessibilitySize
-            ? max(width - 2 * margin, 1)
-            : Metrics.tileMinWidth(for: width)
-        LazyVGrid(columns: [GridItem(.adaptive(minimum: minimum), spacing: spacing.horizontal, alignment: .top)],
-                  alignment: .leading, spacing: spacing.vertical) {
+        let layout = LibraryColumns(space: space, typeSize: dynamicTypeSize)
+        LazyVGrid(columns: layout.gridItems, alignment: .leading, spacing: layout.rowSpacing) {
             ForEach(games) { game in
                 Button {
                     play(game)
                 } label: {
-                    GameTile(game: game, corner: corner)
-                        .contentShape(.rect(cornerRadius: corner))
+                    GameTile(game: game, corner: layout.corner)
+                        .contentShape(.rect(cornerRadius: layout.corner))
                 }
                 .buttonStyle(TileButtonStyle())
                 .accessibilityHint(Text("Starts the game.", comment: "Accessibility hint of a game tile in the library."))
@@ -75,7 +64,8 @@ struct GameGrid: View {
                 .transition(.scale(scale: 0.85).combined(with: .opacity))
             }
         }
-        .padding(.horizontal, margin)
+        .padding(.leading, layout.columns[0].x)
+        .frame(maxWidth: .infinity, alignment: .leading)
         .animation(Motion.appear(reduceMotion: prefersFades), value: games.map(\.id))
     }
 }
@@ -87,10 +77,10 @@ struct GameGrid: View {
              system: "gba", originalFileName: "game.gba", size: 1024, importedAt: .now)
     }
     ScrollView {
-        GameGrid(games: games, width: 382) { _ in }
+        GameGrid(games: games, space: .init(width: 382)) { _ in }
             .frame(width: 382)
         Divider()
-        GameGrid(games: games, width: 669) { _ in }
+        GameGrid(games: games, space: .init(width: 669)) { _ in }
             .frame(width: 669)
     }
 }

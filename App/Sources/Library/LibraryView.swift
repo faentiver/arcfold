@@ -1,3 +1,4 @@
+import FoldLayout
 import SwiftUI
 
 /// The imported games as a grid of generated tiles. Import adds files
@@ -14,8 +15,11 @@ struct LibraryView: View {
     @State private var isImporting = false
     @State private var importProblems: [ImportError] = []
     @State private var query = ""
-    @State private var width: CGFloat = 0
-    @State private var windowWidth: CGFloat = 0
+    /// The scroll view of the grid as the system lays it out, and the
+    /// margins the system keeps in it; both unknown until it appears.
+    @State private var geometry: FoldGeometry?
+    @State private var margins: SystemMargins?
+    @Environment(\.displayScale) private var displayScale
     @AppStorage("LibrarySort") private var sort = LibrarySort.name
 
     var body: some View {
@@ -146,20 +150,21 @@ struct LibraryView: View {
         } else {
             let games = LibraryArrangement.arranged(library.games, sort: sort, query: query)
             ScrollView {
-                GameGrid(games: games, width: width, windowWidth: windowWidth) { game in
-                    open(.game(game))
+                if let geometry, let margins {
+                    GameGrid(games: games, space: LibraryColumns.Space(geometry: geometry, margins: margins)) { game in
+                        open(.game(game))
+                    }
+                    .padding(.top, 8)
+                    .padding(.bottom, 24)
                 }
-                .padding(.top, 8)
-                .padding(.bottom, 24)
             }
-            .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { width = $0 }
-            // For the margin: the width with the system column, which the
-            // geometry reports as an inset on one side only (84 pt beside the
-            // 382, measured). Insets on both sides, as in landscape, change
-            // nothing.
-            .onGeometryChange(for: CGFloat.self) { proxy in
-                proxy.size.width + abs(proxy.safeAreaInsets.trailing - proxy.safeAreaInsets.leading)
-            } action: { windowWidth = $0 }
+            .onFoldGeometryChange(scale: max(1, Int(displayScale.rounded()))) { geometry = $0 }
+            // The grid begins where the large title does: at the margins of
+            // the system, which no SwiftUI value carries.
+            .background {
+                SystemMarginsReader { margins = $0 }
+                    .accessibilityHidden(true)
+            }
             .overlay {
                 if games.isEmpty {
                     ContentUnavailableView.search(text: query)

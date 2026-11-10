@@ -19,15 +19,6 @@ nonisolated enum DisplayClass: Sendable, Hashable, CaseIterable {
 
 /// Spacing and sizes per width class (docs/wissen/oberflaeche.md).
 nonisolated enum Metrics {
-    /// Side margin of the library.
-    static func margin(for width: CGFloat) -> CGFloat {
-        switch DisplayClass(width: width) {
-        case .compact: 16
-        case .regular: 20
-        case .wide: 24
-        }
-    }
-
     /// Spacing between tiles of the library, across and down.
     static func gridSpacing(for width: CGFloat) -> (horizontal: CGFloat, vertical: CGFloat) {
         switch DisplayClass(width: width) {
