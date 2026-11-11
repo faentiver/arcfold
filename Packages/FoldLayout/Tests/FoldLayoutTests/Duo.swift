@@ -27,6 +27,67 @@ enum Duo {
         FoldGeometry(container: outer, safeArea: barOnTop ? outerBarOnTop : outerBar, scale: scale)
     }
 
+    /// The closed device turned sideways as the real pose reports it: the bar
+    /// on top, 82 pt, or at the leading edge, 84 pt, and the home indicator,
+    /// 34 pt (measured with the screenshot tour).
+    static func closedSideways(barOnTop: Bool) -> FoldGeometry {
+        FoldGeometry(container: outerLandscape,
+                     safeArea: barOnTop ? outerBarOnTop : PixelInsets(left: 84 * 3, bottom: 34 * 3), scale: scale)
+    }
+
+    /// The inner display as the real poses report it: the home indicator,
+    /// 34 pt, and a division region of 121 px in the middle with margins of
+    /// 20 pt (measured with the screenshot tour). Sideways the fold runs from
+    /// top to bottom (open and the book), upright across (flat and tabletop).
+    static func measuredInner(sideways: Bool, active: Bool) -> FoldGeometry {
+        let safeArea = PixelInsets(bottom: 34 * 3)
+        if sideways {
+            return FoldGeometry(container: innerLandscape, safeArea: safeArea,
+                                fold: PixelRect(x: 1366, y: 0, width: 121, height: innerLandscape.height),
+                                foldMargins: PixelInsets(left: 60, right: 60), isFoldActive: active, scale: scale)
+        }
+        return FoldGeometry(container: inner, safeArea: safeArea,
+                            fold: PixelRect(x: 0, y: 1366, width: inner.width, height: 121),
+                            foldMargins: PixelInsets(top: 60, bottom: 60), isFoldActive: active, scale: scale)
+    }
+
+    /// A part of the inner display, 669 × 475 pt, whose lower edge is the
+    /// fold: the division region of 121 px reaches 59 px into it, and the
+    /// side below the fold is empty.
+    static func foldAtTheLowerEdge(active: Bool) -> FoldGeometry {
+        FoldGeometry(container: PixelSize(width: 2007, height: 1425), fold: PixelRect(x: 0, y: 1366, width: 2007, height: 59),
+                     isFoldActive: active, scale: scale)
+    }
+
+    /// An iPhone without a hinge, in points: its size held upright, and the
+    /// inset of the camera at the top (upright) or at the sides (sideways);
+    /// the home indicator takes 34 pt upright and 21 pt sideways.
+    struct Phone {
+        let name: String
+        let width: Int
+        let height: Int
+        let camera: Int
+
+        var upright: FoldGeometry {
+            FoldGeometry(container: PixelSize(width: width * 3, height: height * 3),
+                         safeArea: PixelInsets(top: camera * 3, bottom: 34 * 3), scale: 3)
+        }
+
+        var sideways: FoldGeometry {
+            FoldGeometry(container: PixelSize(width: height * 3, height: width * 3),
+                         safeArea: PixelInsets(left: camera * 3, bottom: 21 * 3, right: camera * 3), scale: 3)
+        }
+    }
+
+    /// The sizes of current iPhones, from the smallest to the largest.
+    static let iPhones = [
+        Phone(name: "iPhone 375 × 812", width: 375, height: 812, camera: 44),
+        Phone(name: "iPhone 393 × 852", width: 393, height: 852, camera: 59),
+        Phone(name: "iPhone 402 × 874", width: 402, height: 874, camera: 62),
+        Phone(name: "iPhone 430 × 932", width: 430, height: 932, camera: 59),
+        Phone(name: "iPhone 440 × 956", width: 440, height: 956, camera: 62),
+    ]
+
     /// A fold across the inner display, `band` points high, with `margin`
     /// points of margins above and below it inside the region.
     static func foldAcross(_ container: PixelSize = inner, band: Int, margin: Int = 0, active: Bool) -> FoldGeometry {

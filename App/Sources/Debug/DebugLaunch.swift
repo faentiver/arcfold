@@ -15,6 +15,12 @@ import Foundation
 /// - `-ArcfoldFoldOverride flat`, `tabletop` or `book` replaces the measured
 ///   fold with an artificial one, for layouts on the inner display. It never
 ///   affects the pause, which follows the hinge.
+/// - `-ArcfoldFailStart YES` lets every game fail to start, with the message
+///   of a game the core rejected, so that the failure view shows in every
+///   pose.
+/// - `-ArcfoldControllerInUse YES` lets the game view act as if a game
+///   controller were in use, which the Simulator cannot attach: no touch
+///   controls, larger screens and the menu button alone in its corner.
 ///
 /// The requests are read once per process.
 enum DebugLaunch {
@@ -46,6 +52,13 @@ enum DebugLaunch {
         }
         return nil
     }
+
+    /// `-ArcfoldFailStart YES`: games fail to start.
+    static let failsStart = UserDefaults.standard.bool(forKey: "ArcfoldFailStart")
+
+    /// `-ArcfoldControllerInUse YES`: the game view acts as if a controller
+    /// were in use.
+    static let simulatesController = UserDefaults.standard.bool(forKey: "ArcfoldControllerInUse")
 
     /// The artificial fold of `-ArcfoldFoldOverride`, nil without the argument.
     static let foldOverride: FoldOverride? = UserDefaults.standard.string(forKey: "ArcfoldFoldOverride")

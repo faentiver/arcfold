@@ -60,11 +60,16 @@ final class FoldLayoutUITests: XCTestCase {
         return true
     }
 
+    /// Right outside a screen lies its bezel in the case of the console
+    /// (ADR 0007): nearly black in every finish.
+    private static let bezel: (UInt8, UInt8, UInt8) = (20, 20, 28)
+
     // MARK: Test patterns
 
     /// The DS test pattern: each screen in its own colour with a white frame
-    /// exactly at its rectangle, black around it, and marker pixels as cells
-    /// of exactly `scale × scale` view pixels (PreviewContent.DSPattern).
+    /// exactly at its rectangle, the bezel of the console around it, and
+    /// marker pixels as cells of exactly `scale × scale` view pixels
+    /// (PreviewContent.DSPattern).
     @MainActor
     func testTheDSTestPatternSitsOnItsRectangles() throws {
         let app = XCUIApplication()
@@ -77,10 +82,11 @@ final class FoldLayoutUITests: XCTestCase {
         let values = OverlayValues(overlay)
         checkRules(values, sources: [(256, 192), (256, 192)])
         if isClosedDuo(values) {
-            // ADR 0006, section 8: the DS keeps the vertical bar, 4× each, stacked at the top.
-            XCTAssertEqual(values.safe?.right, 252, "The vertical bar at the side")
-            XCTAssertEqual(values.screens, [PlacedRect(x: 61, y: 0, width: 1024, height: 768, scale: 4),
-                                            PlacedRect(x: 61, y: 768, width: 1024, height: 768, scale: 4)])
+            // ADR 0007: the DS moves the vertical bar to the top, 3× each,
+            // the hinge of the console, 44 pt, between the screens.
+            XCTAssertEqual(values.safe?.top, 246, "The vertical bar on top")
+            XCTAssertEqual(values.screens, [PlacedRect(x: 315, y: 246, width: 768, height: 576, scale: 3),
+                                            PlacedRect(x: 315, y: 954, width: 768, height: 576, scale: 3)])
         }
 
         let covered = coveredRects(in: app, scale: values.scale)
@@ -90,7 +96,6 @@ final class FoldLayoutUITests: XCTestCase {
             ((0x30, 0xA0, 0x50), (0xFF, 0xFF, 0x00), [(20, 20), (235, 171), (128, 96)]),
         ]
         let white: (UInt8, UInt8, UInt8) = (255, 255, 255)
-        let black: (UInt8, UInt8, UInt8) = (0, 0, 0)
         var checks = 0
         for (screen, color) in zip(values.screens, colors) {
             let k = screen.scale
@@ -108,10 +113,10 @@ final class FoldLayoutUITests: XCTestCase {
                                  (middleX, screen.y + k, "inside the top edge"), (middleX, screen.maxY - k - 1, "inside the bottom edge")] {
                 checks += expect(pixels, x: x, y: y, color.fill, "\(screen) \(what)", covered: covered) ? 1 : 0
             }
-            // Black right outside, where no other screen lies.
+            // The bezel right outside, where no other screen lies.
             for (x, y, what) in [(screen.x - 1, middleY, "left of"), (screen.maxX, middleY, "right of")]
                 where !values.screens.contains(where: { $0.contains(x: x, y: y) }) && x >= 0 {
-                checks += expect(pixels, x: x, y: y, black, "\(what) \(screen)", covered: covered, tolerance: 12) ? 1 : 0
+                checks += expect(pixels, x: x, y: y, Self.bezel, "\(what) \(screen)", covered: covered) ? 1 : 0
             }
             // Each marker is one source pixel: k × k view pixels, its
             // neighbours on all four sides in the fill colour.
@@ -159,8 +164,8 @@ final class FoldLayoutUITests: XCTestCase {
                              (screen.x + screen.width / 2, screen.maxY - 1, "bottom edge")] {
             checks += expect(pixels, x: x, y: y, white, what, covered: covered) ? 1 : 0
         }
-        checks += expect(pixels, x: screen.x - 1, y: middleY, (0, 0, 0), "left of the picture", covered: covered, tolerance: 12) ? 1 : 0
-        checks += expect(pixels, x: screen.maxX, y: middleY, (0, 0, 0), "right of the picture", covered: covered, tolerance: 12) ? 1 : 0
+        checks += expect(pixels, x: screen.x - 1, y: middleY, Self.bezel, "left of the picture", covered: covered) ? 1 : 0
+        checks += expect(pixels, x: screen.maxX, y: middleY, Self.bezel, "right of the picture", covered: covered) ? 1 : 0
         // The bars in the upper two thirds, sampled in the middle of each.
         let bars: [(UInt8, UInt8, UInt8)] = [(255, 255, 255), (255, 255, 0), (0, 255, 255), (0, 255, 0),
                                              (255, 0, 255), (255, 0, 0), (0, 0, 255), (0, 0, 0)]
@@ -192,12 +197,12 @@ final class FoldLayoutUITests: XCTestCase {
         let screen = try XCTUnwrap(values.screens.first)
         let covered = coveredRects(in: app, scale: values.scale)
         let pixels = try screenshot(of: app, values, named: "selftest.gba in the layout")
-        // Around the picture, black; inside, the picture of selftest.gba is
-        // not black everywhere.
+        // Around the picture, its bezel; inside, the picture of selftest.gba
+        // is not black everywhere.
         var checks = 0
         for y in [screen.y + screen.height / 2, screen.maxY - 2] {
-            checks += expect(pixels, x: screen.x - 1, y: y, (0, 0, 0), "left of the picture", covered: covered, tolerance: 12) ? 1 : 0
-            checks += expect(pixels, x: screen.maxX, y: y, (0, 0, 0), "right of the picture", covered: covered, tolerance: 12) ? 1 : 0
+            checks += expect(pixels, x: screen.x - 1, y: y, Self.bezel, "left of the picture", covered: covered) ? 1 : 0
+            checks += expect(pixels, x: screen.maxX, y: y, Self.bezel, "right of the picture", covered: covered) ? 1 : 0
         }
         XCTAssertGreaterThanOrEqual(checks, 2, "Too few pixels checked")
         let bounds = pixels.boundsOfLight(in: (screen.x, screen.y, screen.maxX - 1, screen.maxY - 1))
@@ -205,7 +210,8 @@ final class FoldLayoutUITests: XCTestCase {
     }
 
     /// selftest.nds in the layout: both screens in their background colours on
-    /// their rectangles (top 0x2884, bottom 0x0920 in BGR555), black around them.
+    /// their rectangles (top 0x2884, bottom 0x0920 in BGR555), the bezel of
+    /// the console around them.
     @MainActor
     func testTheDSGameSitsOnItsRectangles() throws {
         let app = XCUIApplication()
@@ -216,8 +222,8 @@ final class FoldLayoutUITests: XCTestCase {
         let values = OverlayValues(overlay)
         checkRules(values, sources: [(256, 192), (256, 192)])
         if isClosedDuo(values) {
-            XCTAssertEqual(values.screens, [PlacedRect(x: 61, y: 0, width: 1024, height: 768, scale: 4),
-                                            PlacedRect(x: 61, y: 768, width: 1024, height: 768, scale: 4)])
+            XCTAssertEqual(values.screens, [PlacedRect(x: 315, y: 246, width: 768, height: 576, scale: 3),
+                                            PlacedRect(x: 315, y: 954, width: 768, height: 576, scale: 3)])
         }
         XCTAssertEqual(values.touchScreen, values.screens.last)
         let covered = coveredRects(in: app, scale: values.scale)
@@ -229,14 +235,18 @@ final class FoldLayoutUITests: XCTestCase {
         let topColor: (UInt8, UInt8, UInt8) = (32, 32, 81)
         let bottomColor: (UInt8, UInt8, UInt8) = (0, 73, 16)
         var checks = 0
-        // The lower screen: its corners and middle, before any touch.
-        for (sx, sy) in [(0, 0), (255, 0), (0, 191), (255, 191), (200, 100)] {
+        // The lower screen: its corners and middle, before any touch. The
+        // upper corners two rows down: L and R stand right above them in
+        // the hinge of the console, and the checks skip what lies within a
+        // point of a control.
+        for (sx, sy) in [(0, 2), (255, 2), (0, 191), (255, 191), (200, 100)] {
             let x = bottom.x + sx * bottom.scale + bottom.scale / 2
             let y = bottom.y + sy * bottom.scale + bottom.scale / 2
             checks += expect(pixels, x: x, y: y, bottomColor, "lower screen pixel (\(sx), \(sy))", covered: covered, tolerance: 16) ? 1 : 0
         }
-        // The upper screen right of the block rows (x 250 to 255, rows 140 to 143).
-        for (sx, sy) in [(252, 141), (255, 191), (0, 191)] {
+        // The upper screen right of the block rows (x 250 to 255, rows 140 to
+        // 143), and its lower corners two rows up, above L and R.
+        for (sx, sy) in [(252, 141), (255, 189), (0, 189)] {
             let x = top.x + sx * top.scale + top.scale / 2
             let y = top.y + sy * top.scale + top.scale / 2
             checks += expect(pixels, x: x, y: y, topColor, "upper screen pixel (\(sx), \(sy))", covered: covered, tolerance: 16) ? 1 : 0
@@ -244,10 +254,78 @@ final class FoldLayoutUITests: XCTestCase {
         for screen in [top, bottom] {
             let middleY = screen.y + screen.height / 2 + 1
             for x in [screen.x - 1, screen.maxX] where !values.screens.contains(where: { $0.contains(x: x, y: middleY) }) {
-                checks += expect(pixels, x: x, y: middleY, (0, 0, 0), "beside \(screen)", covered: covered, tolerance: 12) ? 1 : 0
+                checks += expect(pixels, x: x, y: middleY, Self.bezel, "beside \(screen)", covered: covered) ? 1 : 0
             }
         }
-        XCTAssertGreaterThanOrEqual(checks, 7, "Too few pixels checked")
+        // The first row of the lower screen and the last row of the upper
+        // one, in the middle, where no key stands above or below them: a
+        // picture moved down or up by a row shows the case there. The white
+        // bar of selftest.nds runs through the lower rows of the upper
+        // screen, 8 pixels wide, so of two places 12 pixels apart one shows
+        // the background.
+        let firstRow = bottom.y + bottom.scale / 2
+        checks += expect(pixels, x: bottom.x + 128 * bottom.scale + bottom.scale / 2, y: firstRow, bottomColor,
+                         "lower screen pixel (128, 0)", covered: covered, tolerance: 16) ? 1 : 0
+        let lastRow = top.y + 191 * top.scale + top.scale / 2
+        let places = [124, 136].map { top.x + $0 * top.scale + top.scale / 2 }
+        if !places.contains(where: { x in covered.contains { $0.contains(CGPoint(x: x, y: lastRow)) } }) {
+            XCTAssertTrue(places.contains { pixels.matches(x: $0, y: lastRow, topColor, tolerance: 16) },
+                          "upper screen, last row: \(places.map { pixels.describe(x: $0, y: lastRow) })")
+            checks += 1
+        }
+        XCTAssertGreaterThanOrEqual(checks, 9, "Too few pixels checked")
+    }
+
+    // MARK: Sideways without a fold
+
+    /// Held sideways, a display without a fold shows a handheld (ADR 0006):
+    /// the screens in the middle, pad and face buttons beside them, Select,
+    /// Start and the menu button below them, no key over a picture. Turning
+    /// the device from the test turns the window of an iPhone; the closed
+    /// Duo stays upright, and the test skips itself there.
+    @MainActor
+    func testSidewaysTheGameIsAHandheld() throws {
+        defer { XCUIDevice.shared.orientation = .portrait }
+        for (system, fileExtension) in [("GBA", "gba"), ("DS", "nds")] {
+            let app = XCUIApplication()
+            app.launchArguments = ["-ArcfoldAutorun", try fixturePath("selftest", fileExtension)]
+            app.launch()
+            XCUIDevice.shared.orientation = .landscapeLeft
+            let sideways = NSPredicate { element, _ in
+                guard let frame = (element as? XCUIElement)?.frame else { return false }
+                return frame.width > frame.height
+            }
+            let turned = XCTWaiter().wait(for: [XCTNSPredicateExpectation(predicate: sideways, object: app.gameWindow)],
+                                          timeout: 10)
+            try XCTSkipUnless(turned == .completed, "The window does not turn sideways on this device")
+            let overlay = overlayWithLayout(in: app)
+            XCTAssertTrue(waitUntil(overlay, hasValue: "posture=single"), "\(system): not a display without a fold")
+            waitForFrames(overlay)
+            // The controls move animated after the turn.
+            sleep(1)
+            let values = OverlayValues(overlay)
+            XCTAssertEqual(values.view.map { $0.width > $0.height }, true, "\(system): the layout is not sideways: \(values.pairs)")
+            checkRules(values, sources: fileExtension == "gba" ? [(240, 160)] : [(256, 192), (256, 192)])
+            let scale = CGFloat(values.scale)
+            let screens = values.screens.map {
+                CGRect(x: CGFloat($0.x) / scale, y: CGFloat($0.y) / scale, width: CGFloat($0.width) / scale,
+                       height: CGFloat($0.height) / scale)
+            }
+            let keys = app.descendants(matching: .any).matching(
+                NSPredicate(format: "identifier BEGINSWITH %@ OR identifier == %@ OR identifier == %@", "touch-button-", "touch-pad", "pause"))
+            XCTAssertGreaterThan(keys.count, 6, "\(system): no keys")
+            for index in 0..<keys.count {
+                let key = keys.element(boundBy: index)
+                XCTAssertFalse(screens.contains { $0.intersects(key.frame) }, "\(system): \(key.identifier) \(key.frame) lies over a screen")
+            }
+            let menu = app.buttons["pause"].frame
+            XCTAssertGreaterThanOrEqual(menu.minY, screens.map(\.maxY).max() ?? 0, "\(system): the menu button \(menu) is not below the screens")
+            withOverlayHidden(in: app) {
+                keep(app.displayScreenshot(), named: "\(system) sideways, \(values.screens)")
+            }
+            app.terminate()
+            XCUIDevice.shared.orientation = .portrait
+        }
     }
 
     /// Waits until the emulation runs: a frame rate above 0 in the overlay.

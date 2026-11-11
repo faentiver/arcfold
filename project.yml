@@ -196,6 +196,8 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.faentiver.arcfold
         INFOPLIST_KEY_CFBundleDisplayName: Arcfold
+        # systemIndigo from Assets.xcassets (ADR 0007); the app icon is App/Resources/AppIcon.icon
+        ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
         TARGETED_DEVICE_FAMILY: "1"
         MARKETING_VERSION: "0.1"
         CURRENT_PROJECT_VERSION: "1"

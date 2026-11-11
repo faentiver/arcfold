@@ -215,6 +215,13 @@ final class PlaySession {
         }
         Self.current = self
         phase = .loading
+        #if DEBUG
+        if DebugLaunch.failsStart {
+            release()
+            phase = .failed(Self.message(for: .gameRejected))
+            return
+        }
+        #endif
 
         let configuration = SessionConfiguration(
             coreName: system.coreName,
@@ -454,6 +461,20 @@ final class PlaySession {
             Self.logger.info("The audio output restarted")
         }
     }
+
+    #if DEBUG
+    /// Shows what `DebugRemote` asks for, the way the session shows the real
+    /// thing: the notice of a failed battery save through `handle`, the chip
+    /// of a missing audio output with the text of `AudioOutputError`.
+    func show(_ sample: DebugRemote.Sample) {
+        switch sample {
+        case .longNotice:
+            handle(.batterySaveFailed(reason: "The battery save failed: Cannot create battery.sav.tmp"))
+        case let .audioProblem(shown):
+            audioProblem = shown ? AudioOutputError.engine(reason: "no output route").description : nil
+        }
+    }
+    #endif
 
     private func showNotice(_ text: String) {
         notice = text

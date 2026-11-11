@@ -5,8 +5,11 @@
 #
 # The script creates its own Simulator device, installs the app, starts
 # selftest.nds or selftest.gba with -ArcfoldAutorun and records the log of the
-# app. Then it goes through the poses closed, open, book, tabletop, flat
-# upright, closed and open. A posture tool named in POSE_CHECK_POSTURE_TOOL
+# app; ds-slim starts selftest.nds in the slim case of the DS as well
+# (-LargerScreens YES: the vertical bar stays at the side of the outer
+# display, the screens grow to 4 times, its own scene). Then it goes through
+# the poses closed, closed sideways, open, book, tabletop, flat upright,
+# closed and open. A posture tool named in POSE_CHECK_POSTURE_TOOL
 # changes each pose by software (a program outside this repository that takes
 # `<UDID> closed|open|book|tabletop [--orientation landscape-left] --quiet`,
 # docs/wissen/falz.md); without one you change them yourself with the buttons
@@ -21,7 +24,7 @@
 # At the end it deletes the device. It never uses `simctl io ... screenConfig
 # ... power`, which leaves the outer display black until the device restarts.
 #
-# Usage: Scripts/pose-check.sh [ds|gba]
+# Usage: Scripts/pose-check.sh [ds|ds-slim|gba]
 #
 #   POSE_CHECK_POSTURE_TOOL=<program>
 #                         the posture tool that changes the poses by software;
@@ -46,11 +49,17 @@ set -euo pipefail
 
 REPO=$(cd "$(dirname "$0")/.." && pwd)
 SYSTEM=${1:-ds}
+# Launch arguments beyond the game.
+EXTRA=()
 case "$SYSTEM" in
     ds) GAME="$REPO/Tests/Fixtures/ds/selftest.nds" ;;
+    ds-slim)
+        GAME="$REPO/Tests/Fixtures/ds/selftest.nds"
+        EXTRA=(-LargerScreens YES)
+        ;;
     gba) GAME="$REPO/Tests/Fixtures/gba/selftest.gba" ;;
     *)
-        echo "Usage: $0 [ds|gba]" >&2
+        echo "Usage: $0 [ds|ds-slim|gba]" >&2
         exit 64
         ;;
 esac
@@ -116,7 +125,7 @@ xcrun simctl spawn "$UDID" log stream --style compact --level info --predicate \
     >"$OUT/log.txt" 2>&1 &
 LOG_PID=$!
 sleep 2
-xcrun simctl launch "$UDID" "$BUNDLE_ID" -ArcfoldAutorun "$GAME" >/dev/null
+xcrun simctl launch "$UDID" "$BUNDLE_ID" -ArcfoldAutorun "$GAME" ${EXTRA[@]+"${EXTRA[@]}"} >/dev/null
 # Import, start and fill the sound buffer.
 sleep 8
 
@@ -184,12 +193,13 @@ classify_gaps() {
 capture 01-closed
 # Name | arguments of the posture tool | what to click in Device Hub
 steps=(
-    "02-open|open|In Device Hub, select \"$DEVICE_NAME\" and click Open (flat, landscape, fold vertical)"
-    "03-book|book|Click Partially Open (half open like a book)"
-    "04-tabletop|tabletop|Click Rotate so that the fold lies horizontal (tabletop)"
-    "05-flat-upright|open --orientation landscape-left|Click Open (flat, upright, fold horizontal)"
-    "06-closed|closed|Click Closed (folding shut: the game pauses, the pause menu shows on the outer display)"
-    "07-open|open|Click Open (unfolding: the game resumes by itself)"
+    "02-closed-landscape|closed --orientation landscape-left|In Device Hub, select \"$DEVICE_NAME\" and click Rotate (closed, sideways: the game turns with the outer display)"
+    "03-open|open|Click Rotate back to upright, then Open (flat, landscape, fold vertical)"
+    "04-book|book|Click Partially Open (half open like a book)"
+    "05-tabletop|tabletop|Click Rotate so that the fold lies horizontal (tabletop)"
+    "06-flat-upright|open --orientation landscape-left|Click Open (flat, upright, fold horizontal)"
+    "07-closed|closed|Click Closed (folding shut: the game pauses, the pause menu shows on the outer display)"
+    "08-open|open|Click Open (unfolding: the game resumes by itself)"
 )
 for step in "${steps[@]}"; do
     name=${step%%|*}
@@ -226,14 +236,15 @@ lines() {
 }
 
 {
-    echo "Check of the poses with $SYSTEM ($(basename "$GAME")), $(date '+%Y-%m-%d %H:%M')"
+    echo "Check of the poses with $SYSTEM ($(basename "$GAME")${EXTRA[*]+ ${EXTRA[*]}}), $(date '+%Y-%m-%d %H:%M')"
     echo "Poses changed: $MODE"
     echo
     echo "Expected (ADR 0006, sections 8 to 10): per step the pose and layout of section 8;"
     echo "no 'Emulation resynchronized' and no 'Emulation gap' line in the window of a"
     echo "CHANGE (gaps in the window of a screenshot come from the screenshot); no 'Game"
-    echo "view disappeared' before the end; on 06-closed 'Paused: folded' and the pause"
-    echo "menu on the outer display; on 07-open 'Resumed'."
+    echo "view disappeared' before the end; on 02-closed-landscape the game sideways on"
+    echo "the outer display, still running; on 07-closed 'Paused: folded' and the pause"
+    echo "menu on the outer display; on 08-open 'Resumed'."
     echo
     echo "Steps (times in seconds since 1970: the change, then the screenshots):"
     cat "$OUT/steps.txt"

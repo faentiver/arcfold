@@ -204,9 +204,13 @@ final class DSTouchUITests: XCTestCase {
                     continue
                 }
                 hits += 1
-                // The crosshair; no control may lie over the touch screen.
+                // The crosshair; no control may lie over the touch screen. A
+                // key may stand right beside it, as L and R do in the hinge
+                // of the console, so the check ends with the touch screen
+                // and takes the controls without the margin of `coveredRects`.
                 let around = CGRect(x: screen.x + (pixel.0 - 1) * k, y: screen.y + (pixel.1 - 1) * k, width: 3 * k, height: 3 * k)
-                if let control = controls.first(where: { $0.intersects(around) }) {
+                let onScreen = around.intersection(CGRect(x: screen.x, y: screen.y, width: screen.width, height: screen.height))
+                if let control = controls.first(where: { $0.insetBy(dx: 3, dy: 3).intersects(onScreen) }) {
                     XCTFail("\(pose.name): a control at \(control) lies over the touch screen near \(pixel)")
                     continue
                 }

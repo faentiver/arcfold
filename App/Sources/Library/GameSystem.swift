@@ -33,14 +33,26 @@ nonisolated struct GameSystem: Sendable, Hashable, Identifiable {
     /// `SessionConfiguration.requiresSystemMemory`: the core shows an error
     /// screen instead of failing when it cannot run a game.
     let requiresSystemMemory: Bool
-    /// The game view of this system hides the vertical system bar of the outer
-    /// display (`.toolbarVerticalBehavior(.disabled)`), for the whole game, so
-    /// that the choice stays stable as Apple asks. The GBA picture grows from
-    /// 4 to 5 times on the outer display; the DS keeps the bar, because both of
-    /// its screens would shrink from 4 to 3 times without it (ADR 0006).
-    let disablesVerticalBar: Bool
+    /// The screens of this system are one step larger on the outer display
+    /// beside the vertical system bar than below it: the two of the DS 4
+    /// instead of 3 times. The case then has no rim, so the system keeps
+    /// the bar only for whoever prefers larger screens
+    /// (`ConsoleSkin.prefersLargerScreens`).
+    let growsBesideVerticalBar: Bool
     /// The console has X and Y; the touch controls show them only then.
     let hasXYButtons: Bool
+
+    /// The game view of this system hides the vertical system bar of the
+    /// outer display (`.toolbarVerticalBehavior(.disabled)`), for the whole
+    /// game, so that the choice stays stable as Apple asks. The status area
+    /// then lies at the top, and the console stands in the middle of the
+    /// display with the same margins left and right; beside the bar it
+    /// could not. The GBA picture also grows from 4 to 5 times there. A
+    /// system whose screens grow beside the bar keeps it for whoever
+    /// prefers larger screens (ADR 0006, ADR 0007).
+    var disablesVerticalBar: Bool {
+        !(growsBesideVerticalBar && ConsoleSkin.prefersLargerScreens)
+    }
 
     /// mGBA, with its built-in replacement for the BIOS: Arcfold ships no BIOS
     /// files (hard rules in CLAUDE.md).
@@ -55,7 +67,7 @@ nonisolated struct GameSystem: Sendable, Hashable, Identifiable {
         screens: .gba,
         blankSaveMemoryByte: nil,
         requiresSystemMemory: false,
-        disablesVerticalBar: true,
+        growsBesideVerticalBar: false,
         hasXYButtons: false
     )
 
@@ -73,7 +85,7 @@ nonisolated struct GameSystem: Sendable, Hashable, Identifiable {
         screens: .ds,
         blankSaveMemoryByte: 0xFF,
         requiresSystemMemory: true,
-        disablesVerticalBar: false,
+        growsBesideVerticalBar: true,
         hasXYButtons: true
     )
 

@@ -12,8 +12,15 @@
   - echte Posen im Simulator per Software (privates Werkzeug außerhalb des Repos, eingebunden über `POSE_CHECK_POSTURE_TOOL`): `Scripts/pose-check.sh` für DS und GBA ohne Lücke, Neusynchronisation oder Pause beim Wechsel, Zuklappen pausiert, Aufklappen läuft weiter, eine Szene für beide Displays; für UI-Tests zusätzlich eingespeiste Posen über `DebugRemote` (Debug-Build),
   - Builds Store und JIT ohne Warnung im eigenen Code, Tests grün (Store 249, JIT 229),
   - ADR 0006 angenommen, Belege in den Abschnitten „Umsetzung in M2“, „Nachbesserungen nach der Prüfung“ und „Posenprüfung per Software“.
-- **Nächster Schritt:** M3 · PSP (Plan, Abschnitt 10). Die Liquid-Glass-Oberfläche aus M4 ist vorgezogen und folgt als eigener Pull Request. Offen bleibt der Gerätetest auf dem Duo für M1, M2 und ADR 0002 (`docs/wissen/geraetetest.md`). Die CI läuft vorerst nur auf manuellen Start (`workflow_dispatch`, `docs/wissen/bauen-und-ci.md`).
-- **Datum:** 10. November 2026
+
+  Die Liquid-Glass-Oberfläche (ADR 0007, aus M4 vorgezogen, vorgeschlagen, eigener Pull Request, Branch `m4/liquid-glass`) ist seit dem 11. November 2026 in der Spielansicht eine Konsole je System: ein Gehäuse in der Farbe des Systems, Bildschirme in dunklen Blenden, ein Scharnier am Falz und Tasten als Kappen in Mulden; Glas liegt nur noch über dem Bild (Abschnitt „Konsole statt Glastasten“, `docs/wissen/oberflaeche.md`, `docs/wissen/falz.md`). Belegt am 11. November 2026 im Duo-Simulator (iOS 27.1):
+  - Builds Store und JIT für den Simulator und Store für ein Gerät ohne Signatur ohne Warnung im eigenen Code,
+  - Tests Store 413, 0 Fehlschläge nach den Nachbesserungen (ArcfoldTests 187, LibretroKitTests 64, FoldLayoutTests 44, RendererTests 39, ArcfoldUITests 79 mit 46 bestanden und 33 übersprungen); JIT 332 bestanden vor den Nachbesserungen, danach gebaut; auf einem iPhone 18 Pro mit iOS 27.2 schlugen im ersten Lauf vier UI-Tests fehl, alle vier geklärt und einzeln grün (`docs/wissen/oberflaeche.md`, „Nachbesserungen nach dem Lauf“),
+  - Tour: vier Varianten zugeklappt grün; sechs Posen in hell und Kontrast 15 von 16 Teilen grün, ein Messfehler der Zeit (Zustand 36) behoben und in allen Posen grün; alle Schranken der Messwerte grün (zum Beispiel Buchstaben 4,57 und Namen 5,17 in hell, Abstand der Menu-Taste 25,67 pt),
+  - Posenprüfung: `gba` ohne Lücke; `ds` ohne andere Last auf dem Mac ohne Lücke, neben weiteren Testläufen mit Lücken von 52 bis 66 ms und Neusynchronisationen, ebenso `ds-slim` (`docs/wissen/falz.md`, „Nach der Konsole“),
+  - offen: nach den Nachbesserungen der Testlauf des JIT-Builds, der volle Lauf auf dem iPhone 18 Pro und die Posenprüfung von `ds-slim` ohne andere Last.
+- **Nächster Schritt:** Abnahme der Liquid-Glass-Oberfläche durch Fatih anhand des Pull Requests von `m4/liquid-glass`; M3 · PSP (Plan, Abschnitt 10) darf beginnen. Offen bleibt der Gerätetest auf dem Duo für M1, M2 und ADR 0002 (`docs/wissen/geraetetest.md`). Die CI läuft vorerst nur auf manuellen Start (`workflow_dispatch`, `docs/wissen/bauen-und-ci.md`).
+- **Datum:** 11. November 2026
 
 ## Arbeitsregeln
 
@@ -43,9 +50,10 @@ App/            SwiftUI-App: Quellen, String Catalog, Entitlements des JIT-Build
 Packages/       LibretroKit, FoldLayout, Renderer (lokale Swift-Pakete)
 Cores/          Kerne als Git-Submodule, auf Tags oder Commits fixiert, melonds-ds-deps/ mit den Abhängigkeiten
                 von melonDS DS; Build/ mit den xcframeworks (ignoriert)
-Scripts/        bootstrap.sh, build-core.sh, cores/ mit einem Rezept je Kern, pose-check.sh
+Scripts/        bootstrap.sh, build-core.sh, cores/ mit einem Rezept je Kern, pose-check.sh, screenshot-tour.sh
 Spikes/         Spike-Code aus M0 (PSPGPU, PS2JIT) als Referenz, nicht Teil der App
-Tests/          ArcfoldTests (Unit-Tests mit der App als Host), ArcfoldUITests, Fixtures/ (Homebrew-ROMs, Lizenzen)
+Tests/          ArcfoldTests (Unit-Tests mit der App als Host), ArcfoldUITests (auch GlassUITests und die
+                ScreenshotTour, die nur über Scripts/screenshot-tour.sh läuft), Fixtures/ (Homebrew-ROMs, Lizenzen)
 docs/           PLAN.md, adr/, wissen/
 .github/        workflows/ci.yml, die CI mit GitHub Actions
 ```
@@ -73,7 +81,8 @@ xcodebuild build -project Arcfold.xcodeproj -scheme Store -destination 'generic/
 xcodebuild build -project Arcfold.xcodeproj -scheme JIT -destination 'generic/platform=iOS Simulator' -derivedDataPath build/DerivedData
 xcodebuild build -project Arcfold.xcodeproj -scheme Store -destination 'generic/platform=iOS' -derivedDataPath build/DerivedData CODE_SIGNING_ALLOWED=NO
 
-# Testen (ArcfoldTests, LibretroKitTests, FoldLayoutTests, RendererTests; ArcfoldUITests nur mit Store) auf dem
+# Testen (ArcfoldTests, LibretroKitTests, FoldLayoutTests, RendererTests; ArcfoldUITests nur mit Store, die
+# Zustände der ScreenshotTour überspringen sich ohne Scripts/screenshot-tour.sh) auf dem
 # Duo-Simulator mit iOS 27.1, ebenso mit -scheme JIT
 xcodebuild test -project Arcfold.xcodeproj -scheme Store -destination 'platform=iOS Simulator,name=iPhone Duo,OS=27.1' -derivedDataPath build/DerivedData
 
@@ -91,16 +100,35 @@ xcrun simctl launch <UDID> com.faentiver.arcfold -ArcfoldTestPattern ds -Arcfold
 # Posen bei laufendem Spiel (DebugRemote): fold.flat|book|tabletop|measured,
 # hinge.closed|open, overlay.hide|show; Pose, Layout und Lücken stehen im Log (Kategorie fold)
 xcrun simctl spawn <UDID> notifyutil -p com.faentiver.arcfold.debug.fold.tabletop
+# Weitere Debug-Schalter: Benachrichtigung ...debug.keys.hold|release hält Hoch, A, L und Select
+# gedrückt (Fotos gedrückter Tasten); Startargumente -ArcfoldControllerInUse YES (die Spielansicht tut,
+# als nutze ein Controller: keine Touch-Tasten), -ArcfoldControlSurface flat|glass (nur, was über dem
+# Bild liegt), -ArcfoldGallery <Seite> (Galerie statt Bibliothek). Voreinstellungen, auch als
+# Startargument: -CaseFinish graphite|petrol (zweite Farbe des Gehäuses), -LargerScreens YES
+# (DS zugeklappt in der schlanken Fassung, 4-fach)
 xcrun simctl spawn <UDID> log stream --predicate 'subsystem == "com.faentiver.arcfold" AND category == "fold"'
 
 # Posenprüfung mit echten Posen (ADR 0006, Abschnitt 15). Per Software mit einem privaten
 # Posen-Werkzeug außerhalb des Repos, das "<UDID> closed|open|book|tabletop
 # [--orientation landscape-left] --quiet" versteht (je etwa 2 Minuten, docs/wissen/falz.md);
-# außen quer stellt es mit "closed --orientation landscape-left"
-POSE_CHECK_POSTURE_TOOL=<Werkzeug> Scripts/pose-check.sh ds    # danach gba
+# außen quer stellt es mit "closed --orientation landscape-left" (Schritt 02-closed-landscape,
+# acht Schritte); ds-slim startet den DS in der schlanken Fassung (-LargerScreens YES)
+POSE_CHECK_POSTURE_TOOL=<Werkzeug> Scripts/pose-check.sh ds    # danach ds-slim und gba
 # Ohne Werkzeug (oder mit POSE_CHECK_HUB=1) fragt das Skript je Schritt nach dem Wechsel in
 # Device Hub (je etwa 5 Minuten)
-Scripts/pose-check.sh ds
+Scripts/pose-check.sh ds|ds-slim|gba
+
+# Bildschirmfoto-Tour der Oberfläche (ADR 0007): Varianten hell, dunkel, Kontrast, große Schrift
+# und mit poses jede echte Pose des Duo (Spiel, Bibliothek, Menü, Suche, Lizenzen, Hinweise,
+# Fehleransicht, je in allen vier Varianten), eingestellt mit dem privaten Posen-Werkzeug
+# (POSE_CHECK_POSTURE_TOOL wie bei pose-check.sh; ohne die Variable überspringt der Teil poses
+# mit einem Hinweis); ohne Argumente alles, ARCFOLD_DERIVED_DATA wählt den Build-Ordner
+POSE_CHECK_POSTURE_TOOL=<Werkzeug> Scripts/screenshot-tour.sh <UDID> <Ordner> [light dark contrast large poses]
+# Nur einige Posen und Varianten (ARCFOLD_TOUR_POSES, ARCFOLD_TOUR_POSE_VARIANTS); der DS zugeklappt
+# läuft in closed und closed-landscape zusätzlich in der schlanken Fassung, die Fotos 40 bis 42
+# (Zuklappen) entstehen nur mit allen Posen
+POSE_CHECK_POSTURE_TOOL=<Werkzeug> ARCFOLD_TOUR_POSES="tabletop book" ARCFOLD_TOUR_POSE_VARIANTS=light \
+  Scripts/screenshot-tour.sh <UDID> <Ordner> poses
 
 # CI-Workflow prüfen (optional, braucht actionlint)
 actionlint -ignore 'label "xcode-27" is unknown' .github/workflows/ci.yml
@@ -121,9 +149,10 @@ actionlint -ignore 'label "xcode-27" is unknown' .github/workflows/ci.yml
 - `docs/wissen/bauen-und-ci.md`: bootstrap.sh, Stempel, XcodeGen, Eigenheiten von Xcode 27.2, GitHub Actions
 - `docs/wissen/libretrokit.md`: Aufbau und Entscheidungen in LibretroKit, Takt, Environment, Batteriespeicher, Zeiger, Eigenheiten von mGBA und melonDS DS, Stolperfallen
 - `docs/wissen/renderer.md`: Bildpostfach, Metal-Ansicht mit Viewports je Bildschirm, Tonring in C, Audioausgabe mit gerundeter Rate, Stolperfallen
-- `docs/wissen/app.md`: Bibliothek, Import, Spielansicht mit Falz-Layouts, Touchscreen, Lebenszyklus mit Pause beim Zuklappen, Eingabe, Debug-Overlay, Debug-Start, Lizenzen, Stolperfallen
+- `docs/wissen/app.md`: Bibliothek, Import, Spielansicht mit Falz-Layouts, Touchscreen, Lebenszyklus mit Pause beim Zuklappen, Eingabe, Debug-Overlay, Debug-Start, Lizenzen, Gestaltung, Stolperfallen
+- `docs/wissen/oberflaeche.md`: die Oberfläche (zu ADR 0007): die Konsole (Gehäuse, Kappen, Glas nur über dem Bild, Maße, Regeln, Messregeln der Tour, Galerie) und Liquid Glass sonst, Regeln R1 bis R9, Bausteine, Tokens, Messwerte der Tour auch in den echten Posen, Abweichungen, Zusammenführung mit M2, Stolperfallen
 - `docs/wissen/falz.md`: Duo-APIs (Scharnier, reservierte Regionen, vertikale Leiste), Duo-Simulator, echte Posen per Software (privates Werkzeug über `POSE_CHECK_POSTURE_TOOL`) und mit Device Hub, Maße, FoldLayout, `DebugRemote`, Stolperfallen (zu ADR 0006)
 - `docs/wissen/psp-grafik.md`: PPSSPP als libretro-Kern bauen und hosten, Grafikwege, Stolperfallen (zu ADR 0001)
-- `docs/wissen/geraetetest.md`: Anleitung für alle ausstehenden Gerätetests auf dem Duo (M1, M2, ADR 0002), mit Kriterien
+- `docs/wissen/geraetetest.md`: Anleitung für alle ausstehenden Gerätetests auf dem Duo (M1, die Konsole nach ADR 0007, M2, ADR 0002), mit Kriterien
 - `docs/wissen/ps2-jit.md`: PS2 mit JIT, StikDebug und TXM, Einbau in den JIT-Build, Anleitung für den Gerätetest (zu ADR 0002)
 - `Spikes/`: Spike-Code aus M0 als Referenz, nicht Teil der App

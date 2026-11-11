@@ -1,11 +1,11 @@
 ---
 name: falz
-description: Duo-APIs im iOS-SDK 27.2 (Scharnier, reservierte Regionen, vertikale Leiste), Duo-Simulator mit Device Hub und Displays, gemessene Maße, FoldLayout (Leser, Vorlagen, Regeln mit Schutzrand oben, Touch-Abbildung), echte Posen per Software (privates Werkzeug außerhalb des Repos, eingebunden über POSE_CHECK_POSTURE_TOOL), Posen ohne den Weg des Systems (DebugRemote) und Stolperfallen, darunter das Vollbild, das oben Berührungen verschluckte; Grundlage der Falz-Layouts in ADR 0006
+description: Duo-APIs im iOS-SDK 27.2 (Scharnier, reservierte Regionen, vertikale Leiste), Duo-Simulator mit Device Hub und Displays, gemessene Maße, FoldLayout (Leser, Vorlagen für die Konsole von ADR 0007 mit Handgerät, Falz am Rand und Schutzrand oben, Tests über alle Geometrien, Touch-Abbildung), echte Posen per Software (privates Werkzeug außerhalb des Repos, eingebunden über POSE_CHECK_POSTURE_TOOL), Posen ohne den Weg des Systems (DebugRemote) und Stolperfallen, darunter das Vollbild, das oben Berührungen verschluckte; Grundlage der Falz-Layouts in ADR 0006
 ---
 
 # Falz
 
-Stand 7. November 2026, Xcode 27.2 (27B52), iOS-SDK 27.2, Simulator-Runtime iOS 27.1 (24A94425). Quellen: die Erkundung zu M2 mit dem Prototyp FalzProbe (nicht im Repo), die Umsetzung in Spur L (Paket `Packages/FoldLayout`, Belege in `docs/adr/0006/falz-simulator.txt`), die Integration (`docs/adr/0006/m2-abnahme-simulator.txt`) und die Nachbesserungen nach der Prüfung (ADR 0006, gleichnamiger Abschnitt; Sonden-App nicht im Repo). Die Entscheidungen stehen in ADR 0006; hier stehen Fakten, der Aufbau von FoldLayout und Stolperfallen. Kennzeichnung: **belegt** (gemessen oder im SDK gelesen), **Annahme**, **offen**.
+Stand 7. November 2026 (Abschnitt FoldLayout und Posenprüfung am 11. November 2026 an die Konsole angepasst), Xcode 27.2 (27B52), iOS-SDK 27.2, Simulator-Runtime iOS 27.1 (24A94425). Quellen: die Erkundung zu M2 mit dem Prototyp FalzProbe (nicht im Repo), die Umsetzung in Spur L (Paket `Packages/FoldLayout`, Belege in `docs/adr/0006/falz-simulator.txt`), die Integration (`docs/adr/0006/m2-abnahme-simulator.txt`) und die Nachbesserungen nach der Prüfung (ADR 0006, gleichnamiger Abschnitt; Sonden-App nicht im Repo). Die Entscheidungen stehen in ADR 0006 und, für die Konsole, in ADR 0007; hier stehen Fakten, der Aufbau von FoldLayout und Stolperfallen. Kennzeichnung: **belegt** (gemessen oder im SDK gelesen), **Annahme**, **offen**.
 
 ## APIs (belegt im SDK)
 
@@ -54,23 +54,38 @@ Paket `Packages/FoldLayout`, reine Werttypen (`swift test` läuft auf dem Mac), 
 
 **Pose.** `FoldGeometry.posture`: keine Region `single`, inaktiv `flat`, aktiv und breiter als hoch `tabletop`, aktiv und senkrecht (Buch) `flat`.
 
-**Vorlagen** (`GameLayout(system:geometry:showsTouchControls:metrics:)`, Maße in Punkt: Spalte 112, Band 128, Abstand 8, Schutzrand oben 64, L/R 44 hoch, Start/Select 36 hoch):
+**Vorlagen** (`GameLayout(system:geometry:showsTouchControls:metrics:)`, Maße in Punkt, seit dem 11. November 2026 an die Konsole angepasst, ADR 0007, „Konsole statt Glastasten“; vorher Spalte 112, Band 128, L und R 44 hoch): Spalte 134, Abstand 8, Schutzrand oben 64, Blende 8, Steuerkreuz 110 bis 146 (bis 170, wo die Tasten einen Teil der Fläche für sich haben), L und R 40 hoch, Menüzeile 44 hoch (niedrigste 28), Scharnier der Konsole 44 (schlank 20), Menüzelle höchstens 60 × 44, Menü bis 196 breit, Abstand des Menüs zu Steuerkreuz und Aktionstasten 24.
 
 | Pose | Ein Bildschirm | Zwei Bildschirme (DS) |
 | --- | --- | --- |
-| zu, hochkant | oben, volle Breite, Band darunter | gestapelt oben, Band darunter; L und R über den unteren Ecken des oberen Bildschirms, wenn das Band dafür zu niedrig ist |
-| zu, quer | so groß wie möglich, Spalten an den Seiten, über dem Bild, wenn sie einen Faktor kosten | gestapelt mittig, Spalten daneben |
-| flach mit senkrechtem Falz, Buch | über den Falz, Spalten ≥ 112 pt daneben | links vom Falz, Touchscreen rechts, beide am Schutzrand, Tasten darunter |
-| flach mit waagerechtem Falz | in der oberen Hälfte, Band unten | gleicher Faktor über und unter dem Falz, Spalten neben dem Touchscreen |
-| Tabletop | in der oberen Hälfte, Band unten | oben so groß wie möglich, Touchscreen mit Spalten unten |
+| zu, hochkant | oben, volle Breite, darunter die Leiste mit L, Menü und R, darunter Steuerkreuz und Aktionstasten | beide oben in der Mitte mit dem Scharnier der Konsole dazwischen, L und R an seinen Enden, darunter Steuerkreuz, Menü als Spalte und Raute; schlank: Leiste des Systems daneben, Scharnier 20 pt |
+| zu, quer, und jede Anzeige ohne Falz quer | Handgerät (siehe unten) | Handgerät mit dem Stapel, oder beide nebeneinander mit dem Scharnier darunter, wo sie dabei nicht kleiner werden |
+| flach mit senkrechtem Falz, Buch | in der Mitte über den Falz zwischen zwei Griffen, Menü unter dem Bild beiderseits des Falzes | links vom Falz der obere, rechts der Touchscreen, beide am Schutzrand, darunter die Leiste und die Tasten |
+| flach mit waagerechtem Falz, Tabletop | in der oberen Hälfte mit einem Rand des Gehäuses, Leiste und Tasten unten | oben so groß wie möglich mit Rand, Touchscreen mit Steuerkreuz und Raute unten, Menü darunter |
 
-- **Band:** L und R in der obersten Reihe, darunter Steuerkreuz links und Aktionstasten rechts, unten mittig Start/Select. Ist das Band zu niedrig für L und R (unter 192 pt), liegen sie über den unteren Ecken des oberen Bildschirms, 8 pt über dem Touchscreen (bis zur Prüfung über den oberen Ecken); ist es auch für eine eigene Reihe Start/Select zu niedrig (unter 140 pt), stehen Start/Select in einer Spalte zwischen Steuerkreuz und Aktionstasten. Das ist der DS zugeklappt: Band 132 pt, L und R bei y = 204 bis 248 pt.
-- **Spalten:** links L und das Steuerkreuz, rechts R, die Aktionstasten und unten Start/Select, in einer Reihe ab 280 pt Breite, sonst in drei Reihen (124 pt). Die Spalten beginnen am Schutzrand.
-- **Schutzrand oben** (seit der Prüfung, `LayoutMetrics.topEdgeGuard`): In den obersten 64 pt liegt nichts, was Berührungen nimmt, also keine Taste, kein Touchscreen und keine Pausentaste; ein sicherer Bereich oben zählt mit (`GameLayout.firstInputRow`). Bilder ohne Touch dürfen hinein. Gründe: die Randgesten des Systems an der Oberkante und die Reichweite der Daumen; der Streifen ohne Touch im Simulator war ein Fehler der App (Stolperfallen).
-- **Pausentaste ohne Touch-Tasten** (`GameLayout.pauseButton`): 44 pt in der ersten Ecke des sicheren Bereichs unter dem Schutzrand, die weder Touchscreen noch aktiven Falz noch eine Verdeckungsregion berührt, in der Reihenfolge unten rechts, unten links, oben rechts, oben links. DS zugeklappt mit Controller: unten rechts unter dem Touchscreen; DS flach hochkant mit Controller (7×): oben rechts über dem oberen Bildschirm. Mit Touch-Tasten liegt sie in der Menüzone und nimmt Berührungen auf mindestens 44 × 44 pt, auch wo sie mit 36 pt gezeichnet ist.
-- **Die Menüzone** (`ControlZones.menu`) nimmt Start, Select und die Pausentaste der App auf.
+Zwei Regeln gelten in jeder Vorlage (seit dem 11. November 2026, nach Fatihs Rückmeldung zu den Bildern; `MenuPlacementTests`, `LayoutInvariantTests`):
+
+- **Steuerkreuz und Aktionstasten liegen auf einer Höhe.** Ihre Zonen decken dieselben Zeilen (`finished` gleicht sie an), die Tasten sitzen in der Mitte ihrer Zone.
+- **Das Menü (Select, Menu, Start) sitzt mittig direkt unter dem Bild, nie unter den Aktionstasten oder dem Steuerkreuz**, und hält zu beiden 24 pt (`menuKeepOut`). Vorher stand es in den Spalten unter den Aktionstasten und schob sie 22 bis 66 pt über das Steuerkreuz.
+
+Die Bausteine:
+
+- **Band** (`bandZones`): direkt unter dem Bild eine Leiste mit L, dem Menü in der Mitte und R (44 pt hoch, das Menü bis 196 pt breit, L und R mindestens 64 pt), darunter Steuerkreuz links und Aktionstasten rechts über dieselbe Höhe, mittig zwischen Leiste und Unterkante der Anzeige. L, Steuerkreuz und die Blende des Bildes beginnen auf einer Linie, R, Aktionstasten und Blende enden auf einer, wo die Blende das zulässt. Ein Band, das für Leiste und Tasten zu niedrig ist, setzt L und R über die unteren Ecken des Bildschirms darüber und das Menü als Spalte zwischen Steuerkreuz und Aktionstasten (`lowBandZones`).
+- **Scharnier der Konsole** (`hingeZones`, DS zugeklappt und DS zugeklappt quer): L und R sind Tasten wie überall und stehen an den Enden des Scharniers, am Scharnier 100 pt breit und 40 pt hoch; L beginnt, wo das Steuerkreuz beginnt, R endet, wo die Raute endet. Darunter stehen Steuerkreuz, Menü und Raute in gleichen Abständen. Das Menü ist eine Reihe, wo die Breite reicht, sonst eine Spalte mit 100 pt, in der engsten mit 80 pt; in der Spalte endet Start genau am Ziel der Menu-Taste. Das schlanke Scharnier (20 pt) ist für eine Taste zu niedrig: L und R sind seine Enden, ihre Trefferflächen reichen etwas über das Scharnier auf die unteren Ecken des oberen Bildschirms, nie auf den Touchscreen, und die Tasten darunter beginnen 2 pt unter dem Touchscreen.
+- **Spalten** (`sideZones`, Handgerät, Griffe neben dem Bild): links L und das Steuerkreuz, rechts R und die Aktionstasten; L und R stehen oben in den Griffen auf Höhe der Oberkante der Blende, Steuerkreuz und Aktionstasten auf der Mittellinie des Bildes. Das Menü liegt zwischen den Spalten unter dem Bild; die Lücke dazwischen ist `max(0, min(16, frei − 44), min(10, frei − 28))` pt. Lässt das Bild darunter weniger Platz, rückt es nach oben (`raised`), nie aus dem sicheren Bereich. Bleiben unter einem Bild ohne Touch weniger als 28 pt, liegt das Menü über seinem unteren Rand; unter einem Touchscreen ohne Platz gehen seine zwei Teile an den Fuß der Spalten (kommt in keiner Pose des Duo vor).
+- **Seiten** (`pageZones`, DS offen und im Buch): unter den Bildschirmen eine Leiste mit L ganz links, dem Menü beiderseits des Falzes und R ganz rechts; darunter das Steuerkreuz links und die Aktionstasten rechts. Bild, L und Steuerkreuz beginnen auf einer Linie.
+- **Geteiltes Menü** (`ControlZones.menuTrailing`): Läuft ein senkrechter Falz durch die Mitte unter dem Bild, aktiv oder nicht, steht Select mit der Menu-Taste 8 pt vor ihm und Start 8 pt dahinter. So sehen offen und Buch gleich aus.
+- **Handgerät** (`Templates.handheldScale`): Ohne Falz quer (iPhone, Duo zugeklappt quer) steht ein Bild mit Blende in der Mitte, das Menü darunter, links und rechts eine Spalte von 134 pt. Der Faktor ist der größte, bei dem 240 k (beim gestapelten DS die Breite des Stapels) plus zwei Spalten in die sichere Breite und 160 k plus 2 × 8 pt Blende, 2 pt Haarstrich und 28 pt niedrigste Menüzeile in die sichere Höhe passen. Passt kein k ab 1, liegen die Tasten wie in M1 über dem Bild. Auf iPhones quer: 812 und 852 pt 5-fach, 874, 932 und 956 pt 6-fach (vorher 7-fach auf 874 pt mit Glas über dem Bild); der gestapelte DS auf 932 × 430 pt steht 2-fach nebeneinander statt 3-fach gestapelt, weil das Menü sonst unter Steuerkreuz und Aktionstasten läge. Der DS quer auf iPhones bleibt klein (ADR 0007, Entscheidung 6).
+- **Schmale Fläche hochkant:** Wo die Blende seitlich nicht neben das Bild passt (iPhone 402 pt breit, GBA 5-fach, 1 pt Rand), zählt der Faktor mehr als die Blende: Das Bild läuft von Rand zu Rand, und die Blende ist ein Band über die ganze Breite mit eckigen Enden (`endsAtLeftEdge`, `endsAtRightEdge`).
+- **Falz am Rand** (`GameLayout.placeable`): Ist eine Seite des Falzes im sicheren Bereich quer zum Falz schmaler als 134 pt oder leer, rechnet die Vorlage ohne Falz in der größeren Seite, mit dem sicheren Bereich bis zum Falz. Die Pose bleibt die der Geometrie, und das Gehäuse zeichnet das eigene Scharnier statt des Falzes. Beispiel: 669 × 475 pt mit einem Falz am unteren Rand, GBA 5-fach, DS 3-fach nebeneinander, der Touchscreen im sichtbaren Teil.
+- **Falz von oben nach unten in einer Ansicht, die höher als breit ist** (gibt es nur eingespeist: `-ArcfoldFoldOverride book` oder `fold.book` auf einem Display ohne Falz, nur Debug): Das GBA nimmt die Vorlage hochkant ohne Falz (Bild oben, über dem Falz wie im Buch), die Leiste teilt das Menü am Falz (Select und Menu davor, Start dahinter, je 8 pt daneben, Teile 64 bis 128 pt breit), L und R geben dafür bis auf 64 pt nach, Steuerkreuz und Aktionstasten bleiben auf ihrer Seite. Tests: `HandheldTests.uprightAFoldDownDividesTheMenuBelowThePicture` (18 Fälle), `TouchLayoutTests.uprightTheSimulatedBookKeepsEveryKeyOfTheGBA` (6 Fälle). Beim DS ist diese Geometrie nicht angepasst: L und R sind dort 46 bis 58 pt breit, unter den 64 pt der Invarianten; alle Tasten sind da und drücken (UI-Test grün), die Invariantenprüfung deckt nur das GBA ab.
+- **Schutzrand oben** (`LayoutMetrics.topEdgeGuard`): In den obersten 64 pt liegt nichts, was Berührungen nimmt, also keine Taste, kein Touchscreen und keine Pausentaste; ein sicherer Bereich oben zählt mit (`GameLayout.firstInputRow`). Bilder ohne Touch dürfen hinein. Auch die Trefferflächen (Toleranz um eine Taste, Reichweite des Steuerkreuzes) enden dort und am aktiven Falz (`TouchLayout.Limits`, `docs/wissen/app.md`). Gründe: die Randgesten des Systems an der Oberkante und die Reichweite der Daumen; der Streifen ohne Touch im Simulator war ein Fehler der App (Stolperfallen).
+- **Menu-Taste ohne Touch-Tasten** (`GameLayout.pauseButton`): 44 pt in der ersten Ecke des sicheren Bereichs unter dem Schutzrand, die weder Touchscreen noch aktiven Falz noch eine Verdeckungsregion noch einen Bildschirm samt Blende berührt, in der Reihenfolge unten rechts, unten links, oben rechts, oben links; hat keine Ecke des Gehäuses Platz, liegt sie als Glas in einer Ecke innerhalb eines Bildschirms ohne Touch, 8 pt vom Rand, nie quer über einer Blende. Beispiel: DS flach hochkant mit Controller, unten rechts im oberen Bildschirm. Mit Touch-Tasten liegt sie als Menu-Taste in der Menüzone und nimmt Berührungen auf mindestens 44 × 44 pt.
+- **Die Menüzone** (`ControlZones.menu`) nimmt Start, Select und die Menu-Taste der App auf.
 - **Regeln,** am Ende jeder Vorlage noch einmal durchgesetzt (`Templates.finished`): Tasten im sicheren Bereich unter dem Schutzrand, nie auf dem Touchscreen, nie auf einem aktiven Falz samt Rändern. Bildschirme ganzzahlig, im sicheren Bereich, nie auf dem Kern des Falzes (Falz ohne Ränder), außer einem einzelnen Bild im Buch. Der Touchscreen nimmt Eingaben wie die Tasten und bleibt deshalb auch aus den Rändern heraus; ein Bild ohne Touch darf hineinreichen.
 - Ohne Touch-Tasten (Controller in Benutzung) werden die Bildschirme größer oder bleiben gleich, nie kleiner (Test `aControllerNeverShrinksAScreen`).
+
+**Tests über alle Geometrien:** `LayoutInvariantTests` prüft die Regeln dieser Vorlagen über viele Geometrien: den Duo in allen Posen, fünf iPhones hochkant und quer und den Falz am Rand (aktiv und inaktiv, GBA und DS, mit und ohne Tasten). Dazu gehören der Abstand des Menüs zu Steuerkreuz und Aktionstasten, die Teile des Menüs in einer Reihe oder Spalte, ein geteiltes Menü beiderseits eines senkrechten Falzes, das Menü unter jedem Bild, unter dem es steht, und eine Liste der Fälle, in denen Tasten über einem Bildschirm stehen dürfen (nur die schlanke Fassung des DS). Die Tests der App laufen über dieselben Geometrien für beide Systeme (`ConsoleCaseTests`: jeder Bildschirm in einer Blende, keine Taste auf einer Blende, die Mulde einer Taste berührt keinen Bildschirm, ein Scharnier schneidet keinen Bildschirm, mit Controller liegt die Menu-Taste nicht auf Blende, Falz oder Kamera); `HandheldTests` hält die Größen der iPhones fest, `TouchLimitTests` die Grenzen der Trefferflächen.
 
 **Zahlen** mit den Maßen des Simulators, alle aus `GameLayoutTests` (Spalte „belegt“: auch im Simulator gemessen):
 
@@ -78,17 +93,18 @@ Paket `Packages/FoldLayout`, reine Werttypen (`swift test` läuft auf dem Mac), 
 | --- | --- | --- | --- |
 | GBA | zu, Leiste oben (466 × 562 pt) | 5× 1200 × 800 px bei (99, 246) | UI-Test, Bildschirmfoto |
 | GBA | zu, Leiste rechts | 4× 960 × 640 px bei (93, 0) | Test |
-| GBA | zu, quer | 8×, Tasten über dem Bild | Test |
-| GBA | flach quer, Buch 16 pt | 9× bei (346, 283), mit Controller 11× | Test |
-| GBA | flach hochkant / Tabletop 16 pt | 8× bei (43, 73) / (43, 61) | Test |
-| DS | zu, Leiste rechts (382 × 644 pt) | je 4× bei (61, 0) und (61, 768) | UI-Test, Bildschirmfoto |
-| DS | zu, Leiste oben | 3×, mit Controller 4× | Test |
-| DS | flach hochkant | 5× bei (363, 233) und (363, 1659), mit Controller 7× | Test |
+| GBA | zu, quer | 5× bei (417, 270); ohne sicheren Bereich (Annahme) 5× bei (417, 209), mit Controller 8× | Test |
+| GBA | flach quer, Buch 16 pt | 8× bei (466, 273), mit Controller 11× | Test |
+| GBA | flach hochkant / Tabletop 16 pt | 7× bei (163, 153) / (163, 141), mit Controller 8× | Test |
+| DS | zu, Leiste oben (466 × 562 pt) | 3× je 768 × 576 px bei (315, 246) und (315, 954), mit Controller 4× | UI-Test, Bildschirmfoto |
+| DS | zu, Leiste rechts, schlank | 4× bei (61, 0) und (61, 828) | Test |
+| DS | zu, quer | 3× bei (231, 246) und (1035, 246) | Test |
+| DS | flach hochkant | oben 6×, Touchscreen 4×, mit Controller beide 7× | Test |
 | DS | flach quer / Buch 16 pt | 5× bei (73, 192) und (1499, 192) / (61, 192) und (1511, 192), am Schutzrand | Test |
-| DS | Tabletop 16 pt | oben 7× bei (107, 29), Touchscreen 5× bei (363, 1671) | Test |
+| DS | Tabletop 16 pt | oben 6× bei (235, 125), Touchscreen 4× bei (491, 1677) | Test |
 | DS | Tabletop, Plan 1878 × 2670 px | oben 6× bei (171, 91) | Test |
 
-Mit 2007 × 2853 px bleibt der obere DS-Bildschirm im Tabletop 7-fach bis 55 pt Falzband, ab 56 pt 6-fach; mit 8 pt Rändern hält er 7-fach bei 55 pt nur, weil er in den Rand reicht (Test `screensReachIntoTheMarginsAndTheTouchScreenDoesNot`).
+Mit 2007 × 2853 px und Tasten bleibt der obere DS-Bildschirm im Tabletop wegen des Randes des Gehäuses bei jedem Falzband bis 64 pt 6-fach; ohne Tasten ist er 7-fach bis 55 pt Falzband, ab 56 pt 6-fach (Test `dsTabletopUpperScreen`); mit 8 pt Rändern hält er 7-fach bei 55 pt nur, weil er in den Rand reicht (Test `screensReachIntoTheMarginsAndTheTouchScreenDoesNot`).
 
 **Touch.** `TouchMapping` rechnet einen Punkt zuerst in den Gerätepixel um, der ihn enthält (`floor(p · s + 10⁻⁶)`), dann ganzzahlig in die Zelle (`floor((d − x₀) / k)`). Die Toleranz von einem Millionstel Pixel hält Punkte wie 121,333… pt auf ihrem Pixel, deren Produkt mit 3 knapp darunter fällt. `clampedPixel` klemmt auf den Rand, `framePixel` addiert die Lage im Kernbild (DS unten: y + 192), `center` liefert die Pixelmitte in Punkten. Belegt: alle 49 152 Pixelmitten bei Faktor 1 bis 7 und Ursprüngen, die kein Vielfaches von 3 sind, und jeder Gerätepixel einer Diagonale, einer Zeile und einer Spalte landet in seiner Zelle.
 
@@ -99,8 +115,12 @@ Stand 7. November 2026, geprüft mit Xcode 27.2 (27B52), Runtime iOS 27.1 (24A94
 **Einbinden.** `Scripts/pose-check.sh` nimmt das Werkzeug über die Umgebungsvariable `POSE_CHECK_POSTURE_TOOL`: ein ausführbares Programm, das `<UDID> <Pose> [--orientation landscape-left] --quiet` versteht und erst zurückkehrt, wenn die Pose steht; scheitert es, bricht die Prüfung ab. Ohne die Variable, oder mit `POSE_CHECK_HUB=1`, fragt das Skript je Schritt nach dem Wechsel in Device Hub.
 
 ```bash
-POSE_CHECK_POSTURE_TOOL=<Werkzeug> Scripts/pose-check.sh ds    # danach gba
+POSE_CHECK_POSTURE_TOOL=<Werkzeug> Scripts/pose-check.sh ds    # danach ds-slim und gba
 ```
+
+`ds-slim` startet `selftest.nds` mit `-LargerScreens YES`: die schlanke Fassung des DS mit der Leiste des Systems neben dem Spiel und 4-fachen Bildschirmen, in eigener Szene.
+
+Die Schritte des Skripts (jeder nach dem Wechsel 4 s ohne Eingriff, dann Bildschirmfotos beider Displays und der Zustand der Displays): `01-closed` (Start), `02-closed-landscape` (zu, quer: das Spiel steht als Handgerät auf dem Außendisplay und läuft weiter), `03-open`, `04-book`, `05-tabletop`, `06-flat-upright`, `07-closed` (Zuklappen: das Spiel pausiert, das Pausenmenü steht außen) und `08-open` (Aufklappen: das Spiel setzt von selbst fort). Ohne Werkzeug fragt das Skript je Schritt nach dem Wechsel in Device Hub; der Text dort für Drehen und Zurückdrehen ist nicht geprüft.
 
 | Pose | Winkel | Ausrichtung | Ergebnis (belegt) |
 | --- | --- | --- | --- |
@@ -123,6 +143,16 @@ POSE_CHECK_POSTURE_TOOL=<Werkzeug> Scripts/pose-check.sh ds    # danach gba
 
 ## Mit echten Posen belegt
 
+Stand 7. November 2026, vor der Konsole: Die Faktoren und die Lage der Tasten dieses Abschnitts sind die der Layouts davor, die heutigen stehen im Abschnitt FoldLayout; die Aussagen zu Szene, Display, Division-Region und Emulation gelten unverändert. Die Läufe nach der Konsole stehen im folgenden Abschnitt „Nach der Konsole (11. November 2026)“.
+
+**Nach der Konsole (11. November 2026)** (`Scripts/pose-check.sh ds`, `ds-slim` und `gba`, je etwa 3 Minuten, Posen per Software, Exit 0 in jedem Lauf):
+
+- **Pause und Fortsetzen:** in jedem Lauf „Paused: folded“ beim Zuklappen und „Resumed“ beim Aufklappen, nie „Game view disappeared“.
+- **GBA:** keine Lücken und keine Neusynchronisationen, auch neben weiteren Testläufen auf demselben Mac.
+- **DS:** Der Lauf ohne andere Last auf dem Mac (13:55, vor den Nachbesserungen nach dem Lauf, die den Weg der Emulation nicht berühren) blieb ohne Lücke und ohne Neusynchronisation, mit 59,8 Bildern/s. Zwei Läufe neben weiteren Testläufen auf demselben Mac (15:53 und 17:50) zeigten Lücken von 51,9 bis 66,0 ms und 14 und 28 Neusynchronisationen, an wechselnden Schritten und zum Teil Sekunden nach dem Wechsel (einmal 3,4 s nach dem neuen Layout). Das Soll „keine Lücke und keine Neusynchronisation im Fenster eines Wechsels“ ist in diesen beiden Läufen verfehlt; das Bild spricht für die Last des Macs als Ursache, nicht für den Wechsel.
+- **DS schlank:** bisher nur neben weiteren Testläufen gelaufen (15:55): im Fenster des Wechsels zum Buch (04) eine Lücke von 52,5 ms, zum Tabletop (05) 12 Neusynchronisationen und Lücken von 61,5 und 56,6 ms, zu zugeklappt (07) 2 Neusynchronisationen. Ein Lauf ohne andere Last steht aus.
+- **Anwenden:** Die Posenprüfung misst Echtzeit und läuft allein auf dem Mac. Neben anderen Builds oder Tests sagt ein Lauf mit Lücken nichts über die App; er wird ohne Last wiederholt.
+
 Am 7. November 2026 mit `Scripts/pose-check.sh ds` und `gba` (Posen per Software: zu, offen, Buch, Tabletop, flach hochkant, zu, offen; Rohwerte und Fotos in ADR 0006, Abschnitt „Posenprüfung per Software“):
 
 - **Eine Szene für beide Displays.** „Scene shown“ steht einmal, danach nur „Screen changed“: außen 466 × 678 pt, innen 951 × 669 pt, im Tabletop und flach hochkant 669 × 951 pt. Beim Wechsel zwischen außen und innen startet der Display-Link neu, beim Drehen innen nicht; die Drawable folgt (1398 × 2034 → 2853 × 2007 → 2007 × 2853 px). Kein Wechsel ging durch eine andere Szenenphase. `PlaySession` bleibt damit bei `GameView` (ADR 0006, Abschnitt 9).
@@ -141,6 +171,7 @@ Am 7. November 2026 mit `Scripts/pose-check.sh ds` und `gba` (Posen per Software
 | `com.faentiver.arcfold.debug.fold.measured` | zurück zum gemessenen Falz |
 | `com.faentiver.arcfold.debug.hinge.closed`, `.open` | übergibt `PlaySession.hingeChanged(from:to:)` einen Scharnierwechsel wie `onHingeChange`, vom zuletzt gesehenen Zustand aus |
 | `com.faentiver.arcfold.debug.overlay.hide`, `.show` | blendet das Debug-Overlay aus und wieder ein, für Bildschirmfotos des ganzen Bildes |
+| `com.faentiver.arcfold.debug.keys.hold`, `.release` | hält Hoch, A, L und Select wie mit Fingern gedrückt und lässt sie los: ein Bildschirmfoto zeigt gedrückte Tasten, und das Spiel sieht sie |
 
 - Senden aus einem Skript: `xcrun simctl spawn <UDID> notifyutil -p <Name>`; aus einem UI-Test: `notify_post` (Testprozess und App teilen das Benachrichtigungszentrum des Simulators). Jede Änderung steht im Log (Kategorie `fold`, „Simulated fold“, „Simulated hinge“).
 - **Was es belegt:** Layoutwechsel, Viewports, Touch-Abbildung, Emulation, Ton und Pause beim Wechsel der Pose, in der echten App mit echtem Kern. **Was nicht:** den Weg des Systems, also den Wechsel des Displays, ob dieselbe Szene wandert, die Layouts des Innendisplays, die Größe der Drawable dort und den Display-Link dort. Die Geometrie bleibt die des Außendisplays; flach, Buch und Tabletop ergeben dort entartete Layouts (Faktor 1 bis 4). Den Weg des Systems belegen echte Posen, per Software (Abschnitt „Posen per Software“) oder mit Device Hub.

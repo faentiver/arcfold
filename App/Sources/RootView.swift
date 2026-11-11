@@ -32,12 +32,21 @@ struct RootView: View {
             // A new game gets a view of its own, and with it a session of its own.
             GameView(game: game, library: library) { stage = .library }
                 .id(game.id)
+                // The game's colours for the artwork and the pause sheet,
+                // the console of its system, and glass or flat for controls
+                // over a screen (ADR 0007).
+                .environment(\.gameStyle, GameStyle(game))
+                .environment(\.consoleSkin, ConsoleSkin.skin(forSystem: game.system, preferred: ConsoleSkin.preferredFinish))
+                .resolvesControlSurface()
+                // A game is always dark; the pause sheet inherits it.
+                .preferredColorScheme(.dark)
         #if DEBUG
         case .testPattern:
             TestPatternView { stage = .library }
         case let .layoutTestPattern(systemID):
             if let system = GameSystem.system(id: systemID) {
                 LayoutTestPatternView(system: system)
+                    .environment(\.consoleSkin, ConsoleSkin.skin(forSystem: system.id, preferred: ConsoleSkin.preferredFinish))
             }
         #endif
         }

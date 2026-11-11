@@ -1,8 +1,12 @@
+import FoldLayout
 import SwiftUI
 
-/// The imported games. Import adds files through the system file picker; a
-/// tap starts a game, which takes the library's place in the window
-/// (`RootView`). Licenses and cores sit in the info menu.
+/// The imported games as a grid of generated tiles. Import adds files
+/// through the system file picker; a tap starts a game, which takes the
+/// library's place in the window (`RootView`), so there is no presentation
+/// and no zoom from the tile (ADR 0007, decision 11). Sorting, licenses and
+/// cores sit in the More menu. Toolbar, menus, search and alerts carry the
+/// system's glass; this view sets none of its own (ADR 0007).
 struct LibraryView: View {
     /// Shows a game, or in debug builds a test pattern, in place of the library.
     let open: (RootView.Stage) -> Void
@@ -10,37 +14,62 @@ struct LibraryView: View {
     @State private var path = NavigationPath()
     @State private var isImporting = false
     @State private var importProblems: [ImportError] = []
+    @State private var query = ""
+    /// The scroll view of the grid as the system lays it out, and the
+    /// margins the system keeps in it; both unknown until it appears.
+    @State private var geometry: FoldGeometry?
+    @State private var margins: SystemMargins?
+    @Environment(\.displayScale) private var displayScale
+    @Environment(\.layoutDirection) private var layoutDirection
+    @AppStorage("LibrarySort") private var sort = LibrarySort.name
 
     var body: some View {
         NavigationStack(path: $path) {
             content
                 .navigationTitle(Text("Library", comment: "Title of the list of imported games."))
                 .toolbar {
-                    ToolbarItem(placement: .topBarLeading) {
+                    // Both in .primaryAction: on the outer display they become
+                    // one glass capsule in the system column (measured).
+                    ToolbarItem(placement: .primaryAction) {
                         Menu {
-                            Button {
-                                path.append(InfoPage.licenses)
+                            Picker(selection: $sort) {
+                                Text("Name", comment: "Library sort order by game name.")
+                                    .tag(LibrarySort.name)
+                                Text("Recently Added", comment: "Library sort order, newest import first.")
+                                    .tag(LibrarySort.recentlyAdded)
                             } label: {
                                 Label {
-                                    Text("Licenses", comment: "Menu item that opens the license notices.")
+                                    Text("Sort By", comment: "Picker in the More menu that orders the library.")
                                 } icon: {
-                                    Image(systemName: "doc.text")
+                                    Image(systemName: "arrow.up.arrow.down")
                                 }
                             }
-                            Button {
-                                path.append(InfoPage.cores)
-                            } label: {
-                                Label {
-                                    Text("Cores", comment: "Menu item that lists the embedded emulation cores.")
-                                } icon: {
-                                    Image(systemName: "cpu")
+                            .pickerStyle(.menu)
+                            Section {
+                                Button {
+                                    path.append(InfoPage.licenses)
+                                } label: {
+                                    Label {
+                                        Text("Licenses", comment: "Menu item that opens the license notices.")
+                                    } icon: {
+                                        Image(systemName: "doc.text")
+                                    }
+                                }
+                                Button {
+                                    path.append(InfoPage.cores)
+                                } label: {
+                                    Label {
+                                        Text("Cores", comment: "Menu item that lists the embedded emulation cores.")
+                                    } icon: {
+                                        Image(systemName: "cpu")
+                                    }
                                 }
                             }
                         } label: {
                             Label {
-                                Text("Info", comment: "Menu with licenses and cores.")
+                                Text("More", comment: "Toolbar menu of the library with sorting, licenses and cores.")
                             } icon: {
-                                Image(systemName: "info.circle")
+                                Image(systemName: "ellipsis")
                             }
                         }
                         .accessibilityIdentifier("info-menu")
@@ -58,6 +87,7 @@ struct LibraryView: View {
                         .accessibilityIdentifier("import")
                     }
                 }
+                .modifier(LibrarySearch(isAvailable: !library.games.isEmpty, query: $query))
                 .navigationDestination(for: InfoPage.self) { page in
                     switch page {
                     case .licenses: LicensesView()
@@ -101,7 +131,7 @@ struct LibraryView: View {
                     Label {
                         Text("No Games", comment: "Title of the empty library.")
                     } icon: {
-                        Image(systemName: "square.stack")
+                        Image(systemName: "gamecontroller")
                     }
                 } description: {
                     Text("Import your own GBA or DS game files. Arcfold comes without games.",
@@ -112,27 +142,49 @@ struct LibraryView: View {
                     } label: {
                         Text("Import Games", comment: "Button in the empty library that opens the file picker.")
                     }
-                    .buttonStyle(.borderedProminent)
+                    .buttonStyle(.glassProminent)
+                    .controlSize(.large)
                 }
+                // Held like a book: beside the fold, not on it.
+                .onFirstFoldPage()
             } else {
                 ProgressView()
             }
         } else {
-            List(library.games) { game in
-                Button {
-                    open(.game(game))
-                } label: {
-                    LabeledContent {
-                        Text(verbatim: GameSystem.system(id: game.system)?.name ?? game.system)
-                    } label: {
-                        Text(verbatim: game.name)
+            let games = LibraryArrangement.arranged(library.games, sort: sort, query: query)
+            ScrollView {
+                if let space {
+                    GameGrid(games: games, space: space) { game in
+                        open(.game(game))
                     }
+                    .padding(.top, LibraryColumns.topPadding)
+                    .padding(.bottom, 24)
                 }
-                .tint(.primary)
-                // With the system, because a GBA and a DS game may share a name.
-                .accessibilityIdentifier("game-\(game.system)-\(game.name)")
+            }
+            .onFoldGeometryChange(scale: max(1, Int(displayScale.rounded()))) { geometry = $0 }
+            // The grid begins where the large title does: at the margins of
+            // the system, which no SwiftUI value carries.
+            .background {
+                SystemMarginsReader { margins = $0 }
+                    .accessibilityHidden(true)
+            }
+            .overlay {
+                if games.isEmpty {
+                    ContentUnavailableView.search(text: query)
+                        .onFirstFoldPage()
+                }
             }
         }
+    }
+
+    /// The room of the grid, once the scroll view and the margins are known.
+    private var space: LibraryColumns.Space? {
+        guard var geometry, let margins else { return nil }
+        #if DEBUG
+        // The artificial fold of debug builds, as in a game.
+        geometry = DebugRemote.shared.foldOverride?.applied(to: geometry) ?? geometry
+        #endif
+        return LibraryColumns.Space(geometry: geometry, margins: margins, isRightToLeft: layoutDirection == .rightToLeft)
     }
 
     /// The same way as the file picker: import, then show any problems.
@@ -169,6 +221,23 @@ private enum InfoPage: Hashable {
     case cores
 }
 
+/// The search field, only while there are games: otherwise the magnifier
+/// would stand alone at the bottom of the system column (measured).
+private struct LibrarySearch: ViewModifier {
+    let isAvailable: Bool
+    @Binding var query: String
+
+    func body(content: Content) -> some View {
+        if isAvailable {
+            content
+                .searchable(text: $query, prompt: Text("Search Games", comment: "Prompt of the search field in the library."))
+                .searchToolbarBehavior(.minimize)
+        } else {
+            content
+        }
+    }
+}
+
 #Preview("Games") {
     LibraryView { _ in }
         .environment(GameLibrary(previewing: [
@@ -182,4 +251,12 @@ private enum InfoPage: Hashable {
 #Preview("Empty") {
     LibraryView { _ in }
         .environment(GameLibrary(previewing: []))
+}
+
+#Preview("Inner display", traits: .fixedLayout(width: 669, height: 951)) {
+    LibraryView { _ in }
+        .environment(GameLibrary(previewing: (1...7).map { index in
+            Game(id: "\(index)", name: "Game \(index)", system: "gba", originalFileName: "game.gba",
+                 size: 1024, importedAt: .now)
+        }))
 }

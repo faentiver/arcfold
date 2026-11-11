@@ -1,11 +1,11 @@
 ---
 name: geraetetest
-description: Anleitung für alle ausstehenden Gerätetests auf dem iPhone Duo (M1 mit ADR 0005, M2 mit ADR 0006, PS2-JIT mit ADR 0002), was dabei gemessen wird und wo die Ergebnisse hinkommen
+description: Anleitung für alle ausstehenden Gerätetests auf dem iPhone Duo (M1 mit ADR 0005, die Konsole mit ADR 0007, M2 mit ADR 0006, PS2-JIT mit ADR 0002), was dabei gemessen wird und wo die Ergebnisse hinkommen
 ---
 
 # Gerätetest auf dem iPhone Duo
 
-Stand 7. November 2026. Der Simulator sagt nichts über Bildrate, Wärme, Tonlatenz, Mehrfachberührung und JIT. Diese Anleitung bündelt alles, was nur das Gerät klärt. Teil 1 (M1) dauert etwa 45 Minuten, Teil 2 (PS2 mit JIT) etwa 30 Minuten, Teil 3 (M2, DS und Falz) etwa 45 Minuten; jeder Teil lässt sich getrennt machen.
+Stand 11. November 2026 (Teil 1b), sonst 7. November 2026. Der Simulator sagt nichts über Bildrate, Wärme, Tonlatenz, Mehrfachberührung und JIT. Diese Anleitung bündelt alles, was nur das Gerät klärt. Teil 1 (M1) dauert etwa 45 Minuten, Teil 1b (Konsole, ADR 0007) etwa eine Stunde, Teil 2 (PS2 mit JIT) etwa 30 Minuten, Teil 3 (M2, DS und Falz) etwa 45 Minuten; jeder Teil lässt sich getrennt machen.
 
 ## Einmalig vorbereiten (etwa 15 Minuten)
 
@@ -39,6 +39,35 @@ Für jeden Punkt: das Overlay fotografieren oder die Werte notieren.
 | 13 | Zweiter Emulator (falls installiert) | Import öffnen | `.gba`-Dateien sind auswählbar, nicht ausgegraut |
 
 Optional, für genaue Zahlen: Konsole.app am Mac → das Duo wählen → Filter `subsystem:com.faentiver.arcfold category:stats`. Die App schreibt dort alle 10 s eine Zeile mit allen Werten des Overlays.
+
+## Teil 1b: Konsole (ADR 0007)
+
+Die Spielansicht ist eine Konsole: ein Gehäuse in der Farbe des Systems, die Bildschirme in dunklen Blenden, ein Scharnier am Falz, Tasten als Kappen in Mulden mit eingeprägten Buchstaben. Glas liegt nur noch über dem Bild (die Menu-Taste mit Controller, wo keine Ecke des Gehäuses frei ist, die Hinweise, der Chip). Der Simulator zeigt Layout und Bild; wie die Tasten unter dem Daumen liegen, wie die Ecken der Anzeige und die Kamera zu den Blenden passen und was Sprachsteuerung und Bildrate machen, zeigt nur das Duo. Etwa eine Stunde mit dem Debug-Build aus Xcode, `selftest.gba` und `selftest.nds`. Den Vergleich Glas gegen flach an den Tasten gibt es nicht mehr, weil im laufenden Spiel keine Taste aus Glas ist; was bleibt, ist die Menu-Taste mit Controller (G15).
+
+Bedienung der Konsole am Gerät. G1 bis G3 sind auch im Simulator belegt, weil das private Posen-Werkzeug das Außendisplay quer stellt (`testSidewaysTheRButtonIsFree`, Tour-Zustand 12); am Gerät zählen sie mit den Randgesten des Systems. Zwei Finger gehen im Simulator nur mit der Wahltaste:
+
+| Nr. | Was | Wie | Erwartet |
+| --- | --- | --- | --- |
+| G1 | R quer | Duo quer halten, R antippen | Overlay „last R“, „presses“ steigt um 1; kein Pausenmenü |
+| G2 | Menu-Taste quer | die Menu-Taste in der Reihe unter dem Bild (zwischen Select und Start) antippen | Sheet geht auf; Inhalt lesbar, nichts unter der Systemspalte abgeschnitten (Bildschirmfoto); Select und Start daneben lösen nichts aus |
+| G3 | L neben dem Debug-Overlay | quer im Debug-Build L antippen; das Overlay liegt auf keiner Taste (`OverlayPlacement.debugArea`) | „last L“, „presses“ steigt um 1; das Overlay deckt keine Taste und nimmt keine Berührung an |
+| G4 | Zwei Finger | hochkant und quer: Steuerkreuz und A gleichzeitig halten, dann A und B, dann L und R | „Input held“ zeigt beide Tasten; beide Kappen sinken sofort, nichts hinkt nach |
+| G5 | Zug über die Tasten | hochkant mit zwei Fingern auf den Tasten nach unten ziehen | Das Spiel bleibt, die Tasten melden den Zug; ein Schließen per Zoom gibt es nicht (`RootView`) |
+| G6 | Sheet nach dem Zuklappen | im Spiel zuklappen, außen „Resume“, dann wieder zu und auf | Zuklappen zeigt das Sheet außen; „Resume“ spielt außen weiter; Aufklappen schließt das Sheet und setzt fort |
+| G7 | Ränder am Falz im Buch | Duo im Buch aufstellen, Bibliothek ansehen; ebenso die Lizenzen | Kein Kachelrand und kein Text liegt auf der Division-Region; jede Seite hält etwa 20 pt Abstand zu ihr (`FoldDivision.pageMargin`, im Simulator 20 pt bei einer Region von 121 px; die Region des Geräts kann anders sein, Maße notieren) |
+| G8 | Pausen-Sheet | im Spiel Menu antippen, zugeklappt hochkant, im Buch und im Tabletop | Das Sheet ist so hoch wie sein Inhalt (im Simulator 269 pt, 34 pt unter „Quit Game“); im Tabletop bleibt es unter dem Falz; mit größter Schrift wächst es und scrollt; die Tasten der Konsole bleiben darunter stehen |
+| G9 | Tasten treffen, Gefühl | `selftest.gba` und `selftest.nds` je fünf Minuten spielen, zugeklappt hochkant, zugeklappt quer, offen, im Tabletop; jede Taste einzeln, das Steuerkreuz in allen vier Richtungen und den Diagonalen, X, Y, A, B, Select, Start | Jede Taste löst dort aus, wo ihre Kappe gezeichnet ist (Overlay „last …“); Daumen treffen die Kappen ohne Hinsehen; die gedrückte Kappe sinkt sofort; Select und Start lassen sich vom Menu unterscheiden und werden nicht aus Versehen getroffen |
+| G10 | L und R am Scharnier mit dem Daumen | DS zugeklappt, 3-fach (Voreinstellung): L und R an den Enden des Scharniers mit dem Daumen drücken, dann denselben Test in der schlanken Fassung (`-LargerScreens YES`, 4-fach) | L und R lösen sicher aus, ohne dass der Daumen den Touchscreen berührt; in der schlanken Fassung nimmt die Trefferfläche etwas über dem niedrigen Scharnier an, ohne den Touchscreen zu treffen; der Daumen ermüdet nicht |
+| G11 | Runde Ecken der Anzeige gegen Blenden | zugeklappt hochkant, zugeklappt quer, offen: die Ecken der Anzeige gegen die Blenden und die Tasten ansehen; im Tabletop mit Controller (das Startargument `-ArcfoldControllerInUse` gibt es nur im Debug-Build, am Gerät lieber einen Controller verbinden) die obere Blende gegen den oberen Rand der Anzeige | Keine Blende und keine Taste wird von einer Ecke der Anzeige abgeschnitten; im Tabletop mit Controller ist das obere Bild nicht angeschnitten (im Simulator steht seine Blende dicht am oberen Rand, das Bild 3,7 pt davon; wie viel am Gerät sichtbar bleibt, notieren) |
+| G12 | Sprachsteuerung | Sprachsteuerung einschalten, im Spiel „Tippe Menu“ und „Tippe Pause“ sagen | Beide Namen treffen die Menu-Taste; das Sheet geht auf; „Resume“ setzt fort |
+| G13 | Bildrate mit Gehäuse | je 10 Minuten `selftest.gba` und `selftest.nds`, zugeklappt hochkant und offen, Zeilen der Kategorie `stats` aus Konsole.app kopieren (Filter `subsystem:com.faentiver.arcfold category:stats`); dazu 30 Minuten quer | Emulation bleibt bei den Werten der Posenprüfung (DS 59,8, GBA 59,7 Bilder/s), `resync`, „late“ der Anzeige und „GPU busy“ bleiben 0, „Thermal“ nach 30 Minuten nominal; das Gehäuse zeichnet sich bei Tastendrücken nicht neu (nur die gedrückte Taste) |
+| G14 | Kamera und Lautsprecher | zugeklappt hochkant mit sichtbarer und versteckter Statusleiste ansehen | Die Mulde des Gehäuses sitzt um die Kamera und liegt in der Kapsel des Systems, die schwarze Kamera des Gehäuses deckt die echte; die Größe der echten Kamera notieren (gezeichnet ist die reservierte Region, im Simulator 37 pt) |
+| G15 | Glas über dem Bild | einen Controller verbinden und eine Taste drücken (die Touch-Tasten verschwinden), `selftest.gba` und `selftest.nds` (weißer Balken) laufen lassen, dazu im Stromsparmodus (flach) | Die Menu-Taste steht in einer freien Ecke des Gehäuses oder, wo keine frei ist, als Glas ganz im Bild und liegt nie quer über einer Blende; sie bleibt über dem weißen Balken lesbar, mit Glas wie flach; der Hinweis (Ton) bleibt lesbar; außerdem notieren, ob das Pausen-Sheet am Gerät skaliert gezeichnet wird (im Simulator mit iOS 27.2 auf einem iPhone ohne Falz 386 statt 402 pt breit, auf dem Duo mit iOS 27.1 nicht) |
+| G16 | Farben und Lesbarkeit | DS in Kreide und Graphit, GBA in Indigo und Petrol (`-CaseFinish graphite|petrol`) draußen in hellem Licht und im Dunkeln ansehen | Die Namen von Select, Start und Menu und die Buchstaben auf den Kappen sind lesbar; die Farben wirken ruhig, nichts blendet |
+
+Wo der Ton-Chip sitzt (über dem Hinweis auf dem oberen oder einzigen Bildschirm), belegen `OverlayPlacementTests` und die Galerie-Seite `notices`; am Gerät erscheint er nur, wenn der Ton nicht startet.
+
+Ergebnisse tragen die Nummern G1 bis G16 in den Pull Request ein, mit Foto und Zeilen aus `stats` bei G13.
 
 ## Teil 2: PS2 mit JIT (ADR 0002)
 

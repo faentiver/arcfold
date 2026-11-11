@@ -8,6 +8,8 @@ struct CoreListView: View {
 
     var body: some View {
         content
+            // Held like a book: the list beside the fold, not across it.
+            .onFirstFoldPage()
             .navigationTitle(Text("Cores", comment: "Navigation title of the list of libretro cores embedded in the app."))
             .task {
                 state = await CoreCatalog.load()

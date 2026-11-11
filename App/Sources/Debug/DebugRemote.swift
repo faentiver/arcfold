@@ -1,6 +1,7 @@
 #if DEBUG
 import FoldLayout
 import Foundation
+import LibretroKit
 import notify
 import Observation
 import os
@@ -20,6 +21,9 @@ import os
 ///   the pause menu, opening resumes a game that closing paused.
 /// - `com.faentiver.arcfold.debug.overlay.hide` and `….show` hide the debug
 ///   overlay and bring it back, so that a screenshot shows the whole picture.
+/// - `com.faentiver.arcfold.debug.keys.hold` holds a few buttons down as
+///   if fingers lay on them (up, A, L and Select), `….keys.release` lets
+///   them go: a screenshot then shows pressed keys, and the game sees them.
 ///
 /// None of it moves the app to another display or changes the size of its
 /// view; that stays with the pose check (Scripts/pose-check.sh). Every change
@@ -34,11 +38,29 @@ final class DebugRemote {
         var number: Int
     }
 
+    /// Something the running game shows on request, so that acceptance runs
+    /// and UI tests see it in every pose: `….debug.notice.long` shows the
+    /// longest notice the app knows, a failed battery save with its reason,
+    /// through the session's own path; `….debug.chip.show` and `….chip.hide`
+    /// set and clear the status chip of a missing audio output.
+    enum Sample: Equatable {
+        case longNotice
+        case audioProblem(shown: Bool)
+    }
+
+    /// A sample request, numbered like a hinge change.
+    struct SampleRequest: Equatable {
+        var sample: Sample
+        var number: Int
+    }
+
     /// What a notification asks for.
     private enum Action {
         case fold(FoldOverride?)
         case hinge(HingeState)
         case overlay(hidden: Bool)
+        case sample(Sample)
+        case keys(JoypadButtons)
     }
 
     static let shared = DebugRemote()
@@ -54,6 +76,11 @@ final class DebugRemote {
         ("hinge.open", .hinge(.fullyOpen)),
         ("overlay.hide", .overlay(hidden: true)),
         ("overlay.show", .overlay(hidden: false)),
+        ("notice.long", .sample(.longNotice)),
+        ("chip.show", .sample(.audioProblem(shown: true))),
+        ("chip.hide", .sample(.audioProblem(shown: false))),
+        ("keys.hold", .keys([.up, .a, .l, .select])),
+        ("keys.release", .keys([])),
     ]
 
     private static let logger = Logger(subsystem: "com.faentiver.arcfold", category: "fold")
@@ -64,6 +91,10 @@ final class DebugRemote {
     private(set) var hingeChange: HingeChange?
     /// The debug overlay stays hidden, whatever the game menu says.
     private(set) var hidesOverlay = false
+    /// The latest sample request, for the game view.
+    private(set) var sampleRequest: SampleRequest?
+    /// Buttons the game view holds down as if fingers lay on them.
+    private(set) var heldButtons: JoypadButtons = []
     /// The hinge as the game saw it last, real or simulated.
     @ObservationIgnored private var hinge: HingeState?
     @ObservationIgnored private var changes = 0
@@ -105,6 +136,13 @@ final class DebugRemote {
         case let .overlay(hidden):
             hidesOverlay = hidden
             Self.logger.notice("Debug overlay \(hidden ? "hidden" : "shown", privacy: .public) by notification")
+        case let .sample(sample):
+            changes += 1
+            sampleRequest = SampleRequest(sample: sample, number: changes)
+            Self.logger.notice("Sample \(name, privacy: .public) by notification")
+        case let .keys(buttons):
+            heldButtons = buttons
+            Self.logger.notice("Held buttons \(buttons.rawValue, privacy: .public) by notification (\(name, privacy: .public))")
         }
     }
 
