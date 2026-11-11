@@ -190,6 +190,28 @@ Am 10. November 2026 folgte eine zweite Runde auf demselben Branch, wieder als z
 | Posenprüfung | `Scripts/pose-check.sh ds` und `gba`: je sieben Schritte, keine Lücke und keine Neusynchronisation in einem Fenster eines Wechsels, eine Szene über alle Wechsel, „Paused: folded“ beim Zuklappen, „Resumed“ beim Aufklappen; DS 59,75 bis 59,87 Bilder/s, GBA 59,67 bis 59,78 |
 | Kanten, Sheet, Raster | Kanten mit Kontrast erhöhen 12,37 bis 17,30 : 1 in allen Posen; Sheet 269 pt hoch und 34,33 pt unter „Quit Game“ in jeder Pose und Variante; Titelkante gegen Kachel gleich in jeder Pose; Kacheln im Buch bei 20 / 202,67 / 515,67 / 698,33 pt |
 
+## Lage der Tasten (11. November 2026)
+
+Fatih hat an den Bildern des Pull Requests zwei Dinge bemängelt: In manchen Ansichten von GBA und DS lagen Steuerkreuz und Aktionstasten nicht auf einer Höhe, und Select und Start standen direkt unter den Aktionstasten, wo ein Daumen sie aus Versehen trifft. Beides hatte eine Ursache. In allen Vorlagen mit Spalten stand das Menü (Select, Pause, Start) am Fuß der rechten Spalte und schob die Aktionstasten über das Steuerkreuz: um 22 pt beim DS offen und im Buch, um 66 pt beim DS zugeklappt quer, im Tabletop und flach hochkant und beim GBA zugeklappt quer, offen und im Buch.
+
+Entschieden:
+
+- **Steuerkreuz und Aktionstasten liegen in jeder Pose auf einer Höhe**, ebenso L und R.
+- **Select, Pause und Start sitzen mittig direkt unter dem Bild**, als Reihe oder, wo es eng ist, als Spalte. Sie liegen nie unter den Aktionstasten oder dem Steuerkreuz und halten zu beiden mindestens 24 pt Abstand (gerechnet: DS zugeklappt 34 pt, sonst mindestens 73 pt).
+- Läuft ein senkrechter Falz durch diese Mitte (offen und im Buch), teilt sich das Menü: Select und Pause vor dem Falz, Start dahinter.
+- Wo unter dem Bild kein Platz war, rückt das Bild nach oben: der DS zugeklappt quer um 24 pt, der GBA zugeklappt quer um 15 pt (seine Menüzeile ist dort 28 statt 36 pt hoch). Kein Bild wird kleiner.
+
+| Pose | GBA | DS |
+| --- | --- | --- |
+| zugeklappt | Leiste unter dem Bild mit L, Select, Pause, Start, R; darunter Steuerkreuz und A, B | Menü als Spalte zwischen Steuerkreuz und Raute (Select, Start, Pause) |
+| zugeklappt quer | Menü unter dem Bild, Steuerkreuz und A, B in den Spalten | Menü unter den Bildschirmen, Steuerkreuz und Raute in den Spalten |
+| offen und Buch | Menü unter dem Bild beiderseits des Falzes | Leiste unter den Bildschirmen mit L, Select, Pause, dem Falz, Start, R; darunter Steuerkreuz links und Raute rechts |
+| Tabletop und flach hochkant | Leiste unter dem Falz mit L, Select, Pause, Start, R; darunter Steuerkreuz und A, B | Menü unter dem Touchscreen, Steuerkreuz und Raute in den Spalten |
+
+Umgesetzt in `Packages/FoldLayout` (`ControlZones.menuTrailing` für das geteilte Menü, die Bausteine `bandZones`, `sideZones`, `pageZones`, `raised`, `divided`; `finished` gleicht die Zeilen von Steuerkreuz und Aktionstasten an) und in `TouchLayout.menu(in:trailing:)`. Die Bausteine stehen in `docs/wissen/falz.md`. `LayoutInvariantTests` prüft beide Regeln über 47 Geometrien, darunter jetzt die sechs Posen mit den Maßen, die der Simulator meldet; `MenuPlacementTests` hält die Zonen je Pose fest, `TouchLayoutTests` die Tasten je Pose (Höhe, Abstand, Teilung am Falz).
+
+Größe und Aussehen der Tasten sind davon unberührt. Fatih wünscht sich die Spielansicht insgesamt anders, mit einem Gehäuse und größeren Tasten; das folgt als eigener Schritt.
+
 ## Bilder
 
 Bildschirmfotos aus der Tour dieses Stands (Variante und Pose im Namen; Spielbilder ohne Debug-Overlay aus Zustand 38, sonst Zustände 30, 32, 35 und 36), aufrecht gedreht und verkleinert, Außendisplay 466 × 678 pt (quer 678 × 466), Innendisplay 700 × 492 (Tabletop 492 × 700):
