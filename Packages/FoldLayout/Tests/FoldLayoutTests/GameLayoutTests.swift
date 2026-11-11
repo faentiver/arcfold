@@ -65,6 +65,13 @@ struct LayoutInvariantTests {
                 geometry.occlusions = [PixelRect(x: 1750, y: 2600, width: 257, height: 253)]
                 return geometry
             }()),
+            // The poses as the Simulator reports them.
+            Case(name: "measured: closed, sideways, bar on top", geometry: Duo.closedSideways(barOnTop: true)),
+            Case(name: "measured: closed, sideways, bar at the side", geometry: Duo.closedSideways(barOnTop: false)),
+            Case(name: "measured: open", geometry: Duo.measuredInner(sideways: true, active: false)),
+            Case(name: "measured: book", geometry: Duo.measuredInner(sideways: true, active: true)),
+            Case(name: "measured: flat upright", geometry: Duo.measuredInner(sideways: false, active: false)),
+            Case(name: "measured: tabletop", geometry: Duo.measuredInner(sideways: false, active: true)),
         ]
         for band in [0, 16, 32, 64] {
             for margin in [0, 8] {
@@ -158,8 +165,28 @@ struct LayoutInvariantTests {
         }
         if !controls { problems.append("controls without touch controls") }
         if layout.pauseButton != nil { problems.append("a pause button of its own beside the touch controls") }
+        let menuParts = [("menu", zones.menu)] + (zones.menuTrailing.map { [("menu, second part", $0)] } ?? [])
         let named = [("pad", zones.pad), ("face", zones.face), ("L", zones.leftShoulder),
-                     ("R", zones.rightShoulder), ("menu", zones.menu)]
+                     ("R", zones.rightShoulder)] + menuParts
+        if zones.all != named.map(\.1) { problems.append("all is not every zone") }
+        // Pad and face buttons are level.
+        if zones.pad.minY != zones.face.minY || zones.pad.maxY != zones.face.maxY {
+            problems.append("pad \(zones.pad) and face \(zones.face) are not level")
+        }
+        // Start, Select and the pause button never lie below the face buttons
+        // or the pad, where a thumb hits them by accident.
+        for (name, part) in menuParts {
+            for (control, zone) in [("pad", zones.pad), ("face", zones.face)]
+                where part.minX < zone.maxX && part.maxX > zone.minX && part.minY >= zone.maxY {
+                problems.append("\(name) \(part) below the \(control) \(zone)")
+            }
+        }
+        // A fold from top to bottom never runs through the menu, active or not.
+        if let fold = geometry.fold, fold.height > fold.width {
+            for (name, part) in menuParts where part.minX < fold.maxX && part.maxX > fold.minX {
+                problems.append("\(name) \(part) across the fold \(fold)")
+            }
+        }
         for (name, zone) in named {
             if zone.isEmpty { problems.append("\(name) empty") }
             if !safe.contains(zone) { problems.append("\(name) \(zone) outside the safe area") }
@@ -175,13 +202,16 @@ struct LayoutInvariantTests {
             }
         }
         // Big enough to use: pad and face buttons at least 64 pt each way,
-        // L and R and Start/Select at least 36 pt high.
+        // L and R at least 36 pt high, Start/Select at least 28 pt.
         for (name, zone) in [("pad", zones.pad), ("face", zones.face)]
             where zone.width < 64 * pt || zone.height < 64 * pt {
             problems.append("\(name) too small: \(zone)")
         }
-        for (name, zone) in [("L", zones.leftShoulder), ("R", zones.rightShoulder), ("menu", zones.menu)]
+        for (name, zone) in [("L", zones.leftShoulder), ("R", zones.rightShoulder)]
             where zone.height < 36 * pt || zone.width < 64 * pt {
+            problems.append("\(name) too small: \(zone)")
+        }
+        for (name, zone) in menuParts where zone.height < 28 * pt || zone.width < 64 * pt {
             problems.append("\(name) too small: \(zone)")
         }
         let overlaps = zones.all.contains { zone in layout.screens.contains { zone.intersects($0.destination) } }
@@ -348,16 +378,135 @@ struct ControlZoneTests {
         #expect(pause == PixelRect(x: 24, y: 1851, width: 132, height: 132), "The lower left corner")
     }
 
-    /// GBA closed with the bar on top: everything below the picture, nothing over it.
+    /// GBA closed with the bar on top: everything below the picture, nothing
+    /// over it. A bar right below the picture holds L, the menu and R; pad
+    /// and face buttons follow below it.
     @Test func gbaClosedKeepsThePictureClear() throws {
         let layout = GameLayout(system: .gba, geometry: Duo.closed(barOnTop: true), showsTouchControls: true)
         let zones = try #require(layout.controls)
         #expect(!zones.overlapsScreen)
-        #expect(zones.leftShoulder.maxY <= zones.pad.minY && zones.pad.maxY <= zones.menu.minY)
+        #expect(zones.leftShoulder == PixelRect(x: 24, y: 1070, width: 291, height: 132))
+        #expect(zones.menu == PixelRect(x: 339, y: 1070, width: 720, height: 132))
+        #expect(zones.rightShoulder == PixelRect(x: 1083, y: 1070, width: 291, height: 132))
+        #expect(zones.menu.minY == layout.screens[0].destination.maxY + 24, "8 pt below the picture")
+        #expect(zones.pad == PixelRect(x: 24, y: 1226, width: 663, height: 682))
+        #expect(zones.face == PixelRect(x: 711, y: 1226, width: 663, height: 682))
     }
 
     @Test func noControlsWithAController() {
         let layout = GameLayout(system: .ds, geometry: Duo.foldAcross(band: 16, active: true), showsTouchControls: false)
         #expect(layout.controls == nil)
+    }
+}
+
+/// Where Start, Select and the pause button go in the poses the Simulator
+/// reports: in the middle right below the picture, never below the face
+/// buttons, and pad and face buttons level beside or below it.
+struct MenuPlacementTests {
+    static func zones(_ system: SystemScreens, _ geometry: FoldGeometry) throws -> (ControlZones, [PlacedScreen]) {
+        let layout = GameLayout(system: system, geometry: geometry, showsTouchControls: true)
+        return (try #require(layout.controls), layout.screens)
+    }
+
+    /// DS closed: the band is too low for a bar, so the menu is a column in
+    /// the middle between pad and face buttons.
+    @Test func dsClosedPutsTheMenuBetweenPadAndFaceButtons() throws {
+        let (zones, _) = try Self.zones(.ds, Duo.closed(barOnTop: false))
+        #expect(zones.pad == PixelRect(x: 24, y: 1560, width: 342, height: 348))
+        #expect(zones.menu == PixelRect(x: 390, y: 1560, width: 366, height: 348))
+        #expect(zones.face == PixelRect(x: 780, y: 1560, width: 342, height: 348))
+        #expect(zones.menuTrailing == nil)
+    }
+
+    /// DS closed sideways: the stack of screens moves to the top, the menu
+    /// gets the 48 pt below it, the columns keep pad and face buttons level.
+    @Test func dsClosedSidewaysRaisesTheScreensForTheMenu() throws {
+        let (zones, screens) = try Self.zones(.ds, Duo.closedSideways(barOnTop: false))
+        #expect(screens.map(\.destination) == [PixelRect(x: 759, y: 0, width: 768, height: 576),
+                                               PixelRect(x: 759, y: 576, width: 768, height: 576)])
+        #expect(zones.menu == PixelRect(x: 783, y: 1170, width: 720, height: 108))
+        #expect(zones.pad == PixelRect(x: 276, y: 348, width: 459, height: 924))
+        #expect(zones.face == PixelRect(x: 1551, y: 348, width: 459, height: 924))
+    }
+
+    /// DS open and in the book: a bar below the screens with L, Select and
+    /// the pause button before the fold, Start and R behind it; the pad on
+    /// the left page and the face buttons on the right page below the bar.
+    @Test(arguments: [false, true])
+    func dsOpenDividesTheMenuAtTheFold(active: Bool) throws {
+        let geometry = Duo.measuredInner(sideways: true, active: active)
+        let (zones, screens) = try Self.zones(.ds, geometry)
+        let fold = try #require(geometry.fold)
+        #expect(zones.leftShoulder == PixelRect(x: 24, y: 1176, width: 922, height: 132))
+        #expect(zones.menu == PixelRect(x: 970, y: 1176, width: 372, height: 132))
+        #expect(zones.menuTrailing == PixelRect(x: 1511, y: 1176, width: 372, height: 132))
+        #expect(zones.rightShoulder == PixelRect(x: 1907, y: 1176, width: 922, height: 132))
+        #expect(zones.menu.maxX + 24 == fold.minX && zones.menuTrailing?.minX == fold.maxX + 24, "8 pt beside the fold")
+        #expect(zones.menu.minY == screens[0].destination.maxY + 24, "8 pt below the screens")
+        #expect(zones.pad == PixelRect(x: 24, y: 1332, width: 1318, height: 549))
+        #expect(zones.face == PixelRect(x: 1511, y: 1332, width: 1318, height: 549))
+    }
+
+    /// DS in tabletop and flat upright: the menu below the touch screen,
+    /// between the columns.
+    @Test(arguments: [false, true])
+    func dsBelowTheFoldPutsTheMenuBelowTheTouchScreen(active: Bool) throws {
+        let (zones, screens) = try Self.zones(.ds, Duo.measuredInner(sideways: false, active: active))
+        let touch = screens[1].destination
+        #expect(touch == PixelRect(x: 363, y: 1639, width: 1280, height: 960))
+        #expect(zones.menu == PixelRect(x: 643, y: 2621, width: 720, height: 108))
+        #expect(zones.menu.minY >= touch.maxY && zones.menu.minX >= touch.minX && zones.menu.maxX <= touch.maxX)
+        #expect(zones.pad == PixelRect(x: 24, y: 1667, width: 315, height: 1060))
+        #expect(zones.face == PixelRect(x: 1667, y: 1667, width: 316, height: 1060))
+    }
+
+    /// GBA closed sideways: the picture moves up to the bar, and the menu
+    /// takes the 30 pt that are left below it.
+    @Test func gbaClosedSidewaysRaisesThePictureForTheMenu() throws {
+        let (zones, screens) = try Self.zones(.gba, Duo.closedSideways(barOnTop: true))
+        #expect(screens[0].destination == PixelRect(x: 297, y: 246, width: 1440, height: 960))
+        #expect(zones.menu == PixelRect(x: 657, y: 1206, width: 720, height: 90))
+        #expect(!zones.menu.intersects(screens[0].destination))
+        #expect(zones.pad == PixelRect(x: 24, y: 426, width: 288, height: 846))
+        #expect(zones.face == PixelRect(x: 1722, y: 426, width: 288, height: 846))
+    }
+
+    /// GBA open and in the book: the menu below the picture on both sides of
+    /// the fold, pad and face buttons in the columns beside the picture.
+    @Test(arguments: [false, true])
+    func gbaOpenDividesTheMenuBelowThePicture(active: Bool) throws {
+        let (zones, screens) = try Self.zones(.gba, Duo.measuredInner(sideways: true, active: active))
+        #expect(screens[0].destination == PixelRect(x: 346, y: 232, width: 2160, height: 1440))
+        #expect(zones.menu == PixelRect(x: 970, y: 1696, width: 372, height: 185))
+        #expect(zones.menuTrailing == PixelRect(x: 1511, y: 1696, width: 372, height: 185))
+        #expect(zones.pad == PixelRect(x: 24, y: 348, width: 298, height: 1533))
+        #expect(zones.face == PixelRect(x: 2530, y: 348, width: 299, height: 1533))
+    }
+
+    /// GBA in tabletop and flat upright: the bar right below the fold with L,
+    /// the menu and R, pad and face buttons below it.
+    @Test(arguments: [false, true])
+    func gbaBelowTheFoldPutsTheMenuInTheBar(active: Bool) throws {
+        let (zones, _) = try Self.zones(.gba, Duo.measuredInner(sideways: false, active: active))
+        #expect(zones.leftShoulder == PixelRect(x: 24, y: 1511, width: 595, height: 132))
+        #expect(zones.menu == PixelRect(x: 643, y: 1511, width: 720, height: 132))
+        #expect(zones.rightShoulder == PixelRect(x: 1387, y: 1511, width: 596, height: 132))
+        #expect(zones.pad == PixelRect(x: 24, y: 1667, width: 967, height: 1060))
+        #expect(zones.face == PixelRect(x: 1016, y: 1667, width: 967, height: 1060))
+    }
+
+    /// Below a touch screen that leaves no room, the two parts of the menu go
+    /// to the bottom of the columns, and pad and face buttons stay level.
+    @Test func withoutRoomBelowATouchScreenTheMenuGoesToTheColumns() throws {
+        // A lower part exactly as high as the touch screen at 5×.
+        let geometry = FoldGeometry(container: PixelSize(width: 2007, height: 2447),
+                                    fold: PixelRect(x: 0, y: 1366, width: 2007, height: 121), isFoldActive: true)
+        let (zones, screens) = try Self.zones(.ds, geometry)
+        let touch = screens[1].destination
+        #expect(touch.maxY == 2447, "No room below the touch screen")
+        let second = try #require(zones.menuTrailing)
+        #expect(zones.menu.maxX <= touch.minX && second.minX >= touch.maxX)
+        #expect(zones.menu.minY == second.minY && zones.menu.height == 108)
+        #expect(zones.pad.minY == zones.face.minY && zones.pad.maxY == zones.face.maxY)
     }
 }

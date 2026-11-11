@@ -83,4 +83,43 @@ enum DuoGeometries {
 
     /// The systems with their screens and buttons.
     static let systems: [(name: String, system: GameSystem)] = [("GBA", .gba), ("DS", .ds)]
+
+    /// A system in one of the six poses as the Simulator reports them
+    /// (measured with the screenshot tour): the view, the safe area and the
+    /// division region of 121 px with margins of 20 pt.
+    struct Pose: Sendable, CustomStringConvertible {
+        let name: String
+        let system: GameSystem
+        let geometry: FoldGeometry
+        var description: String { "\(system == .ds ? "DS" : "GBA") \(name)" }
+    }
+
+    /// The inner display in a real pose: sideways the fold runs from top to
+    /// bottom (open and the book), upright across (flat and tabletop).
+    static func measuredInner(sideways: Bool, active: Bool) -> FoldGeometry {
+        sideways
+            ? FoldGeometry(container: innerLandscape, safeArea: PixelInsets(bottom: 102),
+                           fold: PixelRect(x: 1366, y: 0, width: 121, height: innerLandscape.height),
+                           foldMargins: PixelInsets(left: 60, right: 60), isFoldActive: active, scale: scale)
+            : FoldGeometry(container: inner, safeArea: PixelInsets(bottom: 102),
+                           fold: PixelRect(x: 0, y: 1366, width: inner.width, height: 121),
+                           foldMargins: PixelInsets(top: 60, bottom: 60), isFoldActive: active, scale: scale)
+    }
+
+    /// The GBA moves the vertical bar of the outer display to the top, the DS
+    /// keeps it at the side (ADR 0006, section 7).
+    static let measuredPoses: [Pose] = [GameSystem.gba, .ds].flatMap { system -> [Pose] in
+        let barOnTop = system == .gba
+        let sideways = FoldGeometry(
+            container: outerLandscape,
+            safeArea: barOnTop ? PixelInsets(top: 246, bottom: 102) : PixelInsets(left: 252, bottom: 102), scale: scale)
+        return [
+            Pose(name: "closed", system: system, geometry: closed(barOnTop: barOnTop)),
+            Pose(name: "closed sideways", system: system, geometry: sideways),
+            Pose(name: "open", system: system, geometry: measuredInner(sideways: true, active: false)),
+            Pose(name: "book", system: system, geometry: measuredInner(sideways: true, active: true)),
+            Pose(name: "tabletop", system: system, geometry: measuredInner(sideways: false, active: true)),
+            Pose(name: "flat upright", system: system, geometry: measuredInner(sideways: false, active: false)),
+        ]
+    }
 }

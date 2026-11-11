@@ -36,12 +36,30 @@ struct TouchLayoutTests {
         }
     }
 
+    /// The first four are fixed, tests name them by index; the six poses the
+    /// Simulator reports follow for both systems.
     static let cases = [
         Case(name: "GBA closed", system: .gba, geometry: gbaClosed),
         Case(name: "DS closed", system: .ds, geometry: dsClosed),
         Case(name: "DS tabletop", system: .ds, geometry: dsTabletop),
         Case(name: "GBA book", system: .gba, geometry: gbaBook),
-    ]
+    ] + measured
+
+    static let measured = DuoGeometries.measuredPoses.map {
+        Case(name: "measured: \($0.description)", system: $0.system, geometry: $0.geometry)
+    }
+
+    /// The frame around the face buttons.
+    static func faceBox(_ layout: TouchLayout) -> CGRect {
+        layout.buttons.filter { !$0.buttons.isDisjoint(with: [.a, .b, .x, .y]) }
+            .reduce(CGRect.null) { $0.union($1.frame) }
+    }
+
+    /// Select, Start and the pause button.
+    static func menuFrames(_ layout: TouchLayout) -> [(name: String, frame: CGRect)] {
+        layout.buttons.filter { !$0.buttons.isDisjoint(with: [.select, .start]) }.map { ($0.label, $0.frame) }
+            + [("pause", layout.pauseButton)]
+    }
 
     static func center(of buttons: JoypadButtons, in layout: TouchLayout) throws -> CGPoint {
         let button = try #require(layout.buttons.first { $0.buttons == buttons })
@@ -146,9 +164,10 @@ struct TouchLayoutTests {
     }
 
     /// The DS on the closed Duo: the band below the screens holds the pad,
-    /// Start/Select with the pause button and the face buttons side by side;
-    /// L and R lie over the lower corners of the upper screen, below the top
-    /// edge guard (ADR 0006, section 8 and "Nachbesserungen nach der Prüfung").
+    /// Select, Start and the pause button in a column and the face buttons
+    /// side by side; L and R lie over the lower corners of the upper screen,
+    /// below the top edge guard (ADR 0006, section 8 and "Nachbesserungen
+    /// nach der Prüfung").
     @Test func theDSClosedLayout() throws {
         let testCase = Self.cases[1]
         let layout = testCase.layout
@@ -158,10 +177,68 @@ struct TouchLayoutTests {
         let a = try Self.center(of: .a, in: layout)
         let l = try Self.center(of: .l, in: layout)
         #expect(layout.pad.center.y > touchScreen.maxY && select.y > touchScreen.maxY)
-        #expect(layout.pad.center.x < select.x && select.x < start.x && start.x < a.x)
-        #expect(layout.pauseButton.minY > select.y, "The pause button below Select and Start")
+        #expect(layout.pad.center.x < select.x && select.x == start.x && start.x < a.x)
+        #expect(select.y < start.y && layout.pauseButton.minY > start.y, "Select, Start and the pause button from top to bottom")
         #expect(l.y < touchScreen.minY && l.y > touchScreen.minY - 60, "Just above the touch screen")
         #expect(layout.buttons.allSatisfy { $0.frame.minY >= 64 }, "Nothing in the top edge guard")
         #expect(layout.overlapsScreen)
+    }
+
+    /// Pad and face buttons are level in every pose, and so are L and R.
+    @Test(arguments: measured)
+    func padAndFaceButtonsAreLevel(_ testCase: Case) throws {
+        let layout = testCase.layout
+        #expect(abs(Self.faceBox(layout).midY - layout.pad.center.y) < 0.5,
+                "face buttons at \(Self.faceBox(layout).midY), pad at \(layout.pad.center.y)")
+        #expect(try Self.center(of: .l, in: layout).y == Self.center(of: .r, in: layout).y)
+    }
+
+    /// Select, Start and the pause button sit in the middle below the picture:
+    /// level with each other or in one column, never below the face buttons
+    /// or the pad, and at least 24 pt away from both, so that no thumb hits
+    /// them by accident.
+    @Test(arguments: measured)
+    func selectStartAndPauseKeepClearOfPadAndFaceButtons(_ testCase: Case) throws {
+        let layout = testCase.layout
+        let menu = Self.menuFrames(layout)
+        let face = layout.buttons.filter { !$0.buttons.isDisjoint(with: [.a, .b, .x, .y]) }
+        let faceBox = Self.faceBox(layout)
+        let padBox = CGRect(x: layout.pad.center.x - layout.pad.radius, y: layout.pad.center.y - layout.pad.radius,
+                            width: 2 * layout.pad.radius, height: 2 * layout.pad.radius)
+        func gap(_ a: CGRect, _ b: CGRect) -> CGFloat {
+            hypot(max(0, a.minX - b.maxX, b.minX - a.maxX), max(0, a.minY - b.maxY, b.minY - a.maxY))
+        }
+        for (name, frame) in menu {
+            #expect(frame.height >= TouchLayout.smallestRowHeight, "\(name) is \(frame.height) pt high")
+            for button in face {
+                #expect(gap(frame, button.frame) >= 24, "\(name) is \(gap(frame, button.frame)) pt from \(button.label)")
+            }
+            let nearest = CGPoint(x: min(max(layout.pad.center.x, frame.minX), frame.maxX),
+                                  y: min(max(layout.pad.center.y, frame.minY), frame.maxY))
+            let fromPad = hypot(nearest.x - layout.pad.center.x, nearest.y - layout.pad.center.y) - layout.pad.radius
+            #expect(fromPad >= 24, "\(name) is \(fromPad) pt from the pad")
+            for (control, box) in [("the face buttons", faceBox), ("the pad", padBox)] {
+                let below = frame.minY >= box.midY && frame.minX < box.maxX && frame.maxX > box.minX
+                #expect(!below, "\(name) below \(control)")
+            }
+        }
+        let rows = Set(menu.map { ($0.frame.midY * 2).rounded() })
+        let columns = Set(menu.map { ($0.frame.midX * 2).rounded() })
+        #expect(rows.count == 1 || columns.count == 1, "one row or one column: \(menu)")
+    }
+
+    /// Open and in the book the fold runs through the middle below the
+    /// picture: Select and the pause button end 8 pt before it, Start begins
+    /// 8 pt behind it.
+    @Test(arguments: measured.filter { $0.name.hasSuffix("open") || $0.name.hasSuffix("book") })
+    func theMenuFlanksAFoldFromTopToBottom(_ testCase: Case) throws {
+        let layout = testCase.layout
+        let fold = try #require(testCase.geometry.fold).points(scale: testCase.geometry.scale)
+        let select = try #require(layout.buttons.first { $0.buttons == .select }).frame
+        let start = try #require(layout.buttons.first { $0.buttons == .start }).frame
+        #expect(select.maxX < layout.pauseButton.minX)
+        #expect(abs(layout.pauseButton.maxX - (fold.minX - 8)) < 0.5)
+        #expect(abs(start.minX - (fold.maxX + 8)) < 0.5)
+        #expect(select.midY == start.midY && start.midY == layout.pauseButton.midY)
     }
 }

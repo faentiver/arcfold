@@ -67,7 +67,7 @@ nonisolated struct TouchLayout: Sendable, Hashable {
         var buttons = Self.faceButtons(in: points(zones.face), hasXYButtons: hasXYButtons)
         buttons.append(Self.shoulder(.l, "L", in: points(zones.leftShoulder), alignedLeft: true))
         buttons.append(Self.shoulder(.r, "R", in: points(zones.rightShoulder), alignedLeft: false))
-        let menu = Self.menu(in: points(zones.menu))
+        let menu = Self.menu(in: points(zones.menu), trailing: zones.menuTrailing.map(points))
         buttons.append(Button(buttons: .select, label: "Select", frame: menu.select, shape: .capsule))
         buttons.append(Button(buttons: .start, label: "Start", frame: menu.start, shape: .capsule))
         self.buttons = buttons.filter { !$0.frame.isEmpty }
@@ -108,21 +108,39 @@ nonisolated struct TouchLayout: Sendable, Hashable {
                       shape: .capsule)
     }
 
-    /// Select, the pause button and Start: in one row when `zone` is wide
-    /// enough, in a column when it is high enough for three rows, Select and
-    /// Start above the pause button when it holds two rows, and otherwise in
-    /// one row squeezed to the zone's width.
-    private static func menu(in zone: CGRect) -> (select: CGRect, pause: CGRect, start: CGRect) {
-        let row = min(rowHeight, zone.height)
+    /// The lowest row of the menu that is still a button.
+    static let smallestRowHeight: CGFloat = 28
+
+    /// Select, the pause button and Start. In one piece: in one row when
+    /// `zone` is wide enough; in a column of three rows when it is narrower
+    /// and high enough, with lower rows before the buttons would stand side
+    /// by side close to pad and face buttons; Select and Start above the
+    /// pause button when it holds two rows; and otherwise in one row squeezed
+    /// to the zone's width. Divided: Select and the pause button at the end
+    /// of `zone` and Start at the beginning of `trailing`, on both sides of
+    /// what divides them.
+    private static func menu(in zone: CGRect, trailing: CGRect?) -> (select: CGRect, pause: CGRect, start: CGRect) {
+        // A zone lower than a row keeps a point of air above and below.
+        let row = zone.height >= rowHeight ? rowHeight : max(0, zone.height - 2)
+        if let trailing {
+            let factor = min(1, zone.width / (menuButtonWidth + gap + row))
+            let pause = CGRect(x: zone.maxX - row * factor, y: zone.midY - row / 2, width: row * factor, height: row)
+            let select = CGRect(x: pause.minX - gap * factor - menuButtonWidth * factor, y: pause.minY,
+                                width: menuButtonWidth * factor, height: row)
+            let start = CGRect(x: trailing.minX, y: trailing.midY - row / 2,
+                               width: min(menuButtonWidth, trailing.width), height: row)
+            return (select, pause, start)
+        }
         let oneRow = 2 * menuButtonWidth + row + 2 * gap
-        if zone.width < oneRow, zone.height >= 3 * row + 2 * gap {
+        let columnRow = min(row, (zone.height - 2 * gap) / 3)
+        if zone.width < oneRow, columnRow >= smallestRowHeight {
             // A column: Select, Start, the pause button.
             let width = min(menuButtonWidth, zone.width)
-            let top = zone.midY - (3 * row + 2 * gap) / 2
+            let top = zone.midY - (3 * columnRow + 2 * gap) / 2
             let x = zone.midX - width / 2
-            return (CGRect(x: x, y: top, width: width, height: row),
-                    CGRect(x: zone.midX - row / 2, y: top + 2 * (row + gap), width: row, height: row),
-                    CGRect(x: x, y: top + row + gap, width: width, height: row))
+            return (CGRect(x: x, y: top, width: width, height: columnRow),
+                    CGRect(x: zone.midX - columnRow / 2, y: top + 2 * (columnRow + gap), width: columnRow, height: columnRow),
+                    CGRect(x: x, y: top + columnRow + gap, width: width, height: columnRow))
         }
         if zone.width < oneRow, zone.height >= 2 * row + gap {
             // Two rows: Select and Start, the pause button below them.

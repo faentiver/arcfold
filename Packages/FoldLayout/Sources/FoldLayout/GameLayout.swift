@@ -157,31 +157,42 @@ public struct PlacedScreen: Sendable, Hashable, CustomStringConvertible {
 
 /// Where the touch controls go, in pixels of the view. Each control is drawn
 /// inside its zone; the app turns the zones into buttons.
+///
+/// Pad and face buttons are level: their zones span the same rows. Select,
+/// Start and the pause button sit in the middle right below the picture and
+/// never below the face buttons, where a thumb would hit them by accident.
 public struct ControlZones: Sendable, Hashable {
     public var pad: PixelRect
     public var face: PixelRect
     public var leftShoulder: PixelRect
     public var rightShoulder: PixelRect
     /// Start and Select, and room for the app's pause button between them.
+    /// When the menu is divided, the first part: Select and the pause button.
     public var menu: PixelRect
+    /// The second part of a divided menu, for Start: a fold from top to
+    /// bottom runs through the middle below the picture, so the menu
+    /// continues behind it. Nil while the menu is in one piece.
+    public var menuTrailing: PixelRect?
     /// A zone covers part of a screen; the app draws the controls translucent.
     public var overlapsScreen: Bool
 
     public init(
         pad: PixelRect, face: PixelRect, leftShoulder: PixelRect, rightShoulder: PixelRect,
-        menu: PixelRect, overlapsScreen: Bool
+        menu: PixelRect, menuTrailing: PixelRect? = nil, overlapsScreen: Bool
     ) {
         self.pad = pad
         self.face = face
         self.leftShoulder = leftShoulder
         self.rightShoulder = rightShoulder
         self.menu = menu
+        self.menuTrailing = menuTrailing
         self.overlapsScreen = overlapsScreen
     }
 
-    /// Every zone, in the order pad, face, left shoulder, right shoulder, menu.
+    /// Every zone, in the order pad, face, left shoulder, right shoulder,
+    /// menu and, when the menu is divided, its second part.
     public var all: [PixelRect] {
-        [pad, face, leftShoulder, rightShoulder, menu]
+        [pad, face, leftShoulder, rightShoulder, menu] + (menuTrailing.map { [$0] } ?? [])
     }
 }
 
@@ -218,7 +229,10 @@ public struct GameLayout: Sendable, Hashable {
     /// book posture; controls never lie on the touch screen or on an active
     /// fold; nothing that takes touches lies in the top edge guard; every
     /// screen is scaled by a whole number; without touch controls the screens
-    /// grow. The templates per system and posture are in ADR 0006.
+    /// grow; pad and face buttons are level, and Start, Select and the pause
+    /// button sit in the middle right below the picture, never below pad or
+    /// face buttons. The templates per system and posture are in ADR 0006
+    /// and docs/wissen/falz.md.
     public init(
         system: SystemScreens, geometry: FoldGeometry, showsTouchControls: Bool,
         metrics: LayoutMetrics = .standard
@@ -283,6 +297,15 @@ private struct Templates {
     /// The widest middle column of Start, Select and the pause button between
     /// pad and face buttons in a low band.
     let menuColumn: Int
+    /// The width of each part of a menu that a fold divides: Select and the
+    /// pause button before the fold, Start behind it.
+    let menuPart: Int
+    /// The room below the picture that holds the menu row with some air.
+    let menuBand: Int
+    /// The lowest row of Start, Select and the pause button.
+    let minimumMenuRow: Int
+    /// The narrowest L or R button beside the menu in a bar.
+    let minimumShoulder: Int
     /// The widest L or R button over the corner of a screen.
     let cornerShoulder: Int
     /// The first row in which something may take touches (`LayoutMetrics.topEdgeGuard`).
@@ -310,6 +333,10 @@ private struct Templates {
         minimumControl = 96 * s
         menuWidth = 240 * s
         menuColumn = 140 * s
+        menuPart = 124 * s
+        menuBand = 48 * s
+        minimumMenuRow = 28 * s
+        minimumShoulder = 64 * s
         cornerShoulder = 96 * s
     }
 
@@ -353,18 +380,33 @@ private struct Templates {
         return PlacedScreen(source: source, destination: PixelRect(x: x, y: y, width: width, height: height), scale: scale)
     }
 
+    /// `screen` moved up in `area` as far as it takes to leave `menuBand`
+    /// below it for Start, Select and the pause button, and never out of
+    /// `area`. A screen that leaves the room anyway stays where it is.
+    func raised(_ screen: PlacedScreen, in area: PixelRect) -> PlacedScreen {
+        let lowest = area.maxY - menuBand - screen.destination.height
+        guard screen.destination.y > lowest else { return screen }
+        var moved = screen
+        moved.destination = PixelRect(x: screen.destination.x, y: max(area.minY, lowest),
+                                      width: screen.destination.width, height: screen.destination.height)
+        return moved
+    }
+
     // MARK: One screen (GBA and the later single-screen systems)
 
     func oneScreen(_ source: PixelRect) -> ([PlacedScreen], ControlZones?) {
         switch posture {
         case .single where geometry.container.isLandscape:
             // As large as the view allows; the controls sit in columns at the
-            // sides, over the screen unless the columns cost no scale (as M1).
+            // sides, over the screen unless the columns cost no scale (as M1),
+            // and the screen moves up to make room for the menu below it.
             let full = scale(source, in: safe.width, safe.height)
-            let screen = place(source, scale: full, in: safe)
-            guard showsControls else { return ([screen], nil) }
+            let centred = place(source, scale: full, in: safe)
+            guard showsControls else { return ([centred], nil) }
+            let screen = raised(centred, in: safe)
             let beside = scale(source, in: safe.width - 2 * column, safe.height)
-            let zones = beside < full ? sideZones(in: safe, beside: nil) : sideZones(in: safe, beside: screen.destination)
+            let zones = sideZones(in: safe, beside: beside < full ? nil : screen.destination,
+                                  below: screen.destination, mayCoverPicture: true)
             return ([screen], zones)
         case .single:
             // Upright: at the top over the full width, the controls below.
@@ -382,8 +424,8 @@ private struct Templates {
                 return ([place(source, scale: scale(source, in: safe.width, safe.height), in: safe)], nil)
             }
             let k = scale(source, in: safe.width - 2 * column, safe.height)
-            let screen = place(source, scale: k, in: safe)
-            return ([screen], sideZones(in: safe, beside: screen.destination))
+            let screen = raised(place(source, scale: k, in: safe), in: safe)
+            return ([screen], sideZones(in: safe, beside: screen.destination, below: screen.destination, mayCoverPicture: true))
         case .flat, .tabletop:
             // The fold across the view: the screen in the upper part, the
             // controls in the lower part.
@@ -399,11 +441,16 @@ private struct Templates {
         let stack = PixelRect(x: 0, y: 0, width: max(upper.width, lower.width), height: upper.height + lower.height)
         switch posture {
         case .single where geometry.container.isLandscape:
-            // Both screens stacked in the middle, the controls in columns beside them.
+            // Both screens stacked in the middle, the controls in columns beside
+            // them; the stack moves up to make room for the menu below it.
             let k = showsControls ? scale(stack, in: safe.width - 2 * column, safe.height) : scale(stack, in: safe.width, safe.height)
-            let block = place(stack, scale: k, in: safe)
-            let screens = stacked(upper: upper, lower: lower, scale: k, block: block.destination)
-            return (screens, showsControls ? sideZones(in: safe, beside: block.destination) : nil)
+            let centred = place(stack, scale: k, in: safe)
+            guard showsControls else {
+                return (stacked(upper: upper, lower: lower, scale: k, block: centred.destination), nil)
+            }
+            let block = raised(centred, in: safe).destination
+            let screens = stacked(upper: upper, lower: lower, scale: k, block: block)
+            return (screens, sideZones(in: safe, beside: block, below: block, mayCoverPicture: false))
         case .single:
             // Both screens at the top, the controls below; L and R over the
             // upper screen when the band below is too low for them.
@@ -429,7 +476,7 @@ private struct Templates {
             let touchScreen = place(lower, scale: k, in: rightArea, alignment: alignment)
             guard showsControls else { return ([upperScreen, touchScreen], nil) }
             let top = max(upperScreen.destination.maxY, touchScreen.destination.maxY)
-            return ([upperScreen, touchScreen], columnZones(left: left.below(top), right: right.below(top)))
+            return ([upperScreen, touchScreen], pageZones(left: left.below(top), right: right.below(top)))
         case .flat:
             // Flat, the fold across: the upper screen above, the touch screen
             // below the fold at the same scale, the controls beside it.
@@ -440,8 +487,7 @@ private struct Templates {
                 : scale(lower, in: lowerPart.width, lowerPart.height)
             let k = min(kUpper, kLower)
             let upperScreen = place(upper, scale: k, in: upperForScreen)
-            let touchScreen = place(lower, scale: k, in: lowerPart)
-            return ([upperScreen, touchScreen], showsControls ? sideZones(in: lowerPart, beside: touchScreen.destination) : nil)
+            return below(upperScreen, touchScreen: place(lower, scale: k, in: lowerPart), in: lowerPart)
         case .tabletop:
             // The upper screen as large as the upper part allows, the touch
             // screen and the controls below the fold (plan, section 7).
@@ -451,9 +497,18 @@ private struct Templates {
                 ? scale(lower, in: lowerPart.width - 2 * column, lowerPart.height)
                 : scale(lower, in: lowerPart.width, lowerPart.height)
             let upperScreen = place(upper, scale: kUpper, in: upperForScreen)
-            let touchScreen = place(lower, scale: kLower, in: lowerPart)
-            return ([upperScreen, touchScreen], showsControls ? sideZones(in: lowerPart, beside: touchScreen.destination) : nil)
+            return below(upperScreen, touchScreen: place(lower, scale: kLower, in: lowerPart), in: lowerPart)
         }
+    }
+
+    /// The touch screen in the part below the fold with the controls in
+    /// columns beside it and the menu below it; it moves up to make room for
+    /// the menu.
+    func below(_ upperScreen: PlacedScreen, touchScreen centred: PlacedScreen, in lowerPart: PixelRect) -> ([PlacedScreen], ControlZones?) {
+        guard showsControls else { return ([upperScreen, centred], nil) }
+        let touchScreen = raised(centred, in: lowerPart)
+        let zones = sideZones(in: lowerPart, beside: touchScreen.destination, below: touchScreen.destination, mayCoverPicture: false)
+        return ([upperScreen, touchScreen], zones)
     }
 
     func stacked(upper: PixelRect, lower: PixelRect, scale k: Int, block: PixelRect) -> [PlacedScreen] {
@@ -467,74 +522,115 @@ private struct Templates {
 
     // MARK: Control zones
 
-    /// The controls in a band below the screens: L and R in its top row,
-    /// pad and face buttons below them and Start/Select at the bottom. A band
-    /// too low for that puts L and R over the lower corners of `shoulderArea`
-    /// (not the upper ones: the top edge belongs to system gestures and is
-    /// hard to reach), and one too low for a row of its own puts
-    /// Start/Select in a column between pad and face buttons.
+    /// The controls in a band below the picture: a bar in its top row with L,
+    /// the menu in the middle and R, and pad and face buttons below the bar
+    /// in two halves of the same height. A band too low for a bar puts L and
+    /// R over the lower corners of `shoulderArea` (not the upper ones: the
+    /// top edge belongs to system gestures and is hard to reach) and the
+    /// menu in a column between pad and face buttons.
     func bandZones(in area: PixelRect, shoulderArea: PixelRect) -> ControlZones {
         let inner = area.inset(all: margin)
-        var body = inner
-        let leftShoulder: PixelRect
-        let rightShoulder: PixelRect
-        if inner.height >= shoulder + margin + minimumControl + margin + menuRow {
-            let half = (inner.width - margin) / 2
-            leftShoulder = PixelRect(x: inner.minX, y: inner.minY, width: half, height: shoulder)
-            rightShoulder = PixelRect(x: inner.maxX - half, y: inner.minY, width: half, height: shoulder)
-            body = inner.below(inner.minY + shoulder + margin)
-        } else {
+        guard inner.height >= shoulder + margin + minimumControl else {
             let corners = shoulderArea.inset(all: margin).below(topGuard)
-            let width = min(corners.width / 4, cornerShoulder)
+            let shoulderWidth = min(corners.width / 4, cornerShoulder)
             let height = min(shoulder, corners.height)
-            leftShoulder = PixelRect(x: corners.minX, y: corners.maxY - height, width: width, height: height)
-            rightShoulder = PixelRect(x: corners.maxX - width, y: corners.maxY - height, width: width, height: height)
+            let width = min(inner.width / 3, menuColumn)
+            let side = max(0, (inner.width - width - 2 * margin) / 2)
+            return ControlZones(
+                pad: PixelRect(x: inner.minX, y: inner.minY, width: side, height: inner.height),
+                face: PixelRect(x: inner.maxX - side, y: inner.minY, width: side, height: inner.height),
+                leftShoulder: PixelRect(x: corners.minX, y: corners.maxY - height, width: shoulderWidth, height: height),
+                rightShoulder: PixelRect(x: corners.maxX - shoulderWidth, y: corners.maxY - height, width: shoulderWidth, height: height),
+                menu: PixelRect(x: inner.minX + side + margin, y: inner.minY, width: width, height: inner.height),
+                overlapsScreen: false
+            )
         }
-        let pad: PixelRect
-        let face: PixelRect
-        let menu: PixelRect
-        if body.height >= minimumControl + margin + menuRow {
-            let width = min(body.width / 2, menuWidth)
-            menu = PixelRect(x: body.minX + (body.width - width) / 2, y: body.maxY - menuRow, width: width, height: menuRow)
-            let controls = body.above(menu.minY - margin)
-            let half = (controls.width - margin) / 2
-            pad = PixelRect(x: controls.minX, y: controls.minY, width: half, height: controls.height)
-            face = PixelRect(x: controls.maxX - half, y: controls.minY, width: half, height: controls.height)
-        } else {
-            let width = min(body.width / 3, menuColumn)
-            let side = max(0, (body.width - width - 2 * margin) / 2)
-            pad = PixelRect(x: body.minX, y: body.minY, width: side, height: body.height)
-            menu = PixelRect(x: body.minX + side + margin, y: body.minY, width: width, height: body.height)
-            face = PixelRect(x: body.maxX - side, y: body.minY, width: side, height: body.height)
-        }
-        return ControlZones(pad: pad, face: face, leftShoulder: leftShoulder, rightShoulder: rightShoulder,
-                            menu: menu, overlapsScreen: false)
+        let bar = inner.above(inner.minY + shoulder)
+        let width = min(menuWidth, max(0, bar.width - 2 * (minimumShoulder + margin)))
+        let menu = PixelRect(x: bar.minX + (bar.width - width) / 2, y: bar.minY, width: width, height: bar.height)
+        let body = inner.below(bar.maxY + margin)
+        let half = (body.width - margin) / 2
+        return ControlZones(
+            pad: PixelRect(x: body.minX, y: body.minY, width: half, height: body.height),
+            face: PixelRect(x: body.maxX - half, y: body.minY, width: half, height: body.height),
+            leftShoulder: bar.left(of: menu.minX - margin),
+            rightShoulder: bar.right(of: menu.maxX + margin),
+            menu: menu, overlapsScreen: false
+        )
     }
 
-    /// Columns at the left and right of `area`: up to the screen when
-    /// `screen` is given, otherwise `column` wide over whatever lies there.
-    func sideZones(in area: PixelRect, beside screen: PixelRect?) -> ControlZones {
+    /// Columns at the left and right of `area`, up to the screen when
+    /// `screen` is given and otherwise `column` wide over whatever lies
+    /// there: L and R at their tops, pad and face buttons below them over
+    /// the same rows. The menu sits between the columns right below
+    /// `picture`. Where the room below it is too low for a row, the menu
+    /// covers the lower edge of a picture without touch; below a touch
+    /// screen its two parts go to the bottom of the columns instead.
+    func sideZones(in area: PixelRect, beside screen: PixelRect?, below picture: PixelRect, mayCoverPicture: Bool) -> ControlZones {
         let leftWidth = screen.map { min(max(0, $0.minX - area.minX), area.width) } ?? min(column, area.width / 2)
         let rightWidth = screen.map { min(max(0, area.maxX - $0.maxX), area.width) } ?? min(column, area.width / 2)
-        return columnZones(left: PixelRect(x: area.minX, y: area.minY, width: leftWidth, height: area.height),
-                           right: PixelRect(x: area.maxX - rightWidth, y: area.minY, width: rightWidth, height: area.height))
-    }
-
-    /// L at the top of the left column with the pad below it; R at the top of
-    /// the right column, the face buttons below it and Start/Select at its
-    /// bottom, in one row when the column is wide enough and stacked otherwise.
-    /// The columns begin below the top edge guard.
-    func columnZones(left leftColumn: PixelRect, right rightColumn: PixelRect) -> ControlZones {
-        let left = leftColumn.inset(all: margin).below(topGuard)
-        let right = rightColumn.inset(all: margin).below(topGuard)
+        let left = PixelRect(x: area.minX, y: area.minY, width: leftWidth, height: area.height)
+            .inset(all: margin).below(topGuard)
+        let right = PixelRect(x: area.maxX - rightWidth, y: area.minY, width: rightWidth, height: area.height)
+            .inset(all: margin).below(topGuard)
         let leftShoulder = left.above(left.minY + shoulder)
         let rightShoulder = right.above(right.minY + shoulder)
-        let menuHeight = right.width >= 2 * menuColumn ? menuRow : 3 * menuRow + 2 * margin
-        let menu = right.below(right.maxY - menuHeight)
-        let pad = left.below(leftShoulder.maxY + margin)
-        let face = right.below(rightShoulder.maxY + margin).above(menu.minY - margin)
+        var pad = left.below(leftShoulder.maxY + margin)
+        var face = right.below(rightShoulder.maxY + margin)
+
+        let between = PixelRect(x: left.maxX + margin, y: area.minY,
+                                width: max(0, right.minX - left.maxX - 2 * margin), height: area.height)
+        let bottom = min(area.maxY, inputSafe.maxY)
+        let free = bottom - picture.maxY
+        let menu: (first: PixelRect, second: PixelRect?)
+        if free >= minimumMenuRow {
+            let air = max(0, min(margin, (free - menuRow) / 2))
+            menu = divided(PixelRect(x: between.minX, y: picture.maxY + air, width: between.width, height: free - 2 * air))
+        } else if mayCoverPicture {
+            menu = divided(PixelRect(x: between.minX, y: bottom - margin - menuRow, width: between.width, height: menuRow))
+        } else {
+            let first = pad.below(pad.maxY - menuRow)
+            let second = face.below(face.maxY - menuRow)
+            pad = pad.above(first.minY - margin)
+            face = face.above(second.minY - margin)
+            menu = (first, second)
+        }
         return ControlZones(pad: pad, face: face, leftShoulder: leftShoulder, rightShoulder: rightShoulder,
-                            menu: menu, overlapsScreen: false)
+                            menu: menu.first, menuTrailing: menu.second, overlapsScreen: false)
+    }
+
+    /// The controls below two screens that lie side by side with a fold
+    /// between them: a bar in the top row with L at the outer left, the menu
+    /// on both sides of the fold and R at the outer right, and below the bar
+    /// the pad on the left page and the face buttons on the right page over
+    /// the same rows.
+    func pageZones(left leftPage: PixelRect, right rightPage: PixelRect) -> ControlZones {
+        let left = leftPage.inset(all: margin).below(topGuard)
+        let right = rightPage.inset(all: margin).below(topGuard)
+        let top = max(left.minY, right.minY)
+        let leftBar = left.below(top).above(top + shoulder)
+        let rightBar = right.below(top).above(top + shoulder)
+        let first = leftBar.right(of: leftBar.maxX - min(menuPart, max(0, leftBar.width - minimumShoulder - margin)))
+        let second = rightBar.left(of: rightBar.minX + min(menuPart, max(0, rightBar.width - minimumShoulder - margin)))
+        return ControlZones(
+            pad: left.below(leftBar.maxY + margin), face: right.below(rightBar.maxY + margin),
+            leftShoulder: leftBar.left(of: first.minX - margin), rightShoulder: rightBar.right(of: second.maxX + margin),
+            menu: first, menuTrailing: second, overlapsScreen: false
+        )
+    }
+
+    /// The menu in `band`: one zone in its middle, at most `menuWidth` wide.
+    /// A fold from top to bottom that runs through the band, active or not,
+    /// divides the menu into a part before it and a part behind it.
+    func divided(_ band: PixelRect) -> (first: PixelRect, second: PixelRect?) {
+        if let fold = geometry.fold, !foldIsHorizontal, fold.minX < band.maxX, fold.maxX > band.minX {
+            let before = band.left(of: fold.minX - margin)
+            let behind = band.right(of: fold.maxX + margin)
+            return (before.right(of: before.maxX - min(menuPart, before.width)),
+                    behind.left(of: behind.minX + min(menuPart, behind.width)))
+        }
+        let width = min(menuWidth, band.width)
+        return (PixelRect(x: band.minX + (band.width - width) / 2, y: band.minY, width: width, height: band.height), nil)
     }
 
     /// What controls stay off: the touch screen and an active fold with its
@@ -552,9 +648,10 @@ private struct Templates {
 
     /// The rules every template keeps, enforced once more: every zone in the
     /// safe area below the top edge guard, none on the touch screen or an
-    /// active fold. Marks zones that cover a screen. Occlusion regions do not
-    /// move the zones yet: on the outer display they lie outside the safe
-    /// area, on the inner one the device test measures them first.
+    /// active fold, pad and face buttons over the same rows. Marks zones
+    /// that cover a screen. Occlusion regions do not move the zones yet: on
+    /// the outer display they lie outside the safe area, on the inner one
+    /// the device test measures them first.
     func finished(_ zones: ControlZones, screens: [PlacedScreen], touchScreen: PixelRect?) -> ControlZones {
         let obstacles = obstacles(touchScreen: touchScreen)
         func clear(_ zone: PixelRect) -> PixelRect {
@@ -562,8 +659,15 @@ private struct Templates {
         }
         var result = ControlZones(
             pad: clear(zones.pad), face: clear(zones.face), leftShoulder: clear(zones.leftShoulder),
-            rightShoulder: clear(zones.rightShoulder), menu: clear(zones.menu), overlapsScreen: false
+            rightShoulder: clear(zones.rightShoulder), menu: clear(zones.menu),
+            menuTrailing: zones.menuTrailing.map(clear), overlapsScreen: false
         )
+        if !result.pad.isEmpty, !result.face.isEmpty {
+            let top = max(result.pad.minY, result.face.minY)
+            let bottom = min(result.pad.maxY, result.face.maxY)
+            result.pad = result.pad.below(top).above(bottom)
+            result.face = result.face.below(top).above(bottom)
+        }
         result.overlapsScreen = result.all.contains { zone in screens.contains { zone.intersects($0.destination) } }
         return result
     }

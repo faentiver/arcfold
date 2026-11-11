@@ -27,6 +27,30 @@ enum Duo {
         FoldGeometry(container: outer, safeArea: barOnTop ? outerBarOnTop : outerBar, scale: scale)
     }
 
+    /// The closed device turned sideways as the real pose reports it: the bar
+    /// on top, 82 pt, or at the leading edge, 84 pt, and the home indicator,
+    /// 34 pt (measured with the screenshot tour).
+    static func closedSideways(barOnTop: Bool) -> FoldGeometry {
+        FoldGeometry(container: outerLandscape,
+                     safeArea: barOnTop ? outerBarOnTop : PixelInsets(left: 84 * 3, bottom: 34 * 3), scale: scale)
+    }
+
+    /// The inner display as the real poses report it: the home indicator,
+    /// 34 pt, and a division region of 121 px in the middle with margins of
+    /// 20 pt (measured with the screenshot tour). Sideways the fold runs from
+    /// top to bottom (open and the book), upright across (flat and tabletop).
+    static func measuredInner(sideways: Bool, active: Bool) -> FoldGeometry {
+        let safeArea = PixelInsets(bottom: 34 * 3)
+        if sideways {
+            return FoldGeometry(container: innerLandscape, safeArea: safeArea,
+                                fold: PixelRect(x: 1366, y: 0, width: 121, height: innerLandscape.height),
+                                foldMargins: PixelInsets(left: 60, right: 60), isFoldActive: active, scale: scale)
+        }
+        return FoldGeometry(container: inner, safeArea: safeArea,
+                            fold: PixelRect(x: 0, y: 1366, width: inner.width, height: 121),
+                            foldMargins: PixelInsets(top: 60, bottom: 60), isFoldActive: active, scale: scale)
+    }
+
     /// A fold across the inner display, `band` points high, with `margin`
     /// points of margins above and below it inside the region.
     static func foldAcross(_ container: PixelSize = inner, band: Int, margin: Int = 0, active: Bool) -> FoldGeometry {

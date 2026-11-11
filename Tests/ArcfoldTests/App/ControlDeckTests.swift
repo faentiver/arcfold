@@ -66,8 +66,9 @@ struct ControlDeckTests {
     }
 
     /// Controls over a screen sit on the picture: L and R of the closed DS
-    /// over the lower corners of the upper screen, every control of the GBA
-    /// sideways when the columns lie over the picture.
+    /// over the lower corners of the upper screen, and the pad, the face
+    /// buttons, L and R of the GBA sideways when the columns lie over the
+    /// picture. Select and Start lie below the picture there, on the deck.
     @Test func controlsOverAScreenGetThePictureAndTheOthersTheDeck() throws {
         let geometry = DuoGeometries.closed(barOnTop: false)
         let layout = GameLayout(system: SystemScreens.ds, geometry: geometry, showsTouchControls: true)
@@ -83,7 +84,13 @@ struct ControlDeckTests {
         let gba = GameLayout(system: SystemScreens.gba, geometry: sideways, showsTouchControls: true)
         let gbaControls = TouchLayout(zones: try #require(gba.controls), scale: 3, hasXYButtons: false)
         let picture = gba.screens.map { $0.destination.points(scale: 3) }
-        #expect(gbaControls.buttons.allSatisfy { GlassBackdrop.under($0.frame, screens: picture) == .picture })
-        #expect(DeckLayout.areas(of: gba, in: sideways).isEmpty, "sideways the columns lie over the picture")
+        for button in gbaControls.buttons {
+            let expected: GlassBackdrop = ["Select", "Start"].contains(button.label) ? .deck : .picture
+            #expect(GlassBackdrop.under(button.frame, screens: picture) == expected, "\(button.label)")
+        }
+        #expect(GlassBackdrop.under(gbaControls.pad.frame, screens: picture) == .picture)
+        let bottom = gba.screens[0].destination.maxY
+        #expect(DeckLayout.areas(of: gba, in: sideways) == [PixelRect(x: 0, y: bottom, width: 2034, height: 1398 - bottom)],
+                "sideways the columns lie over the picture, the deck is the strip below it")
     }
 }
