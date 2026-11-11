@@ -20,7 +20,11 @@
 # sheet, the library (32), the menu (33), the search (34), the licenses (35),
 # a long notice with the status chip over a game (36) and the failure view
 # (37); in closed-landscape also 12 (the sheet sideways) and
-# GlassUITests/testSidewaysTheRButtonIsFree. In the variants light and dark it
+# GlassUITests/testSidewaysTheRButtonIsFree. In closed and closed-landscape it
+# runs the DS a second time in the slim case (-LargerScreens YES, the vertical
+# bar at the side): the game (30), the notice (36), the failure view (37) and,
+# in light and dark, the clean picture (38), into <variant>-<pose>-slim/ with
+# the pose named <pose>-slim. In the variants light and dark it
 # also photographs the running DS and GBA without the debug overlay (38), the
 # pictures for the documents: <variant>-38-<pose>-ds-clean.png and
 # <variant>-38-<pose>-gba-clean.png, upright in every pose. In the variant
@@ -32,11 +36,14 @@
 # sheet on the outer display, and opens it again (40 to 42), for light and
 # dark. Each pose and variant leaves <output>/<variant>-<pose>/ and
 # <output>/<variant>-<pose>.xcresult, the photographs of the closing
-# <output>/<variant>-closing/. With ARCFOLD_TOUR_MEASURE=1 it measures glass
-# against flat in closed and open (state 98, 60 s per system and surface,
-# light only). The pose part needs a booted iPhone Duo and ends closed and
-# upright. Without POSE_CHECK_POSTURE_TOOL it is skipped with a note and the
-# script still ends with exit 0; the other variants run.
+# <output>/<variant>-closing/. The pose part needs a booted iPhone Duo and
+# ends closed and upright. Without POSE_CHECK_POSTURE_TOOL it is skipped with a
+# note and the script still ends with exit 0; the other variants run.
+#
+# ARCFOLD_TOUR_POSES limits the pose part to some poses, as in
+# ARCFOLD_TOUR_POSES="tabletop book", and ARCFOLD_TOUR_POSE_VARIANTS to some
+# variants, as in ARCFOLD_TOUR_POSE_VARIANTS=light; the photographs of the
+# closing (40 to 42) are taken only with every pose.
 #
 # ARCFOLD_DERIVED_DATA names the derived data folder (default build/DerivedData).
 #
@@ -196,14 +203,14 @@ for variant in "${variants[@]}"; do
     fi
     set_appearance "$variant"
     export TEST_RUNNER_ARCFOLD_TOUR_VARIANT=$variant
-    export TEST_RUNNER_ARCFOLD_TOUR_MEASURE=${ARCFOLD_TOUR_MEASURE:-0}
     run_tests "$output/$variant.xcresult" "$output/$variant.log" ScreenshotTour
     export_attachments "$output/$variant.xcresult" "$output/$variant"
 done
 
 if [[ $runs_poses == 1 ]]; then
-    pose_variants=(light dark contrast large)
-    for pose in closed closed-landscape open book tabletop flat-upright; do
+    read -r -a pose_variants <<< "${ARCFOLD_TOUR_POSE_VARIANTS:-light dark contrast large}"
+    read -r -a poses <<< "${ARCFOLD_TOUR_POSES:-closed closed-landscape open book tabletop flat-upright}"
+    for pose in "${poses[@]}"; do
         set_pose "$pose"
         export TEST_RUNNER_ARCFOLD_TOUR_POSE=$pose
         # The edges of the fold of the book in points of the window, for LibraryLayoutUITests.
@@ -232,22 +239,36 @@ if [[ $runs_poses == 1 ]]; then
                     tests+=(GlassUITests/testSidewaysTheRButtonIsFree)
                 fi
             fi
-            if [[ ${ARCFOLD_TOUR_MEASURE:-0} == 1 && $variant == light && ($pose == closed || $pose == open) ]]; then
-                export TEST_RUNNER_ARCFOLD_TOUR_MEASURE=1
-                tests+=(ScreenshotTour/test98MeasureGlassAgainstFlat)
-            else
-                export TEST_RUNNER_ARCFOLD_TOUR_MEASURE=0
-            fi
             tests+=(ScreenshotTour/test99Metrics)
+            export TEST_RUNNER_ARCFOLD_TOUR_LARGER_SCREENS=0
             run_tests "$output/$variant-$pose.xcresult" "$output/$variant-$pose.log" "${tests[@]}"
             export_attachments "$output/$variant-$pose.xcresult" "$output/$variant-$pose"
+            # The closed DS once more in the slim case.
+            if [[ $pose == closed || $pose == closed-landscape ]]; then
+                tests=(ScreenshotTour/test30DSInThePose ScreenshotTour/test36NoticesInThePose
+                    ScreenshotTour/test37FailureInThePose)
+                if [[ $variant == light || $variant == dark ]]; then
+                    tests+=(ScreenshotTour/test38CleanGamesInThePose)
+                fi
+                tests+=(ScreenshotTour/test99Metrics)
+                export TEST_RUNNER_ARCFOLD_TOUR_LARGER_SCREENS=1
+                run_tests "$output/$variant-$pose-slim.xcresult" "$output/$variant-$pose-slim.log" "${tests[@]}"
+                export_attachments "$output/$variant-$pose-slim.xcresult" "$output/$variant-$pose-slim"
+                export TEST_RUNNER_ARCFOLD_TOUR_LARGER_SCREENS=0
+            fi
         done
     done
-    unset TEST_RUNNER_ARCFOLD_TOUR_POSE TEST_RUNNER_ARCFOLD_LIBRARY_FOLD
+    unset TEST_RUNNER_ARCFOLD_TOUR_POSE TEST_RUNNER_ARCFOLD_LIBRARY_FOLD TEST_RUNNER_ARCFOLD_TOUR_LARGER_SCREENS
 
     # The pause sheet after closing: selftest.nds runs open, the device
-    # closes, the sheet stands on the outer display; opening resumes.
-    for variant in light dark; do
+    # closes, the sheet stands on the outer display; opening resumes. Only
+    # with every pose.
+    closing_variants=(light dark)
+    if [[ -n ${ARCFOLD_TOUR_POSES:-} ]]; then
+        closing_variants=(none)
+    fi
+    for variant in "${closing_variants[@]}"; do
+        [[ $variant == none ]] && continue
         set_appearance "$variant"
         folder="$output/$variant-closing"
         rm -rf "$folder"

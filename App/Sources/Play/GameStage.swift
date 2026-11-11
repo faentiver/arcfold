@@ -4,11 +4,12 @@ import Renderer
 import SwiftUI
 
 /// The game in one geometry (ADR 0006): the screens where `GameLayout` puts
-/// them, drawn from one texture with one viewport each; the deck and the
-/// touch controls in glass in their zones (ADR 0007); and the surface that
-/// sends every finger to the buttons or to the touch screen. Everything is
-/// laid out in pixels of the whole view, as `FoldGeometry` measured them, so
-/// the stage ignores the safe area.
+/// them, drawn from one texture with one viewport each; around them the case
+/// of the console, which fills the whole view, and the touch controls as its
+/// keys in their zones (ADR 0007); and the surface that sends every finger
+/// to the buttons or to the touch screen. Everything is laid out in pixels
+/// of the whole view, as `FoldGeometry` measured them, so the stage ignores
+/// the safe area.
 struct GameStage: View {
     let system: GameSystem
     let geometry: FoldGeometry
@@ -27,22 +28,27 @@ struct GameStage: View {
     let onPause: (() -> Void)?
     /// The pause sheet grows out of the pause button.
     var pauseTransition: Namespace.ID?
-    /// A sheet covers the stage: the glass of the controls would shine
-    /// through the sheet's glass as smudges, so the controls fade out; the
-    /// deck stays, and the sheet takes every touch anyway.
+    /// A sheet covers the stage: glass over a screen would shine through
+    /// the sheet's glass as smudges, so controls in glass fade out. The
+    /// console keeps its keys; the sheet takes every touch anyway.
     var isCovered = false
     /// The core loads: the screens show the game's artwork with a spinner
     /// until the first picture.
     var isLoading = false
+    /// Buttons held down without a finger on them: a debug build presses
+    /// them on request, for screenshots and UI tests (`DebugRemote`). They
+    /// go to the game and show pressed like touched ones.
+    var heldButtons: JoypadButtons = []
 
     @State private var pressed: JoypadButtons = []
     /// A finger holds the pause button down.
     @State private var isPausePressed = false
+    @Environment(\.consoleSkin) private var skin
 
     var body: some View {
         let scale = CGFloat(geometry.scale)
         let size = CGSize(width: CGFloat(geometry.container.width) / scale, height: CGFloat(geometry.container.height) / scale)
-        let controls = Self.controls(of: layout, scale: geometry.scale, system: system, shows: showsControls)
+        let controls = Self.controls(of: layout, geometry: geometry, system: system, shows: showsControls)
         let placement = OverlayPlacement(layout: layout, geometry: geometry, controls: controls)
         let touchScreen = layout.touchScreen.map { TouchMapping(screen: $0, scale: geometry.scale) }
         let screens = layout.screens.map { $0.destination.points(scale: geometry.scale) }
@@ -51,27 +57,25 @@ struct GameStage: View {
                 .frame(width: size.width, height: size.height, alignment: .topLeading)
                 // The screens jump to their new place; only the controls move (ADR 0006, section 9).
                 .transaction { $0.animation = nil }
-            if controls != nil {
-                ControlDeck(areas: DeckLayout.areas(of: layout, in: geometry).map { $0.points(scale: geometry.scale) })
-                    .frame(width: size.width, height: size.height)
-                    .transaction { $0.animation = nil }
-            }
+            // The case of the console, open where the screens are. It
+            // changes with the layout only, never with a press.
+            ConsoleCase(layout: CaseLayout(layout: layout, geometry: geometry), skin: skin)
+                .equatable()
+                .transaction { $0.animation = nil }
             if let controls {
-                // The glass of the pause button belongs to the container of
-                // the buttons beside it (rule R4); its touches go to the
-                // button above the touch surface.
-                TouchControls(layout: controls, pressed: pressed, screens: screens,
+                // The controls draw the menu button with the buttons beside
+                // it; its touches go to the button above the touch surface.
+                TouchControls(layout: controls, pressed: pressed.union(heldButtons), screens: screens,
                               pause: PauseGlass.drawnByControls(controls, frame: onPause == nil ? nil : placement.pauseButton,
-                                                                isPressed: isPausePressed))
+                                                                isPressed: isPausePressed),
+                              hidesGlass: isCovered)
                     .frame(width: size.width, height: size.height)
-                    .opacity(isCovered ? 0 : 1)
-                    .animation(Motion.fade, value: isCovered)
                     .transition(.opacity)
             }
             TouchSurface(controls: controls, touchScreen: touchScreen) { output in
                 if output.buttons != pressed {
                     pressed = output.buttons
-                    onButtons(output.buttons)
+                    onButtons(output.buttons.union(heldButtons))
                 }
                 onPointer(output.touchPixel.flatMap { pointer(at: $0, on: touchScreen) })
             }
@@ -79,7 +83,7 @@ struct GameStage: View {
             if let onPause, let pause = placement.pauseButton {
                 // Where OverlayPlacement puts it, from GameLayout: between
                 // Select and Start, or in a corner without touch controls.
-                PauseButton(transition: pauseTransition, diameter: min(pause.width, pause.height),
+                PauseButton(transition: pauseTransition, size: pause.size,
                             backdrop: GlassBackdrop.under(pause, screens: screens),
                             isDrawnByControls: controls != nil, onPress: { isPausePressed = $0 }, pause: onPause)
                     .position(x: pause.midX, y: pause.midY)
@@ -88,6 +92,9 @@ struct GameStage: View {
         .frame(width: size.width, height: size.height, alignment: .topLeading)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .animation(.snappy, value: layout.controls)
+        .onChange(of: heldButtons) { _, held in
+            onButtons(pressed.union(held))
+        }
         .onChange(of: showsControls) { _, shows in
             // Buttons held when the controls go away are released.
             if !shows, !pressed.isEmpty {
@@ -97,11 +104,15 @@ struct GameStage: View {
         }
     }
 
-    /// The touch controls `GameStage` draws for `layout`, nil while they do
-    /// not show; `OverlayPlacement` places the overlays around the same ones.
-    nonisolated static func controls(of layout: GameLayout, scale: Int, system: GameSystem, shows: Bool) -> TouchLayout? {
+    /// The touch controls `GameStage` draws for `layout` in `geometry`, nil
+    /// while they do not show; `OverlayPlacement` places the overlays around
+    /// the same ones. No touch counts above the first row that takes
+    /// touches or on the active fold, as the zones keep to it.
+    nonisolated static func controls(of layout: GameLayout, geometry: FoldGeometry, system: GameSystem, shows: Bool) -> TouchLayout? {
         guard shows else { return nil }
-        return layout.controls.map { TouchLayout(zones: $0, scale: scale, hasXYButtons: system.hasXYButtons) }
+        return layout.controls.map {
+            TouchLayout(zones: $0, scale: geometry.scale, hasXYButtons: system.hasXYButtons, limits: TouchLayout.Limits(geometry: geometry))
+        }
     }
 
     @ViewBuilder

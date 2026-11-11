@@ -72,52 +72,45 @@ struct GameStyleTests {
     }
 }
 
-/// The dimming plate beneath in-game glass (docs/wissen/oberflaeche.md):
-/// light over the still deck, dark over the picture, and the same with
-/// Increase Contrast and Reduce Transparency wherever it lies. The edge of
-/// Increase Contrast is the same strong one over the picture and the deck.
+/// The dimming plate beneath in-game glass, which lies over the picture
+/// only (docs/wissen/oberflaeche.md): dark, darker for small labels, and
+/// darker still with Increase Contrast and Reduce Transparency.
 struct GamePlateTests {
     @Test(arguments: [false, true])
-    func theDeckGetsALighterPlate(isSmallLabel: Bool) {
-        let picture = GamePlate.look(isSmallLabel: isSmallLabel, backdrop: .picture, increasedContrast: false,
-                                     reduceTransparency: false, showsBorders: false)
-        let deck = GamePlate.look(isSmallLabel: isSmallLabel, backdrop: .deck, increasedContrast: false,
+    func thePictureGetsADarkPlate(isSmallLabel: Bool) {
+        let look = GamePlate.look(isSmallLabel: isSmallLabel, increasedContrast: false,
                                   reduceTransparency: false, showsBorders: false)
-        #expect(picture.plateOpacity == (isSmallLabel ? 0.80 : 0.70))
-        #expect(deck.plateOpacity == (isSmallLabel ? 0.45 : 0.35))
-        #expect(deck.borderWidth == 0 && picture.borderWidth == 0)
+        #expect(look.plateOpacity == (isSmallLabel ? 0.80 : 0.70))
+        #expect(look.borderWidth == 0)
     }
 
     @Test(arguments: [false, true])
     func increasedContrastAndReducedTransparencyKeepTheirPlates(isSmallLabel: Bool) {
-        for backdrop in [GlassBackdrop.picture, .deck] {
-            let contrast = GamePlate.look(isSmallLabel: isSmallLabel, backdrop: backdrop, increasedContrast: true,
-                                          reduceTransparency: false, showsBorders: false)
-            #expect(contrast.plateOpacity == (isSmallLabel ? 0.90 : 0.80))
-            // One strong edge for every key, wherever it lies.
-            #expect(contrast.borderWidth == 1 && contrast.borderOpacity == 0.90)
-            let both = GamePlate.look(isSmallLabel: isSmallLabel, backdrop: backdrop, increasedContrast: true,
-                                      reduceTransparency: false, showsBorders: true)
-            #expect(both.borderWidth == 1 && both.borderOpacity == 0.90)
-            // Show Borders alone keeps the light edge.
-            let borders = GamePlate.look(isSmallLabel: isSmallLabel, backdrop: backdrop, increasedContrast: false,
-                                         reduceTransparency: false, showsBorders: true)
-            #expect(borders.borderWidth == 1 && borders.borderOpacity == 0.35)
-            let solid = GamePlate.look(isSmallLabel: isSmallLabel, backdrop: backdrop, increasedContrast: false,
-                                       reduceTransparency: true, showsBorders: false)
-            #expect(solid.plateOpacity == (isSmallLabel ? 0.90 : 0.85))
-        }
+        let contrast = GamePlate.look(isSmallLabel: isSmallLabel, increasedContrast: true,
+                                      reduceTransparency: false, showsBorders: false)
+        #expect(contrast.plateOpacity == (isSmallLabel ? 0.90 : 0.80))
+        // One strong edge for every control.
+        #expect(contrast.borderWidth == 1 && contrast.borderOpacity == 0.90)
+        let both = GamePlate.look(isSmallLabel: isSmallLabel, increasedContrast: true,
+                                  reduceTransparency: false, showsBorders: true)
+        #expect(both.borderWidth == 1 && both.borderOpacity == 0.90)
+        // Show Borders alone keeps the light edge.
+        let borders = GamePlate.look(isSmallLabel: isSmallLabel, increasedContrast: false,
+                                     reduceTransparency: false, showsBorders: true)
+        #expect(borders.borderWidth == 1 && borders.borderOpacity == 0.35)
+        let solid = GamePlate.look(isSmallLabel: isSmallLabel, increasedContrast: false,
+                                   reduceTransparency: true, showsBorders: false)
+        #expect(solid.plateOpacity == (isSmallLabel ? 0.90 : 0.85))
     }
 
-    /// With Increase Contrast a key keeps its boundary at 3 : 1 against a
-    /// background of any brightness, over the picture and over the deck:
-    /// the white edge against a dark background, the plate against a light
-    /// one. Reckoned for grey backgrounds, with the plate and the edge
-    /// blended over them as the view draws them; at 0.35 the edge left a gap
-    /// down to 1.7 : 1 in between. Without Increase Contrast there is no
-    /// edge, with or without the deck.
-    @Test(arguments: [false, true], [GlassBackdrop.picture, .deck])
-    func theEdgeStandsOutFromAnyBackground(isSmallLabel: Bool, backdrop: GlassBackdrop) {
+    /// With Increase Contrast a control keeps its boundary at 3 : 1 against
+    /// a picture of any brightness: the white edge against a dark one, the
+    /// plate against a light one. Reckoned for grey backgrounds, with the
+    /// plate and the edge blended over them as the view draws them; at 0.35
+    /// the edge left a gap down to 1.7 : 1 in between. Without Increase
+    /// Contrast there is no edge.
+    @Test(arguments: [false, true])
+    func theEdgeStandsOutFromAnyBackground(isSmallLabel: Bool) {
         func luminance(_ value: Double) -> Double {
             value <= 0.04045 ? value / 12.92 : pow((value + 0.055) / 1.055, 2.4)
         }
@@ -133,14 +126,14 @@ struct GamePlateTests {
                 return max(contrast(edge, background), contrast(plate, background))
             }.min() ?? 0
         }
-        let look = GamePlate.look(isSmallLabel: isSmallLabel, backdrop: backdrop, increasedContrast: true,
+        let look = GamePlate.look(isSmallLabel: isSmallLabel, increasedContrast: true,
                                   reduceTransparency: false, showsBorders: false)
         #expect(look.borderOpacity == GamePlate.contrastBorderOpacity)
         #expect(weakest(look) >= 3, "the edge at \(look.borderOpacity) falls to \(weakest(look)) : 1")
         var old = look
         old.borderOpacity = GamePlate.borderOpacity
         #expect(weakest(old) < 2)
-        let plain = GamePlate.look(isSmallLabel: isSmallLabel, backdrop: backdrop, increasedContrast: false,
+        let plain = GamePlate.look(isSmallLabel: isSmallLabel, increasedContrast: false,
                                    reduceTransparency: false, showsBorders: false)
         #expect(plain.borderWidth == 0 && plain.borderOpacity == 0)
     }

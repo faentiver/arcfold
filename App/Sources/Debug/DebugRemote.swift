@@ -1,6 +1,7 @@
 #if DEBUG
 import FoldLayout
 import Foundation
+import LibretroKit
 import notify
 import Observation
 import os
@@ -20,6 +21,9 @@ import os
 ///   the pause menu, opening resumes a game that closing paused.
 /// - `com.faentiver.arcfold.debug.overlay.hide` and `….show` hide the debug
 ///   overlay and bring it back, so that a screenshot shows the whole picture.
+/// - `com.faentiver.arcfold.debug.keys.hold` holds a few buttons down as
+///   if fingers lay on them (up, A, L and Select), `….keys.release` lets
+///   them go: a screenshot then shows pressed keys, and the game sees them.
 ///
 /// None of it moves the app to another display or changes the size of its
 /// view; that stays with the pose check (Scripts/pose-check.sh). Every change
@@ -56,6 +60,7 @@ final class DebugRemote {
         case hinge(HingeState)
         case overlay(hidden: Bool)
         case sample(Sample)
+        case keys(JoypadButtons)
     }
 
     static let shared = DebugRemote()
@@ -74,6 +79,8 @@ final class DebugRemote {
         ("notice.long", .sample(.longNotice)),
         ("chip.show", .sample(.audioProblem(shown: true))),
         ("chip.hide", .sample(.audioProblem(shown: false))),
+        ("keys.hold", .keys([.up, .a, .l, .select])),
+        ("keys.release", .keys([])),
     ]
 
     private static let logger = Logger(subsystem: "com.faentiver.arcfold", category: "fold")
@@ -86,6 +93,8 @@ final class DebugRemote {
     private(set) var hidesOverlay = false
     /// The latest sample request, for the game view.
     private(set) var sampleRequest: SampleRequest?
+    /// Buttons the game view holds down as if fingers lay on them.
+    private(set) var heldButtons: JoypadButtons = []
     /// The hinge as the game saw it last, real or simulated.
     @ObservationIgnored private var hinge: HingeState?
     @ObservationIgnored private var changes = 0
@@ -131,6 +140,9 @@ final class DebugRemote {
             changes += 1
             sampleRequest = SampleRequest(sample: sample, number: changes)
             Self.logger.notice("Sample \(name, privacy: .public) by notification")
+        case let .keys(buttons):
+            heldButtons = buttons
+            Self.logger.notice("Held buttons \(buttons.rawValue, privacy: .public) by notification (\(name, privacy: .public))")
         }
     }
 

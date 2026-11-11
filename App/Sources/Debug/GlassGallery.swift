@@ -6,26 +6,32 @@ import SwiftUI
 
 /// The building blocks of the interface on fixed pages, for screenshots that
 /// look the same on every run: pressed states, backdrops and the sizes of the
-/// inner display. Every page draws the controls, the deck, the pause button
-/// and the overlays from `GameLayout` in a geometry of the Simulator's Duo
-/// (ADR 0006), the way `GameStage` and `GameOverlays` do in a game; only the
-/// pages that measure the keys sideways use a geometry made up for the worst
-/// case (`GalleryScene.sidewaysGBAOverThePicture`). Opened by
-/// `-ArcfoldGallery <page>` in debug builds (ADR 0007). Nothing here is
-/// localized; the texts are for development only.
+/// inner display. Every page draws the case of the console, its keys, the
+/// menu button and the overlays from `GameLayout` in a geometry of the
+/// Simulator's Duo (ADR 0006), the way `GameStage` and `GameOverlays` do in a
+/// game; only the page with glass over the picture uses a geometry made up
+/// for it (`GalleryScene.sidewaysGBAWithAController`). Each key carries an
+/// invisible marker with its frame, the menu button too, so that the
+/// screenshot tour measures it. Opened by `-ArcfoldGallery <page>` in debug
+/// builds (ADR 0007). Nothing here is localized; the texts are for
+/// development only.
 struct GlassGallery: View {
     enum Page: String, CaseIterable {
         case libraryEmpty = "library-empty"
         case libraryShelf = "library-shelf"
         case libraryInner = "library-inner"
+        /// The keys of the closed GBA below its picture, at rest and pressed.
         case touchUpright = "touch-upright"
-        /// The keys of the GBA sideways with every one of them over the
-        /// picture, over white, the test pattern and black: the worst case
-        /// for their labels, not the layout of the closed Duo sideways.
-        case touchLandscape = "touch-landscape"
+        /// What is left in glass over the picture: the menu button of the
+        /// GBA sideways with a controller, where no corner of the case is
+        /// free, over white, the test pattern and black.
+        case glassOverPicture = "glass-over-picture"
+        /// The DS in the tabletop pose below the fold, as measured.
         case touchInner = "touch-inner"
-        /// Pressed controls with Differentiate Without Color, upright and in
-        /// the worst case sideways.
+        /// The closed DS with the hinge of its case and in the slim case.
+        case touchClosedDS = "touch-closed-ds"
+        /// Pressed keys with Differentiate Without Color: the closed GBA,
+        /// the closed DS and the slim case.
         case touchDifferentiate = "touch-differentiate"
         case notices
         case failure
@@ -41,12 +47,6 @@ struct GlassGallery: View {
     /// The page of the launch arguments, if any.
     static var requestedPage: Page? {
         UserDefaults.standard.string(forKey: "ArcfoldGallery").flatMap(Page.init(rawValue:))
-    }
-
-    /// `-ArcfoldGalleryPressed YES` shows the sideways controls pressed; one
-    /// state per launch keeps them large enough to measure.
-    static var showsPressed: Bool {
-        UserDefaults.standard.bool(forKey: "ArcfoldGalleryPressed")
     }
 
     /// selftest.gba, so the gallery shows the colours of the test game.
@@ -88,24 +88,21 @@ struct GlassGallery: View {
                 .background(Color(uiColor: .systemBackground))
             }
         case .touchUpright:
-            // The band of the closed GBA below its picture, on the deck.
+            // The keys of the closed GBA in the case below the bezel of its picture.
             InGamePage {
                 VStack(spacing: 0) {
                     ForEach(Self.uprightRows, id: \.name) { row in
-                        GalleryPanel(scene: .closedGBA, part: .controls, backdrop: .deck, pressed: row.pressed, row: row.name)
+                        GalleryPanel(scene: .closedGBA, part: .controls, backdrop: .black, pressed: row.pressed, row: row.name)
                     }
                 }
             }
-        case .touchLandscape:
-            // The worst case, not the real pose: every control lies over the
-            // picture, so each label is measured over each backdrop.
+        case .glassOverPicture:
+            // The picture fills the display; the menu button lies on it in glass.
             InGamePage {
-                let isPressed = Self.showsPressed
                 VStack(spacing: 0) {
                     ForEach(PanelBackdrop.allCases, id: \.self) { backdrop in
-                        GalleryPanel(scene: .sidewaysGBAOverThePicture, part: .whole, backdrop: backdrop,
-                                     pressed: isPressed ? Self.allPressed : [],
-                                     row: "\(backdrop.rawValue)-\(isPressed ? "pressed" : "rest")")
+                        GalleryPanel(scene: .sidewaysGBAWithAController, part: .whole, backdrop: backdrop, pressed: [],
+                                     row: backdrop.rawValue)
                     }
                 }
             }
@@ -114,13 +111,24 @@ struct GlassGallery: View {
             InGamePage {
                 GalleryPanel(scene: .tabletopDS, part: .controls, backdrop: .pattern, pressed: [.a, .up, .x], row: "inner")
             }
+        case .touchClosedDS:
+            InGamePage {
+                HStack(spacing: 4) {
+                    GalleryPanel(scene: .closedDS, part: .whole, backdrop: .pattern, pressed: [], row: "hinge")
+                    GalleryPanel(scene: .closedDSSlim, part: .whole, backdrop: .pattern, pressed: [], row: "slim")
+                }
+            }
         case .touchDifferentiate:
             InGamePage {
-                VStack(spacing: 0) {
-                    GalleryPanel(scene: .closedGBA, part: .controls, backdrop: .deck, pressed: [.a, .up, .start],
+                VStack(spacing: 4) {
+                    GalleryPanel(scene: .closedGBA, part: .controls, backdrop: .black, pressed: [.a, .up, .start],
                                  row: "differentiate-upright")
-                    GalleryPanel(scene: .sidewaysGBAOverThePicture, part: .whole, backdrop: .pattern, pressed: Self.allPressed,
-                                 row: "differentiate-sideways")
+                    HStack(spacing: 4) {
+                        GalleryPanel(scene: .closedDS, part: .whole, backdrop: .pattern, pressed: Self.allPressed,
+                                     row: "differentiate-ds")
+                        GalleryPanel(scene: .closedDSSlim, part: .whole, backdrop: .pattern, pressed: Self.allPressed,
+                                     row: "differentiate-slim")
+                    }
                 }
                 .environment(\._accessibilityDifferentiateWithoutColor, true)
             }
@@ -167,7 +175,7 @@ struct GlassGallery: View {
         ("rest", []), ("a-up", [.a, .up]), ("b-down-right-start", [.b, .down, .right, .start]),
     ]
 
-    static let allPressed: JoypadButtons = [.a, .b, .l, .r, .select, .start, .up]
+    static let allPressed: JoypadButtons = [.a, .b, .x, .y, .l, .r, .select, .start, .up]
 }
 
 /// A system in a geometry of the Simulator's Duo as measured
@@ -176,74 +184,98 @@ enum GalleryScene {
     /// The closed Duo upright with the GBA, which moves the vertical bar to the top.
     case closedGBA
     /// The closed Duo sideways with the GBA, as measured: the bar stays on
-    /// top, so the picture is 6× and the direction pad, L and R lie over it,
-    /// the other keys and the pause button beside it on the deck.
+    /// top. The picture is 5× in the middle (417, 270, 1200 × 800 px), pad
+    /// and face buttons stand in the grips beside it on its centre line, L
+    /// and R above them, Select, the menu button and Start in a row below
+    /// it; nothing lies over the picture.
     case sidewaysGBA
-    /// No pose of the Duo: its outer display sideways without any safe
-    /// area. The picture grows to 8× and every control lies over it, the
-    /// worst case for the labels, which the gallery measures over white,
-    /// the test pattern and black. The real pose is `sidewaysGBA`.
-    case sidewaysGBAOverThePicture
-    /// The DS on the inner display in the tabletop pose.
+    /// No pose of the Duo: its outer display sideways without any safe area,
+    /// with a controller in use. The picture grows to 8× and leaves no
+    /// corner of the case free for the menu button, which then lies on the
+    /// picture in glass (`GameLayout.pauseButton`): what is left of glass
+    /// over a picture, measured over white, the test pattern and black.
+    case sidewaysGBAWithAController
+    /// The DS on the inner display in the tabletop pose, as measured: the
+    /// division region of 121 px with margins of 20 pt and the home
+    /// indicator.
     case tabletopDS
+    /// The closed Duo upright with the DS, which moves the vertical bar to
+    /// the top: 3× with the hinge of the case between the screens, L and R
+    /// at its ends, the menu as a column between pad and face buttons.
+    case closedDS
+    /// The same for whoever prefers larger screens (`-LargerScreens YES`):
+    /// the bar stays at the side, the screens grow to 4× and the case is
+    /// slim, L and R are low caps at the ends of its slim hinge that take
+    /// touches on 44 pt.
+    case closedDSSlim
 
     var system: GameSystem {
         switch self {
-        case .closedGBA, .sidewaysGBA, .sidewaysGBAOverThePicture: .gba
-        case .tabletopDS: .ds
+        case .closedGBA, .sidewaysGBA, .sidewaysGBAWithAController: .gba
+        case .tabletopDS, .closedDS, .closedDSSlim: .ds
         }
+    }
+
+    /// The touch controls show; with a controller they do not.
+    var showsTouchControls: Bool {
+        self != .sidewaysGBAWithAController
     }
 
     var geometry: FoldGeometry {
         switch self {
-        case .closedGBA:
+        case .closedGBA, .closedDS:
             FoldGeometry(container: PixelSize(width: 1398, height: 2034), safeArea: PixelInsets(top: 246, bottom: 102))
+        case .closedDSSlim:
+            FoldGeometry(container: PixelSize(width: 1398, height: 2034), safeArea: PixelInsets(bottom: 102, right: 252))
         case .sidewaysGBA:
             FoldGeometry(container: PixelSize(width: 2034, height: 1398), safeArea: PixelInsets(top: 246, bottom: 102))
-        case .sidewaysGBAOverThePicture:
+        case .sidewaysGBAWithAController:
             FoldGeometry(container: PixelSize(width: 2034, height: 1398))
         case .tabletopDS:
-            FoldGeometry(container: PixelSize(width: 2007, height: 2853),
-                         fold: PixelRect(x: 0, y: 1366, width: 2007, height: 121), isFoldActive: true)
+            FoldGeometry(container: PixelSize(width: 2007, height: 2853), safeArea: PixelInsets(bottom: 102),
+                         fold: PixelRect(x: 0, y: 1366, width: 2007, height: 121),
+                         foldMargins: PixelInsets(top: 60, bottom: 60), isFoldActive: true)
         }
     }
 
     var layout: GameLayout {
-        GameLayout(system: system.screens, geometry: geometry, showsTouchControls: true)
+        GameLayout(system: system.screens, geometry: geometry, showsTouchControls: showsTouchControls)
     }
 
     var size: CGSize {
         geometry.container.points(scale: geometry.scale)
     }
 
-    var controls: TouchLayout {
-        GameStage.controls(of: layout, scale: geometry.scale, system: system, shows: true)!
+    /// The touch controls, nil with a controller.
+    var controls: TouchLayout? {
+        GameStage.controls(of: layout, geometry: geometry, system: system, shows: showsTouchControls)
     }
 }
 
-/// What lies under the controls of a panel.
+/// What the screens of a panel show, inside the case around them.
 enum PanelBackdrop: String, CaseIterable, Hashable {
     case white
     case pattern
+    /// Black screens, as before a game draws.
     case black
-    /// The deck alone, without the screens.
-    case deck
     /// The screens before the first picture.
     case loading
 
     static var allCases: [PanelBackdrop] { [.white, .pattern, .black] }
 }
 
-/// A part of a scene as `GameStage` and `GameOverlays` draw it: the backdrop,
-/// the deck, the controls in glass with an invisible element per button that
-/// carries its frame (`gallery-key-<label>-<row>`, so a UI test can measure
-/// the pixels of each button), the pause button and, if asked, the overlays.
-/// The part is cut out and scaled down to fit the space offered.
+/// A part of a scene as `GameStage` and `GameOverlays` draw it: the screens,
+/// the case of the console around them, its keys with an invisible element
+/// per key and for the menu button that carries its frame
+/// (`gallery-key-<label>-<row>`, the menu button as `Menu`) and as its value
+/// the scale the panel draws at, so a UI test can measure the pixels of each
+/// key; the menu button and, if asked, the overlays. The part is cut out and
+/// scaled down to fit the space offered.
 private struct GalleryPanel: View {
     enum Part {
         /// The whole view.
         case whole
-        /// From the bottom of the picture, or the fold, to the bottom of the view.
+        /// From below the bezel of the picture, or the fold, to the bottom of the view.
         case controls
         /// The upper or only screen.
         case picture
@@ -272,21 +304,31 @@ private struct GalleryPanel: View {
 
     var body: some View {
         let crop = self.crop
-        let stage = self.stage
-            .frame(width: scene.size.width, height: scene.size.height, alignment: .topLeading)
-            .offset(x: -crop.minX, y: -crop.minY)
-            .frame(width: crop.width, height: crop.height, alignment: .topLeading)
-            .clipped()
         if scalesToFit {
             GeometryReader { proxy in
                 let scale = min(proxy.size.width / crop.width, proxy.size.height / crop.height, 1)
-                stage
+                cropped(crop, scale: scale)
                     .scaleEffect(scale)
                     .frame(width: proxy.size.width, height: proxy.size.height)
             }
         } else {
-            stage
+            cropped(crop, scale: 1)
         }
+    }
+
+    /// The stage cut to `crop`; `scale` is what the markers report.
+    private func cropped(_ crop: CGRect, scale: CGFloat) -> some View {
+        stage(scale: scale)
+            // The console of the scene's system, for its case and its keys.
+            .environment(\.consoleSkin, skin)
+            .frame(width: scene.size.width, height: scene.size.height, alignment: .topLeading)
+            .offset(x: -crop.minX, y: -crop.minY)
+            .frame(width: crop.width, height: crop.height, alignment: .topLeading)
+            .clipped()
+    }
+
+    private var skin: ConsoleSkin {
+        ConsoleSkin.skin(forSystem: scene.system.id, preferred: ConsoleSkin.preferredFinish)
     }
 
     /// The part of the view the panel shows, in points.
@@ -298,8 +340,10 @@ private struct GalleryPanel: View {
         case .whole:
             return view
         case .controls:
+            // Below the bezel of the screens above the fold, so that the cut
+            // runs through the case, not through a bezel.
             let screensBottom = layout.screens.filter { $0.destination.minY < (scene.geometry.fold?.minY ?? .max) }
-                .map { $0.destination.points(scale: scale).maxY }.max() ?? 0
+                .map { $0.destination.points(scale: scale).maxY + ConsoleSkin.bezelWidth }.max() ?? 0
             let top = max(screensBottom, scene.geometry.fold.map { $0.points(scale: scale).maxY } ?? 0)
             return CGRect(x: 0, y: top, width: view.width, height: view.height - top)
         case .picture:
@@ -307,7 +351,7 @@ private struct GalleryPanel: View {
         }
     }
 
-    private var stage: some View {
+    private func stage(scale panelScale: CGFloat) -> some View {
         let layout = scene.layout
         let geometry = scene.geometry
         let scale = geometry.scale
@@ -318,7 +362,7 @@ private struct GalleryPanel: View {
             switch backdrop {
             case .white:
                 Color.white
-            case .black, .deck:
+            case .black:
                 Color.black
             case .pattern:
                 GameScreen(mailbox: scene.system.screens.touchScreen == nil ? mailbox : dsMailbox, stats: stats,
@@ -333,26 +377,27 @@ private struct GalleryPanel: View {
                     }
                 }
             }
-            if [.pattern, .deck, .black].contains(backdrop) {
-                ControlDeck(areas: DeckLayout.areas(of: layout, in: geometry).map { $0.points(scale: scale) })
-            }
+            // The case of the console, as in GameStage, open where the screens are.
+            ConsoleCase(layout: CaseLayout(layout: layout, geometry: geometry), skin: skin)
             // The picture alone shows no controls: cut off, they would still
             // be elements of the page for the accessibility audit.
-            if backdrop != .loading, part != .picture {
+            if backdrop != .loading, part != .picture, let controls {
                 TouchControlsArt(layout: controls, pressed: pressed, screens: screens,
                                  pause: PauseGlass.drawnByControls(controls, frame: placement.pauseButton, isPressed: false))
                 ForEach(controls.buttons) { button in
-                    marker(button.label, frame: button.frame)
+                    marker(button.label, frame: button.frame, scale: panelScale)
                 }
-                marker("Pad", frame: controls.pad.frame)
+                marker("Pad", frame: controls.pad.frame, scale: panelScale)
             }
             if part != .picture, let pause = placement.pauseButton {
-                // As in GameStage: the controls draw its glass in their
-                // container; while they are hidden the button draws its own.
-                PauseButton(transition: transition, diameter: min(pause.width, pause.height),
+                // As in GameStage: the controls draw the menu button with
+                // Select and Start; without them the button draws itself, a
+                // key in a corner of the case or glass over the picture.
+                PauseButton(transition: transition, size: pause.size,
                             backdrop: GlassBackdrop.under(pause, screens: screens),
-                            isDrawnByControls: backdrop != .loading) {}
+                            isDrawnByControls: controls != nil && backdrop != .loading) {}
                     .position(x: pause.midX, y: pause.midY)
+                marker("Menu", frame: pause, scale: panelScale)
             }
             if overlays != .none {
                 GameOverlays(
@@ -373,11 +418,12 @@ private struct GalleryPanel: View {
         })
     }
 
-    private func marker(_ label: String, frame: CGRect) -> some View {
+    private func marker(_ label: String, frame: CGRect, scale: CGFloat) -> some View {
         Color.clear
             .frame(width: frame.width, height: frame.height)
             .accessibilityElement()
             .accessibilityLabel(Text(verbatim: label))
+            .accessibilityValue(Text(verbatim: String(format: "%.4f", scale)))
             .accessibilityIdentifier("gallery-key-\(label)-\(row)")
             .position(x: frame.midX, y: frame.midY)
     }
@@ -442,6 +488,7 @@ private struct InGamePage<Content: View>: View {
             .persistentSystemOverlays(.hidden)
             .modifier(VerticalBarBehavior(isDisabled: GameSystem.gba.disablesVerticalBar))
             .environment(\.gameStyle, GameStyle(GlassGallery.selftest))
+            .environment(\.consoleSkin, ConsoleSkin.skin(forSystem: GlassGallery.selftest.system, preferred: ConsoleSkin.preferredFinish))
             .resolvesControlSurface()
             .preferredColorScheme(.dark)
     }

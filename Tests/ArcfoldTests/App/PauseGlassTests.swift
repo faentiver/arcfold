@@ -3,11 +3,12 @@ import CoreGraphics
 import FoldLayout
 import Testing
 
-/// Who draws the glass of the pause button (ADR 0007, rule R4), in every
+/// Who draws the menu button, which pauses the game (ADR 0007), in every
 /// geometry of `DuoGeometries` for the GBA and the DS: with touch controls
-/// it sits 8 pt from Select and Start, so the controls draw it in their
-/// glass container, in the place `OverlayPlacement` names; without them the
-/// button draws its own, alone in its corner.
+/// the controls draw it with Select and Start, as a small button of the
+/// case or, over a picture, in their glass container (rule R4), in the
+/// place `OverlayPlacement` names, and it overlaps none of the keys beside
+/// it; without them the button draws itself, alone in its corner.
 struct PauseGlassTests {
     typealias Case = OverlayPlacementTests.Case
 

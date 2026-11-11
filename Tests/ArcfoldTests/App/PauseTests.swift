@@ -158,8 +158,11 @@ struct FoldOverrideTests {
         #expect(tabletop.posture == .tabletop)
         let book = FoldOverride.book.applied(to: Self.innerSideways)
         #expect(book.fold == PixelRect(x: 1402, y: 0, width: 48, height: 2007) && book.posture == .flat)
-        // The DS in the override's tabletop: 7× above the fold as in ADR 0006.
-        #expect(GameLayout(system: .ds, geometry: tabletop, showsTouchControls: true).screens.map(\.scale) == [7, 5])
+        // The DS in the override's tabletop: 6× above the fold with the rim
+        // of the console, 4× below it between pad and face buttons; 7× with
+        // a controller as in ADR 0006.
+        #expect(GameLayout(system: .ds, geometry: tabletop, showsTouchControls: true).screens.map(\.scale) == [6, 4])
+        #expect(GameLayout(system: .ds, geometry: tabletop, showsTouchControls: false).screens.map(\.scale) == [7, 7])
     }
 }
 #endif

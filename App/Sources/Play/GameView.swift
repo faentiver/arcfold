@@ -65,7 +65,8 @@ struct GameView: View {
                                 onPause: session.phase == .running ? { session.setUserPaused(true) } : nil,
                                 pauseTransition: pauseTransition,
                                 isCovered: isPauseMenuShown,
-                                isLoading: session.phase == .loading || (session.phase == .running && session.mailbox == nil)
+                                isLoading: session.phase == .loading || (session.phase == .running && session.mailbox == nil),
+                                heldButtons: heldButtons
                             )
                             overlays(geometry: geometry, layout: layout)
                         }
@@ -188,9 +189,24 @@ struct GameView: View {
         #endif
     }
 
-    /// Without touch controls (a controller is in use) the screens grow.
+    /// Buttons a debug build holds down on request (`DebugRemote`).
+    private var heldButtons: JoypadButtons {
+        #if DEBUG
+        DebugRemote.shared.heldButtons
+        #else
+        []
+        #endif
+    }
+
+    /// Without touch controls (a controller is in use) the screens grow. A
+    /// debug build can act as if one were (`-ArcfoldControllerInUse YES`).
     private var showsTouchControls: Bool {
-        session.controllers?.isControllerInUse != true
+        #if DEBUG
+        if DebugLaunch.simulatesController {
+            return false
+        }
+        #endif
+        return session.controllers?.isControllerInUse != true
     }
 
     private var layout: GameLayout? {
@@ -211,7 +227,7 @@ struct GameView: View {
     // MARK: Overlays
 
     private func overlays(geometry: FoldGeometry, layout: GameLayout) -> some View {
-        let controls = GameStage.controls(of: layout, scale: geometry.scale, system: session.system, shows: showsControls)
+        let controls = GameStage.controls(of: layout, geometry: geometry, system: session.system, shows: showsControls)
         let fold = readings
         return GameOverlays(
             placement: OverlayPlacement(layout: layout, geometry: geometry, controls: controls),

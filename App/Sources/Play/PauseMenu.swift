@@ -1,31 +1,28 @@
 import FoldLayout
 import SwiftUI
 
-/// The pause button of a game, where `GameLayout` puts it (ADR 0006): in
-/// the menu row between Select and Start with touch controls, in a corner of
-/// the safe area without them. In-game glass, a circle of the size of its
-/// place, over the plate of what lies beneath (rule R3). It takes touches on
-/// at least 44 × 44 pt, also where it draws smaller. The pause sheet grows
-/// out of it.
+/// The menu button of a game, which pauses it and opens the pause sheet,
+/// where `GameLayout` puts it (ADR 0006): with touch controls among Select
+/// and Start, in a corner of the safe area without them. In the case of the
+/// console it is a small button with its name, "Menu", like Select and
+/// Start (ADR 0007); over a screen it is in-game glass, a circle over the
+/// plate for the picture (rule R3). It takes touches on at least
+/// 44 × 44 pt, also where it draws smaller. The pause sheet grows out of it.
 ///
-/// With touch controls its glass belongs to their container (rule R4:
-/// several glass shapes share one container), so `TouchControlsArt` draws
-/// it, and the button above the touch surface only takes the touch and
-/// reports while a finger holds it down: the glass then shows pressed like
-/// the keys beside it. Alone in its corner the button draws its own glass,
-/// which reacts to a touch like the system's glass buttons.
-///
-/// Not the system's glass button style: that style sizes the glass by its
-/// control size (47 pt at `.large`), and the menu row of M2 is 36 pt high.
+/// With touch controls they draw it with the buttons beside it
+/// (`TouchControlsArt`), and the button above the touch surface only takes
+/// the touch and reports while a finger holds it down, so that it shows
+/// pressed like the keys beside it. Alone in its corner the button draws
+/// itself.
 struct PauseButton: View {
     /// The pause sheet zooms out of the button; nil without a sheet.
     let transition: Namespace.ID?
-    /// The circle as drawn, in points.
-    let diameter: CGFloat
+    /// The button with its name as drawn, in points.
+    let size: CGSize
     let backdrop: GlassBackdrop
-    /// The touch controls draw the glass; the button stays clear.
+    /// The touch controls draw the button; this one stays clear.
     var isDrawnByControls = false
-    /// A finger holds the button down or let it go; for the glass the
+    /// A finger holds the button down or let it go; for the button the
     /// controls draw.
     var onPress: (Bool) -> Void = { _ in }
     let pause: () -> Void
@@ -33,34 +30,47 @@ struct PauseButton: View {
     /// Apple's smallest target for a touch, in points.
     nonisolated static let minimumTarget: CGFloat = 44
 
+    /// A finger holds the button down, while it draws itself.
+    @State private var isPressed = false
+
     var body: some View {
         Button(action: pause) {
-            circle
-                .frame(width: max(diameter, Self.minimumTarget), height: max(diameter, Self.minimumTarget))
+            face
+                .frame(width: max(size.width, Self.minimumTarget), height: max(size.height, Self.minimumTarget))
                 .contentShape(Rectangle())
         }
-        .buttonStyle(ReportsPress(onPress: onPress))
+        .buttonStyle(ReportsPress { pressed in
+            isPressed = pressed
+            onPress(pressed)
+        })
         .accessibilityLabel(Text("Pause", comment: "Button that pauses the game and opens its menu."))
+        // The case writes "MENU" beside the button: Voice Control answers to
+        // the name on the case as well as to the label.
+        .accessibilityInputLabels([Text(verbatim: ConsoleControls.menuName),
+                                   Text("Pause", comment: "Button that pauses the game and opens its menu.")])
         .accessibilityIdentifier("pause")
-        // The symbol keeps its size like a toolbar button; large content shows it bigger.
+        // The button keeps its size like a toolbar button; large content shows it bigger.
         .accessibilityShowsLargeContentViewer()
     }
 
     @ViewBuilder
-    private var circle: some View {
-        let circle = Group {
+    private var face: some View {
+        let face = Group {
             if isDrawnByControls {
                 Color.clear
-                    .frame(width: diameter, height: diameter)
-            } else {
+                    .frame(width: size.width, height: size.height)
+            } else if backdrop == .picture {
+                let diameter = min(size.width, size.height)
                 PauseSymbol(diameter: diameter)
-                    .gameGlass(in: Circle(), backdrop: backdrop, isInteractive: true)
+                    .gameGlass(in: Circle(), isInteractive: true)
+            } else {
+                ConsoleKnob(name: ConsoleControls.menuName, size: size, isPressed: isPressed, label: .below, isMenu: true)
             }
         }
         if let transition {
-            circle.matchedTransitionSource(id: PauseMenu.transitionID, in: transition)
+            face.matchedTransitionSource(id: PauseMenu.transitionID, in: transition)
         } else {
-            circle
+            face
         }
     }
 }
@@ -350,7 +360,7 @@ private struct PauseMenuPreview: View {
     var body: some View {
         ZStack(alignment: .topTrailing) {
             Color.black.ignoresSafeArea()
-            PauseButton(transition: transition, diameter: 36, backdrop: .picture) { isShown = true }
+            PauseButton(transition: transition, size: CGSize(width: 44, height: 44), backdrop: .picture) { isShown = true }
                 .padding(8)
         }
         .sheet(isPresented: $isShown) {

@@ -14,10 +14,21 @@ import XCTest
 /// (35), a long notice with the status chip (36) and the failure view (37),
 /// and 12 sideways; in light and dark also the game without the debug
 /// overlay (38), the pictures for the documents. The pose comes as
-/// `ARCFOLD_TOUR_POSE`. Every measurement of the variants that makes sense
-/// in a pose is taken there too: the edge of the large title, the margins
-/// and the height of the sheet, the contrast of the keys and of the accent
-/// buttons, the overlap of the pause button and the notices with the keys.
+/// `ARCFOLD_TOUR_POSE`. Closed, upright and sideways, it runs the DS a second
+/// time in the slim case (`ARCFOLD_TOUR_LARGER_SCREENS=1`, which launches the
+/// game with `-LargerScreens YES`); its pictures and measurements carry the
+/// pose with `-slim`. Every measurement of the variants that makes sense in
+/// a pose is taken there too: the edge of the large title, the margins and
+/// the height of the sheet, the keys of the console, the accent buttons, and
+/// that the notices and the menu button leave the keys free.
+///
+/// The keys are measured as the console draws them (`ConsoleKeys`): the
+/// letters and arrows against their cap (3 : 1), the names of Select, Start
+/// and the menu button as text against the case (4.5 : 1), and with
+/// Increase Contrast the edge of each cap against what lies around it
+/// (3 : 1). Glass is left only over the picture: the menu button with a
+/// controller where no corner of the case is free, the notices and the chip
+/// (pages 14, 15 and 17).
 final class ScreenshotTour: GlassUITestCase {
     /// The variant the script set up. Without it, as in a plain test run of
     /// the Store scheme, the tour skips every state.
@@ -29,6 +40,27 @@ final class ScreenshotTour: GlassUITestCase {
     /// `closed-landscape`; empty in the states of the variants.
     static var pose: String {
         ProcessInfo.processInfo.environment["ARCFOLD_TOUR_POSE"] ?? ""
+    }
+
+    /// The pose part runs the DS in the slim case, for whoever prefers
+    /// larger screens (`-LargerScreens YES`).
+    static var prefersLargerScreens: Bool {
+        ProcessInfo.processInfo.environment["ARCFOLD_TOUR_LARGER_SCREENS"] == "1"
+    }
+
+    /// The pose as the names of pictures and measurements carry it.
+    static var place: String {
+        prefersLargerScreens ? "\(pose)-slim" : pose
+    }
+
+    /// The launch arguments every game of the pose part gets.
+    static var gameArguments: [String] {
+        prefersLargerScreens ? ["-LargerScreens", "YES"] : []
+    }
+
+    /// The systems a state of the pose part runs: the slim case is the DS's alone.
+    static var systemsInThePose: [(system: String, fileExtension: String)] {
+        prefersLargerScreens ? [("ds", "nds")] : [("ds", "nds"), ("gba", "gba")]
     }
 
     /// Measurements of all states, written by `test99Metrics`.
@@ -47,10 +79,12 @@ final class ScreenshotTour: GlassUITestCase {
         try XCTSkipUnless(variants.contains(Self.variant), "Not part of the variant \(Self.variant)")
     }
 
-    /// Skips a state of the pose part outside it.
-    func onlyInAPose() throws {
+    /// Skips a state of the pose part outside it; with `forTheSlimCase`
+    /// false also in the pass of the slim case, which runs the DS only.
+    func onlyInAPose(forTheSlimCase: Bool = true) throws {
         try XCTSkipIf(Self.variant.isEmpty, "Runs through Scripts/screenshot-tour.sh")
         try XCTSkipIf(Self.pose.isEmpty, "Runs in the pose part of Scripts/screenshot-tour.sh")
+        try XCTSkipIf(!forTheSlimCase && Self.prefersLargerScreens, "The slim case runs the DS only")
     }
 
     @MainActor
@@ -91,14 +125,56 @@ final class ScreenshotTour: GlassUITestCase {
         String(format: "%.2f", value)
     }
 
+    // MARK: The keys of the console
+
+    /// The keys of a system as the tour measures them: X and Y on the DS,
+    /// and the menu button with Select and Start.
+    static func keyNames(system: String) -> [String] {
+        system == "ds"
+            ? ["A", "B", "X", "Y", "L", "R", "Pad", "Select", "Start", "Menu"]
+            : ["A", "B", "L", "R", "Pad", "Select", "Start", "Menu"]
+    }
+
+    /// The small buttons with their names on the case.
+    static let knobs: Set<String> = ["Select", "Start", "Menu"]
+
+    /// A key as the tour measures it: its frame in points of the window,
+    /// the share of its real size that the page draws it at (below 1 on a
+    /// gallery page scaled down), and whether the frame is what the layout
+    /// gives the key (the markers of the gallery, the menu button) or what
+    /// the key draws (the keys of a game, whose accessibility frame is the
+    /// drawing: a cap with its well around it, a small button with its name).
+    struct Key {
+        let name: String
+        let frame: CGRect
+        var unit: CGFloat = 1
+        var isCell = true
+    }
+
     /// The keys of the running game where the game draws them: the frame of
-    /// each key's accessibility element (`touch-button-<label>`, `touch-pad`).
+    /// each key's accessibility element (`touch-button-<label>`, `touch-pad`,
+    /// and `pause` for the menu button, which takes its touches on 44 pt).
     @MainActor
-    static func keys(in app: XCUIApplication, labels: [String] = ["A", "B", "L", "R", "Pad", "Select", "Start"])
-        -> [(String, CGRect)] {
-        labels.map { label in
-            let identifier = label == "Pad" ? "touch-pad" : "touch-button-\(label)"
-            return (label, app.descendants(matching: .any)[identifier].firstMatch.frame)
+    static func keys(in app: XCUIApplication, system: String) -> [Key] {
+        keyNames(system: system).map { name in
+            let element = switch name {
+            case "Pad": app.descendants(matching: .any)["touch-pad"].firstMatch
+            case "Menu": app.buttons["pause"]
+            default: app.descendants(matching: .any)["touch-button-\(name)"].firstMatch
+            }
+            return Key(name: name, frame: element.frame, isCell: name == "Menu" || name == "Pad")
+        }
+    }
+
+    /// The keys of a row of a gallery page, from its markers
+    /// (`gallery-key-<label>-<row>`), whose value is the scale of the panel.
+    @MainActor
+    static func galleryKeys(in app: XCUIApplication, row: String, names: [String]) -> [Key] {
+        names.map { name in
+            let marker = app.descendants(matching: .any)["gallery-key-\(name)-\(row)"]
+            XCTAssertTrue(marker.waitForExistence(timeout: 5), "No marker for \(name) in \(row)")
+            let unit = (marker.value as? String).flatMap(Double.init).map { CGFloat($0) } ?? 1
+            return Key(name: name, frame: marker.frame, unit: unit)
         }
     }
 
@@ -106,39 +182,193 @@ final class ScreenshotTour: GlassUITestCase {
         CGRect(x: frame.minX * scale, y: frame.minY * scale, width: frame.width * scale, height: frame.height * scale)
     }
 
-    /// Measures every key of a panel: the label against its plate (limit 3,
-    /// Select and Start 4.5) and the edge against what lies around it (limit
-    /// 3 with Increase Contrast, which promises a border, where the keys have
-    /// their real size; a gallery scaled down thins the 1 pt border). With
-    /// Increase Contrast every key carries the same edge, over the picture
-    /// and over the deck: none measures less than half of the strongest. The
-    /// lighter edge the deck once had measured a third of it.
+    /// The names of Select, Start and the menu button stand beside them,
+    /// in a column, where Select and Start share their left edge.
+    static func namesStandBeside(_ keys: [Key]) -> Bool {
+        guard let select = keys.first(where: { $0.name == "Select" })?.frame,
+              let start = keys.first(where: { $0.name == "Start" })?.frame else { return false }
+        return abs(select.minX - start.minX) < 1 && abs(select.midY - start.midY) >= 1
+    }
+
+    /// The measures of `ConsoleKnob` and `ConsoleSkin`, in points: the
+    /// button, the smaller one in a row too low for it, the space to its
+    /// name below or beside it, and the widest name.
+    static let knob: CGFloat = 24
+    static let smallKnob: CGFloat = 18
+    static let nameBelow: CGFloat = 3
+    static let nameBeside: CGFloat = 7
+    static let widestName: CGFloat = 49
+    /// The height of a line of the names, 11.5 pt rounded and semibold, as
+    /// the accessibility frames of Select and Start show it: 42 pt for the
+    /// well of the button, the button, the space and the name.
+    static let nameHeight: CGFloat = 13.8
+    /// The well around a small button, which its accessibility frame holds.
+    static let knobWell: CGFloat = 2 * 0.6
+
+    /// Where a small button draws its cap and its name inside `key`, as
+    /// `ConsoleKnob` lays them out: below, the cap over the name in the
+    /// middle of the cell; beside, the cap at the left with the name right
+    /// of it, the pair in the middle of a column up to 100 pt wide. The box
+    /// of a name below is 52 pt wide, the widest name with a little case.
+    static func knobParts(of key: Key, beside: Bool) -> (cap: CGRect, name: CGRect) {
+        let u = key.unit
+        let cell = key.frame
+        if beside {
+            // A cell has the pair in its middle; what the button draws
+            // begins with the well of its cap.
+            let lead = key.isCell ? max(2, (cell.width / u - (knob + nameBeside + widestName)) / 2) : knobWell
+            let cap = CGRect(x: cell.minX + lead * u, y: cell.midY - knob / 2 * u, width: knob * u, height: knob * u)
+            let name = CGRect(x: cap.maxX + nameBeside * u, y: cell.midY - nameHeight / 2 * u,
+                              width: widestName * u, height: nameHeight * u)
+            return (cap, name)
+        }
+        let isLow = key.isCell ? cell.height / u < knob + nameBelow + 11.5 * 1.25
+            : cell.height / u < knobWell + knob + nameBelow + nameHeight - 1
+        let diameter = isLow ? smallKnob : knob
+        let space = isLow ? 1 : nameBelow
+        let top = key.isCell ? cell.midY - (diameter + space + nameHeight) / 2 * u : cell.minY + knobWell * u
+        let cap = CGRect(x: cell.midX - diameter / 2 * u, y: top, width: diameter * u, height: diameter * u)
+        let name = CGRect(x: cell.midX - 26 * u, y: top + (diameter + space) * u, width: 52 * u, height: nameHeight * u)
+        return (cap, name)
+    }
+
+    /// Where the cross of the direction pad lies in its dish (0.88 of it),
+    /// and the share of its height above and below the middle where the end
+    /// of an arm runs straight (its corners take 0.3 of the arm's width).
+    static func padCross(of dish: CGRect) -> CGRect {
+        dish.insetBy(dx: dish.width * 0.06, dy: dish.height * 0.06)
+    }
+
+    static let straightArmEnd: CGFloat = 0.06
+
+    /// How far the ring of Differentiate Without Color lies inside the cap
+    /// of `key`, in points as drawn: 3 pt times the relief of the key, which
+    /// is 0.6 on a small button and 0.5 on L or R lower than 30 pt.
+    static func ringInset(of key: Key) -> CGFloat {
+        if knobs.contains(key.name) { return 3 * 0.6 }
+        if ["L", "R"].contains(key.name), key.frame.height / key.unit < 30 { return 3 * 0.5 }
+        return 3
+    }
+
+    /// What a key carries and what holds its edge: the letter on its cap,
+    /// the up arrow on the pad, the name of a small button on the case; the
+    /// cap, the cross, the cap of a small button. In pixels.
+    static func parts(of key: Key, beside: Bool, scale: CGFloat) -> (writing: CGRect, edge: CGRect, rows: CGFloat) {
+        let frame = pixelRect(key.frame, scale: scale)
+        if key.name == "Pad" {
+            return (frame, padCross(of: frame), straightArmEnd)
+        }
+        if knobs.contains(key.name) {
+            let parts = knobParts(of: key, beside: beside)
+            return (pixelRect(parts.name, scale: scale), pixelRect(parts.cap, scale: scale), 0.15)
+        }
+        let cap = pixelRect(capFrame(of: key), scale: scale)
+        return (cap, cap, 0.15)
+    }
+
+    /// The cap of a round key or of L and R. A key of a game reports what
+    /// it draws: the cap with the well of 2 pt around it (1 pt on L and R
+    /// at the ends of the slim hinge) and the light on the edge of the well
+    /// 1 pt below it (`KeyCap`).
+    static func capFrame(of key: Key) -> CGRect {
+        guard !key.isCell else { return key.frame }
+        let well = 2 * (["L", "R"].contains(key.name) && key.frame.height - 5 < 30 ? 0.5 : 1)
+        return CGRect(x: key.frame.minX + well, y: key.frame.minY + well,
+                      width: key.frame.width - 2 * well, height: key.frame.height - 2 * well - 1)
+    }
+
+    /// Measures every key of the console: the letters and the arrows
+    /// against their cap (limit 3), the names of the small buttons as text
+    /// against the case (limit 4.5), and the edge of each cap against what
+    /// lies around it, its well and the case (limit 3 with Increase
+    /// Contrast, which promises a border, where the keys have their real
+    /// size; a gallery scaled down thins the 1.5 pt border). With Increase
+    /// Contrast every key carries the same edge: no key measures less than
+    /// half of the strongest key of its kind (face buttons, L and R, small
+    /// buttons).
     @MainActor
-    func measureKeys(_ keys: [(String, CGRect)], named name: String, in pixels: Pixels, scale: CGFloat,
-                     checksEdges: Bool) {
+    func measureKeys(_ keys: [Key], named name: String, in pixels: Pixels, scale: CGFloat, checksEdges: Bool) {
         var labels = "contrast \(name)"
         var edges = "edge \(name)"
         var measured: [(key: String, edge: Double)] = []
-        for (key, frame) in keys {
-            let rect = Self.pixelRect(frame, scale: scale)
-            let label = key == "Pad" ? pixels.padArrowContrast(in: rect) : pixels.labelContrast(in: rect)
-            let edge = pixels.edgeContrast(in: rect, scale: scale)
-            measured.append((key, edge))
-            labels += " \(key) \(Self.format(label))"
-            edges += " \(key) \(Self.format(edge))"
-            XCTAssertGreaterThanOrEqual(label, ["Select", "Start"].contains(key) ? 4.5 : 3, "label of \(key), \(name)")
+        let beside = Self.namesStandBeside(keys)
+        for key in keys {
+            let parts = Self.parts(of: key, beside: beside, scale: scale)
+            let label = switch key.name {
+            case "Pad": pixels.padArrowContrast(in: parts.writing)
+            case _ where Self.knobs.contains(key.name): pixels.inscriptionContrast(in: parts.writing)
+            default: pixels.labelContrast(in: parts.writing, writing: .either)
+            }
+            let edge = pixels.edgeContrast(in: parts.edge, scale: scale * key.unit, rows: parts.rows)
+            measured.append((key.name, edge))
+            labels += " \(key.name) \(Self.format(label))"
+            edges += " \(key.name) \(Self.format(edge))"
+            XCTAssertGreaterThanOrEqual(label, Self.knobs.contains(key.name) ? 4.5 : 3, "label of \(key.name), \(name)")
             if checksEdges, Self.variant == "contrast" {
-                XCTAssertGreaterThanOrEqual(edge, 3, "edge of \(key), \(name)")
+                XCTAssertGreaterThanOrEqual(edge, 3, "edge of \(key.name), \(name)")
             }
         }
-        if checksEdges, Self.variant == "contrast", let strongest = measured.map(\.edge).max() {
-            for (key, edge) in measured {
-                XCTAssertGreaterThanOrEqual(edge, strongest / 2,
-                                            "the edge of \(key) is lighter than that of its neighbours, \(name)")
+        // Keys of one kind among themselves, which stand in the same
+        // surroundings: the face buttons in their wells in the case, L and
+        // R in the case or at the ends of a hinge between dark bezels, the
+        // small buttons in shallow wells with the case around them.
+        if checksEdges, Self.variant == "contrast" {
+            let kinds: [Set<String>] = [["A", "B", "X", "Y"], ["L", "R"], Self.knobs]
+            for group in kinds.map({ kind in measured.filter { kind.contains($0.key) } }) {
+                guard let strongest = group.map(\.edge).max() else { continue }
+                for (key, edge) in group {
+                    XCTAssertGreaterThanOrEqual(edge, strongest / 2,
+                                                "the edge of \(key) is lighter than that of its neighbours, \(name)")
+                }
             }
         }
         record(labels)
         record(edges)
+        record("frames \(name)" + keys.map { " \($0.name) \(Self.format($0.frame.width))x\(Self.format($0.frame.height))" }.joined())
+    }
+
+    /// The menu button is a cell of the row or the column of Select and
+    /// Start and takes touches on at least 44 pt each way: in a row its cell
+    /// spans Select and Start from top to bottom and is at most 60 pt wide,
+    /// in a column they begin in it and it is at most 100 pt wide. Select
+    /// and Start report what they draw, the button with its name; the menu
+    /// button its cell.
+    @MainActor
+    func checkTheMenuCell(in app: XCUIApplication, named name: String) {
+        let pause = app.buttons["pause"].frame
+        let select = app.descendants(matching: .any)["touch-button-Select"].firstMatch.frame
+        let start = app.descendants(matching: .any)["touch-button-Start"].firstMatch.frame
+        let inColumn = abs(select.minX - start.minX) < 1 && abs(select.midY - start.midY) >= 1
+        record("\(name): menu \(pause) in the \(inColumn ? "column" : "row") of Select \(select) and Start \(start)")
+        XCTAssertGreaterThanOrEqual(min(pause.width, pause.height), 44 - 0.01, "\(name): the menu button \(pause) is below 44 pt")
+        // In a column, Select and Start begin in the left half of the cell
+        // (their names may reach a point beyond it); in a row they lie
+        // within its height.
+        let spans = inColumn
+            ? [select, start].allSatisfy { pause.minX <= $0.minX + 0.5 && $0.minX <= pause.midX }
+            : [select, start].allSatisfy { pause.minY <= $0.minY + 0.5 && $0.maxY <= pause.maxY + 0.5 }
+        XCTAssertTrue(spans, "\(name): the menu button \(pause) is no cell of the \(inColumn ? "column" : "row") of \(select) and \(start)")
+        XCTAssertLessThanOrEqual(pause.width, inColumn ? 100.5 : 60.5, "\(name): the menu button is wider than its cell")
+    }
+
+    /// Select, Start and the menu button keep 24 pt from the pad and the
+    /// face buttons in every direction (ADR 0006).
+    @MainActor
+    func checkTheMenuKeepsClear(of keys: [Key], named name: String) {
+        func distance(_ a: CGRect, _ b: CGRect) -> CGFloat {
+            hypot(max(0, a.minX - b.maxX, b.minX - a.maxX), max(0, a.minY - b.maxY, b.minY - a.maxY))
+        }
+        let menu = keys.filter { Self.knobs.contains($0.name) }
+        let others = keys.filter { ["Pad", "A", "B", "X", "Y"].contains($0.name) }
+        var closest: (CGFloat, String) = (.infinity, "–")
+        for part in menu {
+            for other in others {
+                let gap = distance(part.frame, other.frame)
+                if gap < closest.0 { closest = (gap, "\(part.name)–\(other.name)") }
+                XCTAssertGreaterThanOrEqual(gap, 24 - 0.5, "\(name): \(part.name) only \(gap) pt from \(other.name)")
+            }
+        }
+        record("\(name): menu to pad and face buttons at least \(Self.format(closest.0)) pt (\(closest.1))")
     }
 
     /// The text contrast of a prominent button on the accent, in pixels.
@@ -280,14 +510,11 @@ final class ScreenshotTour: GlassUITestCase {
         try only("light", "dark", "contrast")
         let app = XCUIApplication()
         try launchTheSelftest(app)
-        // The pause button takes touches on 44 × 44 pt, also where it draws
-        // the 36 pt of the menu row of M2.
-        let pause = app.buttons["pause"]
-        record("pause upright \(Int(pause.frame.width)) x \(Int(pause.frame.height)) at \(pause.frame.origin)")
-        XCTAssertTrue((44...52).contains(pause.frame.width) && (44...52).contains(pause.frame.height))
-        // The keys over the deck at full size, where the game shows them.
+        // The menu button is a small button of the row below the picture.
+        checkTheMenuCell(in: app, named: "game upright")
+        // The keys in the case at full size, where the game shows them.
         let (pixels, scale) = try pixels(of: app)
-        measureKeys(Self.keys(in: app), named: "game-upright-deck", in: pixels, scale: scale, checksEdges: true)
+        measureKeys(Self.keys(in: app, system: "gba"), named: "game-upright", in: pixels, scale: scale, checksEdges: true)
         shoot(app, 8, "game-upright")
     }
 
@@ -329,8 +556,10 @@ final class ScreenshotTour: GlassUITestCase {
 
     /// The gallery page with the game in the geometry of the closed Duo
     /// sideways, turned by 90 degrees, so that one page shows every part and
-    /// overlay at once; the real game sideways comes in the pose part (states
-    /// 30 and 31, `closed-landscape`).
+    /// overlay at once: the picture 5 times in the middle, pad and face
+    /// buttons in the grips beside it, L and R above them, the row with the
+    /// menu button below the picture. The real game sideways comes in the
+    /// pose part (states 30 and 31, `closed-landscape`).
     @MainActor
     func test11GameLandscape() throws {
         try only("light", "contrast")
@@ -347,15 +576,14 @@ final class ScreenshotTour: GlassUITestCase {
     /// itself where the window stays upright.
     @MainActor
     func test12PauseLandscape() throws {
-        try onlyInAPose()
+        try onlyInAPose(forTheSlimCase: false)
         try XCTSkipUnless(Self.pose == "closed-landscape", "Runs in the pose closed-landscape")
         let app = XCUIApplication()
         try launchTheSelftest(app)
         let window = app.gameWindow.frame
         try XCTSkipUnless(window.width > window.height, "The window does not turn sideways on this device")
         let pause = app.buttons["pause"]
-        record("pause sideways \(Int(pause.frame.width)) x \(Int(pause.frame.height)) at \(pause.frame.origin)")
-        XCTAssertTrue((44...52).contains(pause.frame.width) && (44...52).contains(pause.frame.height))
+        checkTheMenuCell(in: app, named: "pause sideways")
         let r = app.descendants(matching: .any)["touch-button-R"].firstMatch.frame
         record("pause sideways ∩ R \(pause.frame.intersection(r).isNull ? "none" : "\(pause.frame.intersection(r))")")
         XCTAssertFalse(pause.frame.intersects(r), "sideways the pause button lies on R")
@@ -373,75 +601,88 @@ final class ScreenshotTour: GlassUITestCase {
 
     // MARK: Gallery of the controls
 
-    /// The controls on the deck at rest and pressed; the plates over the
-    /// deck are lighter than over the picture.
+    /// The keys of the closed GBA in the case at rest and pressed. The
+    /// panels are scaled down; the edges are recorded, page 08 checks them.
     @MainActor
     func test13TouchUprightStates() throws {
         try only("light", "contrast")
         let app = launchGallery("touch-upright")
         let (pixels, scale) = try pixels(of: app)
         for row in ["rest", "a-up"] {
-            let keys = ["A", "B", "L", "R", "Pad", "Select", "Start"].map { key in
-                (key, app.descendants(matching: .any)["gallery-key-\(key)-\(row)"].frame)
-            }
-            // The panels are scaled to 0.58; the edges are recorded, page 08 checks them.
-            measureKeys(keys, named: "deck-\(row)", in: pixels, scale: scale, checksEdges: false)
+            let keys = Self.galleryKeys(in: app, row: row, names: Self.keyNames(system: "gba"))
+            measureKeys(keys, named: "case-\(row)", in: pixels, scale: scale, checksEdges: false)
         }
         shoot(app, 13, "touch-upright-states")
     }
 
-    /// The controls sideways over white, the test pattern and black, at rest
-    /// and pressed, with the contrast of each label against its plate. The
-    /// page shows the worst case, every control over the picture, which no
-    /// pose of the Duo gives: sideways the closed Duo keeps B, A, Select and
-    /// Start beside the picture (state 31, `closed-landscape`).
+    /// What is left in glass over the picture: the menu button of the GBA
+    /// sideways with a controller, where no corner of the case is free,
+    /// over white, the test pattern and black, with the contrast of its
+    /// symbol against the plate. No pose of the Duo puts a key over the
+    /// picture; sideways the closed Duo keeps every key in the grips beside
+    /// it (state 31, `closed-landscape`). The pressed look of the button is
+    /// the system's interactive glass and is not drawn here.
     @MainActor
-    func test14TouchLandscapeBackdrops() throws {
+    func test14GlassOverThePicture() throws {
         try only("light", "contrast")
-        for pressed in [false, true] {
-            let app = launchGallery("touch-landscape", pressed ? ["-ArcfoldGalleryPressed", "YES"] : [])
-            let state = pressed ? "pressed" : "rest"
-            shoot(app, 14, "touch-landscape-backdrops-\(state)")
-            let (pixels, scale) = try pixels(of: app)
-            for backdrop in ["white", "pattern", "black"] {
-                var line = "contrast \(backdrop)-\(state)"
-                var edges = "edge \(backdrop)-\(state)"
-                for key in ["A", "B", "L", "R", "Pad", "Select", "Start"] {
-                    let element = app.descendants(matching: .any)["gallery-key-\(key)-\(backdrop)-\(state)"]
-                    XCTAssertTrue(element.waitForExistence(timeout: 5), "No marker for \(key) over \(backdrop)")
-                    let rect = Self.pixelRect(element.frame, scale: scale)
-                    let contrast = key == "Pad" ? pixels.padArrowContrast(in: rect) : pixels.labelContrast(in: rect)
-                    line += " \(key) \(Self.format(contrast))"
-                    if backdrop != "black" {
-                        let limit = ["Select", "Start"].contains(key) ? 4.5 : 3.0
-                        XCTAssertGreaterThanOrEqual(contrast, limit, "\(key) over \(backdrop), \(state)")
-                    }
-                    // The boundary of a resting key, recorded only: the panels are
-                    // scaled to 0.69, which thins the border (page 08 checks it).
-                    if !pressed {
-                        edges += " \(key) \(Self.format(pixels.edgeContrast(in: rect, scale: scale)))"
-                    }
-                }
-                record(line)
-                if !pressed {
-                    record(edges)
-                }
+        let app = launchGallery("glass-over-picture")
+        shoot(app, 14, "glass-over-picture")
+        let (pixels, scale) = try pixels(of: app)
+        var line = "contrast glass menu"
+        var edges = "edge glass menu"
+        for backdrop in ["white", "pattern", "black"] {
+            let marker = app.descendants(matching: .any)["gallery-key-Menu-\(backdrop)"]
+            XCTAssertTrue(marker.waitForExistence(timeout: 5), "No marker for the menu button over \(backdrop)")
+            let circle = Self.pixelRect(Self.circle(in: marker.frame), scale: scale)
+            let contrast = pixels.labelContrast(in: circle)
+            line += " \(backdrop) \(Self.format(contrast))"
+            edges += " \(backdrop) \(Self.format(pixels.edgeContrast(in: circle, scale: scale)))"
+            if backdrop != "black" {
+                XCTAssertGreaterThanOrEqual(contrast, 3, "the menu button over \(backdrop)")
             }
-            app.terminate()
         }
+        record(line)
+        record(edges)
     }
 
+    /// The circle a glass button draws in `frame`.
+    static func circle(in frame: CGRect) -> CGRect {
+        let side = min(frame.width, frame.height)
+        return CGRect(x: frame.midX - side / 2, y: frame.midY - side / 2, width: side, height: side)
+    }
+
+    /// The same page flat (`-ArcfoldControlSurface flat`), the look while
+    /// the system prefers reduced resource usage: the same plate without
+    /// the glass, so the symbol keeps its contrast over a light picture.
     @MainActor
-    func test15TouchFlat() throws {
+    func test15GlassFlat() throws {
         try only("light")
-        let app = launchGallery("touch-upright", ["-ArcfoldControlSurface", "flat"])
-        shoot(app, 15, "touch-flat")
+        let app = launchGallery("glass-over-picture", ["-ArcfoldControlSurface", "flat"])
+        shoot(app, 15, "glass-flat")
+        let (pixels, scale) = try pixels(of: app)
+        var line = "contrast flat menu"
+        for backdrop in ["white", "pattern", "black"] {
+            let marker = app.descendants(matching: .any)["gallery-key-Menu-\(backdrop)"]
+            XCTAssertTrue(marker.waitForExistence(timeout: 5), "No marker for the menu button over \(backdrop)")
+            let contrast = pixels.labelContrast(in: Self.pixelRect(Self.circle(in: marker.frame), scale: scale))
+            line += " \(backdrop) \(Self.format(contrast))"
+            if backdrop != "black" {
+                XCTAssertGreaterThanOrEqual(contrast, 3, "the flat menu button over \(backdrop)")
+            }
+        }
+        record(line)
     }
 
+    /// The DS in the tabletop pose as the Simulator measures it, below the
+    /// fold: the touch screen with the keys beside and below it, A, Up and
+    /// X pressed.
     @MainActor
     func test16TouchInner() throws {
-        try only("light")
+        try only("light", "contrast")
         let app = launchGallery("touch-inner")
+        let (pixels, scale) = try pixels(of: app)
+        measureKeys(Self.galleryKeys(in: app, row: "inner", names: Self.keyNames(system: "ds")), named: "case-inner",
+                    in: pixels, scale: scale, checksEdges: false)
         shoot(app, 16, "touch-inner")
     }
 
@@ -452,7 +693,10 @@ final class ScreenshotTour: GlassUITestCase {
     func test17Notices() throws {
         try only("light", "contrast", "large")
         let app = launchGallery("notices")
-        let notices = app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH 'Another game is already running'"))
+        // A notice is one element as large as its glass (`status-notice`);
+        // the text inside it reads the same words.
+        let notices = app.staticTexts.matching(identifier: "status-notice")
+            .matching(NSPredicate(format: "label BEGINSWITH 'Another game is already running'"))
         XCTAssertEqual(notices.count, 2, "one notice per panel")
         for (index, notice) in notices.allElementsBoundByIndex.enumerated() {
             record("notice \(index) \(notice.frame)")
@@ -479,23 +723,27 @@ final class ScreenshotTour: GlassUITestCase {
         shoot(app, 18, "failure")
     }
 
-    /// Pressed with Differentiate Without Color: a ring inside each pressed
-    /// button, drawn as content of the glass, upright and in the worst case
-    /// sideways.
+    /// Pressed with Differentiate Without Color: a ring inside the cap of
+    /// each pressed key, 3 pt in on a key, less on a small button and on L
+    /// and R at the ends of the slim hinge (`KeyCap`); measured where it
+    /// lies, on the cap of a small button too, not on its cell. The closed
+    /// GBA, the closed DS with its hinge and the slim case.
     @MainActor
     func test19TouchDifferentiate() throws {
         try only("light", "contrast")
         let app = launchGallery("touch-differentiate")
         let (pixels, scale) = try pixels(of: app)
-        for (row, keys) in [("differentiate-upright", ["A", "Start"]),
-                            ("differentiate-sideways", ["A", "B", "L", "R", "Select", "Start"])] {
+        let ds = ["A", "B", "X", "Y", "L", "R", "Select", "Start"]
+        for (row, names) in [("differentiate-upright", ["A", "Start"]), ("differentiate-ds", ds), ("differentiate-slim", ds)] {
             var line = "ring \(row)"
-            for key in keys {
-                let element = app.descendants(matching: .any)["gallery-key-\(key)-\(row)"]
-                XCTAssertTrue(element.waitForExistence(timeout: 5), "No marker for \(key) in \(row)")
-                let contrast = pixels.ringContrast(in: Self.pixelRect(element.frame, scale: scale), scale: scale)
-                line += " \(key) \(Self.format(contrast))"
-                XCTAssertGreaterThanOrEqual(contrast, 3, "ring of \(key), \(row)")
+            let keys = Self.galleryKeys(in: app, row: row, names: names + ["Select", "Start"].filter { !names.contains($0) })
+            let beside = Self.namesStandBeside(keys)
+            for key in keys where names.contains(key.name) {
+                let cap = Self.knobs.contains(key.name) ? Self.knobParts(of: key, beside: beside).cap : key.frame
+                let contrast = pixels.ringContrast(in: Self.pixelRect(cap, scale: scale), scale: scale * key.unit,
+                                                   inset: Self.ringInset(of: key))
+                line += " \(key.name) \(Self.format(contrast))"
+                XCTAssertGreaterThanOrEqual(contrast, 3, "ring of \(key.name), \(row)")
             }
             record(line)
         }
@@ -511,6 +759,22 @@ final class ScreenshotTour: GlassUITestCase {
         record("audit \((testRun?.failureCount ?? 0) == 0 ? "passed" : "failed")")
     }
 
+    /// The closed DS in both cases: with its own hinge between the screens
+    /// (the vertical bar on top) and slim (`-LargerScreens YES`, the bar at
+    /// the side), every key with X, Y and the menu button. The panels are
+    /// scaled down; the edges are recorded, the pose part checks them.
+    @MainActor
+    func test21TouchClosedDS() throws {
+        try only("light", "contrast")
+        let app = launchGallery("touch-closed-ds")
+        let (pixels, scale) = try pixels(of: app)
+        for row in ["hinge", "slim"] {
+            measureKeys(Self.galleryKeys(in: app, row: row, names: Self.keyNames(system: "ds")), named: "case-ds-\(row)",
+                        in: pixels, scale: scale, checksEdges: false)
+        }
+        shoot(app, 21, "touch-closed-ds")
+    }
+
     // MARK: Real poses
 
     @MainActor
@@ -520,58 +784,63 @@ final class ScreenshotTour: GlassUITestCase {
 
     @MainActor
     func test31GBAInThePose() throws {
+        try onlyInAPose(forTheSlimCase: false)
         try shootTheGame(fileExtension: "gba", system: "gba", number: 31)
     }
 
     /// A game in the real pose the script set: the layout the overlay
-    /// reports, the keys and the pause button against each other, a
+    /// reports, the menu button as a cell of its row or column, the keys and
+    /// the menu button against each other, the keys of the console, a
     /// screenshot of the display it runs on, then the pause sheet out of the
-    /// pause button with its margins and a screenshot of it, and Resume.
+    /// menu button with its margins and a screenshot of it, and Resume.
     @MainActor
     private func shootTheGame(fileExtension: String, system: String, number: Int) throws {
         try onlyInAPose()
         let app = XCUIApplication()
-        app.launchArguments = ["-ArcfoldAutorun", try fixturePath("selftest", fileExtension)]
+        app.launchArguments = ["-ArcfoldAutorun", try fixturePath("selftest", fileExtension)] + Self.gameArguments
         app.launch()
         let overlay = overlayWithLayout(in: app)
         XCTAssertTrue(waitUntil(overlay, framesBeyond: 120), "The game does not run")
         Thread.sleep(forTimeInterval: 1)
         let values = OverlayValues(overlay)
+        let place = Self.place
         let expected = Self.expectedPosture[Self.pose]
         if let expected {
-            XCTAssertEqual(values.posture, expected, "\(Self.pose): \(values.pairs)")
+            XCTAssertEqual(values.posture, expected, "\(place): \(values.pairs)")
         }
-        record("pose \(Self.pose) \(system): posture \(values.posture ?? "–") view \(values.pairs["view"] ?? "–") "
+        record("pose \(place) \(system): posture \(values.posture ?? "–") view \(values.pairs["view"] ?? "–") "
             + "safe \(values.pairs["safe"] ?? "–") fold \(values.pairs["fold"] ?? "–") screens \(values.pairs["screens"] ?? "–")")
         let pause = app.buttons["pause"]
         XCTAssertTrue(pause.waitForExistence(timeout: 5))
-        XCTAssertTrue((44...52).contains(pause.frame.width) && (44...52).contains(pause.frame.height), "pause \(pause.frame)")
-        XCTAssertGreaterThanOrEqual(pause.frame.minY, 64, "the pause button lies in the top edge guard")
-        let overlapping = Self.keys(in: app).filter { $0.1.intersects(pause.frame.insetBy(dx: 4, dy: 4)) }.map(\.0)
-        record("pose \(Self.pose) \(system): pause \(pause.frame) keys under it \(overlapping.isEmpty ? "none" : overlapping.joined(separator: ","))")
-        XCTAssertTrue(overlapping.isEmpty, "\(Self.pose) \(system): the pause button lies on \(overlapping)")
+        checkTheMenuCell(in: app, named: "pose \(place) \(system)")
+        XCTAssertGreaterThanOrEqual(pause.frame.minY, 64, "the menu button lies in the top edge guard")
+        let keys = Self.keys(in: app, system: system)
+        let overlapping = keys.filter { $0.name != "Menu" && $0.frame.intersects(pause.frame.insetBy(dx: 4, dy: 4)) }.map(\.name)
+        record("pose \(place) \(system): menu \(pause.frame) keys under it \(overlapping.isEmpty ? "none" : overlapping.joined(separator: ","))")
+        XCTAssertTrue(overlapping.isEmpty, "\(place) \(system): the menu button lies on \(overlapping)")
+        checkTheMenuKeepsClear(of: keys, named: "pose \(place) \(system)")
         let (pixels, scale) = try pixels(of: app)
-        measureKeys(Self.keys(in: app), named: "\(Self.pose)-\(system)", in: pixels, scale: scale, checksEdges: true)
-        shoot(app, number, "\(Self.pose)-\(system)")
+        measureKeys(keys, named: "\(place)-\(system)", in: pixels, scale: scale, checksEdges: true)
+        shoot(app, number, "\(place)-\(system)")
 
         pause.tap()
         let resume = app.buttons["resume"]
-        XCTAssertTrue(resume.waitForExistence(timeout: 5), "\(Self.pose): the pause sheet did not open")
+        XCTAssertTrue(resume.waitForExistence(timeout: 5), "\(place): the pause sheet did not open")
         Thread.sleep(forTimeInterval: 1.5)
         let sheet = app.descendants(matching: .any)["pause-menu"].firstMatch
-        record("pose \(Self.pose) \(system): sheet \(sheet.frame)")
+        record("pose \(place) \(system): sheet \(sheet.frame)")
         // Along the axis the button is long in, the content sits in the middle of the sheet.
         let margins = resume.frame.width >= resume.frame.height
             ? (resume.frame.minX - sheet.frame.minX, sheet.frame.maxX - resume.frame.maxX)
             : (resume.frame.minY - sheet.frame.minY, sheet.frame.maxY - resume.frame.maxY)
-        record("pose \(Self.pose) \(system): sheet margins \(Self.format(margins.0)) \(Self.format(margins.1))")
-        XCTAssertEqual(margins.0, margins.1, accuracy: 2, "\(Self.pose) \(system): the content of the sheet sits off centre")
-        measureTheSheetBelowQuit(in: app, named: "pose \(Self.pose) \(system)")
-        try measureAccentButton(resume, named: "resume-\(Self.pose)-\(system)", in: app)
-        shoot(app, number, "\(Self.pose)-\(system)-sheet")
+        record("pose \(place) \(system): sheet margins \(Self.format(margins.0)) \(Self.format(margins.1))")
+        XCTAssertEqual(margins.0, margins.1, accuracy: 2, "\(place) \(system): the content of the sheet sits off centre")
+        measureTheSheetBelowQuit(in: app, named: "pose \(place) \(system)")
+        try measureAccentButton(resume, named: "resume-\(place)-\(system)", in: app)
+        shoot(app, number, "\(place)-\(system)-sheet")
         resume.tap()
-        XCTAssertTrue(waitUntilGone(resume), "\(Self.pose): the sheet stayed")
-        XCTAssertTrue(waitUntil(overlay, hasValue: "paused=false;"), "\(Self.pose): Resume did not resume")
+        XCTAssertTrue(waitUntilGone(resume), "\(place): the sheet stayed")
+        XCTAssertTrue(waitUntil(overlay, hasValue: "paused=false;"), "\(place): Resume did not resume")
     }
 
     // MARK: Real poses: the rest of the app
@@ -580,7 +849,7 @@ final class ScreenshotTour: GlassUITestCase {
     /// title, and the first row with its names stands in the window.
     @MainActor
     func test32LibraryInThePose() throws {
-        try onlyInAPose()
+        try onlyInAPose(forTheSlimCase: false)
         let app = launchGallery("library-shelf")
         XCTAssertTrue(app.buttons["game-gba-Arc-Light"].waitForExistence(timeout: 10))
         let window = app.gameWindow.frame
@@ -599,7 +868,7 @@ final class ScreenshotTour: GlassUITestCase {
 
     @MainActor
     func test33MenuInThePose() throws {
-        try onlyInAPose()
+        try onlyInAPose(forTheSlimCase: false)
         let app = XCUIApplication()
         app.launchArguments = ["-ArcfoldImport", try selftestPath()]
         app.launch()
@@ -613,7 +882,7 @@ final class ScreenshotTour: GlassUITestCase {
 
     @MainActor
     func test34SearchInThePose() throws {
-        try onlyInAPose()
+        try onlyInAPose(forTheSlimCase: false)
         let app = XCUIApplication()
         app.launchArguments = ["-ArcfoldImport", try selftestPath()]
         app.launch()
@@ -631,7 +900,7 @@ final class ScreenshotTour: GlassUITestCase {
 
     @MainActor
     func test35LicensesInThePose() throws {
-        try onlyInAPose()
+        try onlyInAPose(forTheSlimCase: false)
         let app = XCUIApplication()
         app.launch()
         let more = app.buttons["info-menu"]
@@ -645,41 +914,51 @@ final class ScreenshotTour: GlassUITestCase {
 
     /// A real long notice (a failed battery save, through the session's own
     /// path) with the status chip over a running game: the chip and the
-    /// notice stand in the window, do not overlap and cover no key, and the
-    /// card of the debug overlay ends above or beside them.
+    /// notice stand in the window, do not overlap and cover no key and not
+    /// the menu button, and the card of the debug overlay ends above or
+    /// beside them.
     @MainActor
     func test36NoticesInThePose() throws {
         try onlyInAPose()
-        for (system, fileExtension) in [("ds", "nds"), ("gba", "gba")] {
+        let place = Self.place
+        for (system, fileExtension) in Self.systemsInThePose {
             let app = XCUIApplication()
-            app.launchArguments = ["-ArcfoldAutorun", try fixturePath("selftest", fileExtension)]
+            app.launchArguments = ["-ArcfoldAutorun", try fixturePath("selftest", fileExtension)] + Self.gameArguments
             app.launch()
             let overlay = overlayWithLayout(in: app)
             XCTAssertTrue(waitUntil(overlay, framesBeyond: 120), "The game does not run")
             postDebugNotification("chip.show")
-            let chip = app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH 'The audio engine could not start'")).firstMatch
-            XCTAssertTrue(chip.waitForExistence(timeout: 5), "\(Self.pose) \(system): no chip")
+            // The chip and the notice as the elements that have the shape
+            // of their glass, not the texts inside them.
+            let chip = app.staticTexts.matching(identifier: "status-chip")
+                .matching(NSPredicate(format: "label BEGINSWITH 'The audio engine could not start'")).firstMatch
+            XCTAssertTrue(chip.waitForExistence(timeout: 5), "\(place) \(system): no chip")
             postDebugNotification("notice.long")
-            let notice = app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH 'The save could not be written'")).firstMatch
-            XCTAssertTrue(notice.waitForExistence(timeout: 5), "\(Self.pose) \(system): no notice")
+            let notice = app.staticTexts.matching(identifier: "status-notice")
+                .matching(NSPredicate(format: "label BEGINSWITH 'The save could not be written'")).firstMatch
+            XCTAssertTrue(notice.waitForExistence(timeout: 5), "\(place) \(system): no notice")
             // The chip moves up for the notice; read both once they rest.
+            // A notice stays four seconds: each frame is read once, and
+            // the picture is taken before the keys are read, so that a
+            // slow run finds the notice still there.
             Thread.sleep(forTimeInterval: 0.6)
+            let chipFrame = chip.frame
+            let noticeFrame = notice.frame
             let window = app.gameWindow.frame
             let card = overlay.exists ? overlay.frame : .zero
-            record("pose \(Self.pose) \(system): chip \(chip.frame) notice \(notice.frame) debug overlay \(card)")
-            XCTAssertFalse(card.insetBy(dx: -2, dy: -2).intersects(chip.frame) || card.insetBy(dx: -2, dy: -2).intersects(notice.frame),
-                           "\(Self.pose) \(system): the debug overlay \(card) lies under the chip or the notice")
-            XCTAssertFalse(chip.frame.isEmpty || notice.frame.isEmpty, "\(Self.pose) \(system): the notice went away too early")
-            XCTAssertTrue(window.insetBy(dx: -1, dy: -1).contains(chip.frame) && window.insetBy(dx: -1, dy: -1).contains(notice.frame),
-                          "\(Self.pose) \(system): the chip or the notice leaves the window \(window)")
-            XCTAssertFalse(chip.frame.insetBy(dx: -2, dy: -2).intersects(notice.frame.insetBy(dx: -2, dy: -2)),
-                           "\(Self.pose) \(system): the chip and the notice overlap")
-            var under = Self.keys(in: app).filter { $0.1.intersects(chip.frame) || $0.1.intersects(notice.frame) }.map(\.0)
-            if app.buttons["pause"].frame.intersects(notice.frame) || app.buttons["pause"].frame.intersects(chip.frame) {
-                under.append("pause")
-            }
-            XCTAssertTrue(under.isEmpty, "\(Self.pose) \(system): the chip or the notice covers \(under)")
-            shoot(app, 36, "\(Self.pose)-\(system)-notice")
+            shoot(app, 36, "\(place)-\(system)-notice")
+            record("pose \(place) \(system): chip \(chipFrame) notice \(noticeFrame) debug overlay \(card)")
+            XCTAssertFalse(card.insetBy(dx: -2, dy: -2).intersects(chipFrame) || card.insetBy(dx: -2, dy: -2).intersects(noticeFrame),
+                           "\(place) \(system): the debug overlay \(card) lies under the chip or the notice")
+            XCTAssertFalse(chipFrame.isEmpty || noticeFrame.isEmpty, "\(place) \(system): the notice went away too early")
+            XCTAssertTrue(window.insetBy(dx: -1, dy: -1).contains(chipFrame) && window.insetBy(dx: -1, dy: -1).contains(noticeFrame),
+                          "\(place) \(system): the chip or the notice leaves the window \(window)")
+            XCTAssertFalse(chipFrame.insetBy(dx: -2, dy: -2).intersects(noticeFrame.insetBy(dx: -2, dy: -2)),
+                           "\(place) \(system): the chip and the notice overlap")
+            // Every key with X, Y and the menu button.
+            let under = Self.keys(in: app, system: system).filter { $0.frame.intersects(chipFrame) || $0.frame.intersects(noticeFrame) }
+                .map(\.name)
+            XCTAssertTrue(under.isEmpty, "\(place) \(system): the chip or the notice covers \(under)")
             app.terminate()
         }
     }
@@ -688,23 +967,26 @@ final class ScreenshotTour: GlassUITestCase {
     @MainActor
     func test37FailureInThePose() throws {
         try onlyInAPose()
-        for (system, fileExtension) in [("ds", "nds"), ("gba", "gba")] {
+        let place = Self.place
+        for (system, fileExtension) in Self.systemsInThePose {
             let app = XCUIApplication()
             app.launchArguments = ["-ArcfoldAutorun", try fixturePath("selftest", fileExtension), "-ArcfoldFailStart", "YES"]
+                + Self.gameArguments
             app.launch()
             let close = app.buttons["Close"]
-            XCTAssertTrue(close.waitForExistence(timeout: 30), "\(Self.pose) \(system): no failure view")
+            XCTAssertTrue(close.waitForExistence(timeout: 30), "\(place) \(system): no failure view")
             let window = app.gameWindow.frame
-            XCTAssertTrue(window.insetBy(dx: -1, dy: -1).contains(close.frame), "\(Self.pose) \(system): Close leaves the window")
-            try measureAccentButton(close, named: "close-\(Self.pose)-\(system)", in: app)
-            shoot(app, 37, "\(Self.pose)-\(system)-failure")
+            XCTAssertTrue(window.insetBy(dx: -1, dy: -1).contains(close.frame), "\(place) \(system): Close leaves the window")
+            try measureAccentButton(close, named: "close-\(place)-\(system)", in: app)
+            shoot(app, 37, "\(place)-\(system)-failure")
             app.terminate()
         }
     }
 
     /// The running games as a player sees them, without the debug overlay
     /// that every other picture of a game shows: DS and GBA in the pose, in
-    /// light and dark, named `<variant>-38-<pose>-<system>-clean` and upright
+    /// light and dark, named `<variant>-38-<pose>-<system>-clean` (the slim
+    /// case `<variant>-38-<pose>-slim-ds-clean`) and upright
     /// in every pose, for the documents. The overlay is hidden the way the
     /// pose tests hide it (`DebugRemote`), once the game has run its first
     /// frames, and comes back afterwards.
@@ -712,16 +994,17 @@ final class ScreenshotTour: GlassUITestCase {
     func test38CleanGamesInThePose() throws {
         try onlyInAPose()
         try XCTSkipUnless(["light", "dark"].contains(Self.variant), "The clean pictures are taken in light and dark")
-        for (system, fileExtension) in [("ds", "nds"), ("gba", "gba")] {
+        let place = Self.place
+        for (system, fileExtension) in Self.systemsInThePose {
             let app = XCUIApplication()
-            app.launchArguments = ["-ArcfoldAutorun", try fixturePath("selftest", fileExtension)]
+            app.launchArguments = ["-ArcfoldAutorun", try fixturePath("selftest", fileExtension)] + Self.gameArguments
             app.launch()
             let overlay = overlayWithLayout(in: app)
-            XCTAssertTrue(waitUntil(overlay, framesBeyond: 120), "\(Self.pose) \(system): the game does not run")
-            XCTAssertTrue(app.buttons["pause"].waitForExistence(timeout: 5), "\(Self.pose) \(system): no pause button")
+            XCTAssertTrue(waitUntil(overlay, framesBeyond: 120), "\(place) \(system): the game does not run")
+            XCTAssertTrue(app.buttons["pause"].waitForExistence(timeout: 5), "\(place) \(system): no pause button")
             try withOverlayHidden(in: app) {
-                XCTAssertFalse(overlay.exists, "\(Self.pose) \(system): the debug overlay is still shown")
-                try shootUpright(app, 38, "\(Self.pose)-\(system)-clean")
+                XCTAssertFalse(overlay.exists, "\(place) \(system): the debug overlay is still shown")
+                try shootUpright(app, 38, "\(place)-\(system)-clean")
             }
             app.terminate()
         }
@@ -733,69 +1016,11 @@ final class ScreenshotTour: GlassUITestCase {
         "tabletop": "tabletop", "flat-upright": "flat",
     ]
 
-    // MARK: Measurements
-
-    /// Glass against flat in the Simulator, only with `ARCFOLD_TOUR_MEASURE=1`
-    /// (ADR 0007): selftest.gba and selftest.nds, each 60 s with glass and
-    /// 60 s flat right after it, in the pose the script set. Counted from 5 s
-    /// after the first 120 frames to the end: emulated frames per second from
-    /// the frame counter, and of the display the frames shown and skipped,
-    /// late selections and busy GPU frames.
-    @MainActor
-    func test98MeasureGlassAgainstFlat() throws {
-        try XCTSkipUnless(ProcessInfo.processInfo.environment["ARCFOLD_TOUR_MEASURE"] == "1",
-                          "Set ARCFOLD_TOUR_MEASURE=1 to measure")
-        let place = Self.pose.isEmpty ? "as the Simulator is" : Self.pose
-        for (system, fileExtension) in [("gba", "gba"), ("ds", "nds")] {
-            for surface in ["glass", "flat"] {
-                let app = XCUIApplication()
-                app.launchArguments = ["-ArcfoldAutorun", try fixturePath("selftest", fileExtension),
-                                       "-ArcfoldControlSurface", surface]
-                app.launch()
-                let overlay = overlayWithLayout(in: app)
-                XCTAssertTrue(waitUntil(overlay, framesBeyond: 120), "The game does not run")
-                Thread.sleep(forTimeInterval: 5)
-                let startTime = Date.now
-                let start = (values: OverlayValues(overlay), label: overlay.label)
-                Thread.sleep(forTimeInterval: 60)
-                let end = (values: OverlayValues(overlay), label: overlay.label)
-                let seconds = Date.now.timeIntervalSince(startTime)
-                let frames = Double((end.values.frames ?? 0) - (start.values.frames ?? 0))
-                let first = try XCTUnwrap(Self.display(in: start.label), "No display line in \(start.label)")
-                let last = try XCTUnwrap(Self.display(in: end.label), "No display line in \(end.label)")
-                let shown = last.shown - first.shown
-                let skipped = last.skipped - first.skipped
-                let share = shown + skipped > 0 ? 100 * Double(skipped) / Double(shown + skipped) : 0
-                let line = "measure \(place) \(system) \(surface): \(String(format: "%.2f", frames / seconds)) frames/s over "
-                    + "\(String(format: "%.1f", seconds)) s, display \(last.hertz) Hz, shown \(shown), skipped \(skipped) "
-                    + "(\(String(format: "%.1f", share)) %), late \(last.late - first.late), GPU busy \(last.busy - first.busy), "
-                    + "resyncs \((end.values.resyncs ?? 0) - (start.values.resyncs ?? 0)), "
-                    + "underruns \((end.values.underruns ?? 0) - (start.values.underruns ?? 0))"
-                record(line)
-                let attachment = XCTAttachment(string: line)
-                attachment.name = "\(Self.variant)-measure-\(Self.pose.isEmpty ? "here" : Self.pose)-\(system)-\(surface)"
-                attachment.lifetime = .keepAlways
-                add(attachment)
-                app.terminate()
-            }
-        }
-    }
-
-    /// The display line of the debug overlay: refresh rate, frames shown and
-    /// skipped, late selections and busy GPU frames since the start.
-    static func display(in label: String) -> (hertz: Int, shown: Int, skipped: Int, late: Int, busy: Int)? {
-        let pattern = /Display ([0-9]+) Hz · shown ([0-9]+) · repeated [0-9]+ · skipped ([0-9]+) · late ([0-9]+) · GPU busy ([0-9]+)/
-        guard let match = label.firstMatch(of: pattern) else { return nil }
-        guard let hertz = Int(match.1), let shown = Int(match.2), let skipped = Int(match.3), let late = Int(match.4),
-              let busy = Int(match.5) else { return nil }
-        return (hertz, shown, skipped, late, busy)
-    }
-
     @MainActor
     func test99Metrics() throws {
         try XCTSkipIf(Self.variant.isEmpty, "Runs through Scripts/screenshot-tour.sh")
         let attachment = XCTAttachment(string: Self.metrics.joined(separator: "\n"))
-        attachment.name = Self.pose.isEmpty ? "\(Self.variant)-metrics" : "\(Self.variant)-\(Self.pose)-metrics"
+        attachment.name = Self.pose.isEmpty ? "\(Self.variant)-metrics" : "\(Self.variant)-\(Self.place)-metrics"
         attachment.lifetime = .keepAlways
         add(attachment)
     }

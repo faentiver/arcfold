@@ -177,10 +177,11 @@ class GlassUITestCase: XCTestCase {
 
         try launchTheSelftest(app)
         // The keys and the debug overlay: the only parts of the game screen
-        // that may report.
+        // that may report. The menu button of the console is a key like
+        // Select and Start, with its name written on the case below it.
         let keys = app.descendants(matching: .any).matching(
-            NSPredicate(format: "identifier BEGINSWITH %@ OR identifier == %@ OR identifier == %@",
-                        "touch-button-", "touch-pad", "debug-overlay"))
+            NSPredicate(format: "identifier BEGINSWITH %@ OR identifier == %@ OR identifier == %@ OR identifier == %@",
+                        "touch-button-", "touch-pad", "debug-overlay", "pause"))
         let allowed = (0..<keys.count).map { keys.element(boundBy: $0).frame.insetBy(dx: -1, dy: -1) }
         try audit(app, screen: "game") { issue in
             let identifier = issue.element?.identifier ?? ""
@@ -202,7 +203,37 @@ class GlassUITestCase: XCTestCase {
         // The sheet's glass lets the moving game through, and the audit has
         // rated the red "Quit Game" as failed in some runs; such a finding
         // passes on the pixels (measured 5.5 : 1).
-        try audit(app, screen: "pause sheet")
+        //
+        // An iPhone without a fold draws the sheet inset from the edges of
+        // the display by scaling it (iOS 27.2: laid out 402 pt wide, drawn
+        // 386 pt wide), where the outer display of the Duo lays it out
+        // inset (iOS 27.1). The audit then holds each text against a frame
+        // that is smaller than its layout and rates every text of the
+        // sheet as clipped. Such a finding passes only where the sheet is
+        // drawn scaled and the frame of the text is the layout's, on whole
+        // pixels, drawn at the scale of the sheet.
+        let sheet = app.descendants(matching: .any)["pause-menu"].firstMatch.frame
+        let shrink = sheet.width / app.gameWindow.frame.width
+        let pixelsPerPoint = app.displayScreenshot().image.scale
+        let isSheetScaled = Self.isDrawnScaled(sheet.size, by: shrink, pixelsPerPoint: pixelsPerPoint)
+        try audit(app, screen: "pause sheet") { issue in
+            guard isSheetScaled, issue.auditType == .textClipped, let frame = issue.element?.frame else { return false }
+            return Self.isDrawnScaled(frame.size, by: shrink, pixelsPerPoint: pixelsPerPoint)
+        }
+    }
+
+    /// Whether `size`, in points, is a size on whole pixels drawn at the
+    /// scale `shrink`, below 1: it lies off the pixels itself, and on them
+    /// once the scale is taken out. A layout puts every frame on whole
+    /// pixels; only a transform moves one off them.
+    static func isDrawnScaled(_ size: CGSize, by shrink: CGFloat, pixelsPerPoint: CGFloat) -> Bool {
+        func isOnPixels(_ length: CGFloat) -> Bool {
+            let pixels = length * pixelsPerPoint
+            return abs(pixels - pixels.rounded()) < 0.01
+        }
+        guard shrink > 0, shrink < 1, size.width > 0, size.height > 0 else { return false }
+        return !(isOnPixels(size.width) && isOnPixels(size.height))
+            && isOnPixels(size.width / shrink) && isOnPixels(size.height / shrink)
     }
 }
 
@@ -220,11 +251,31 @@ extension Pixels {
         return 0.2126 * linear(bytes[offset]) + 0.7152 * linear(bytes[offset + 1]) + 0.0722 * linear(bytes[offset + 2])
     }
 
-    /// The contrast of the label of a button against its plate: the 98th
-    /// percentile of the luminance in the inner half of the button (the
-    /// brightest strokes of the label) against the median of a ring just
-    /// inside its edge (the plate). `rect` is in pixels.
-    func labelContrast(in rect: CGRect) -> Double {
+    /// Which way what is written on a control stands out: light on a dark
+    /// plate, as on glass over the picture, or either way, as on the keys
+    /// of the console, whose letters are darker than a light cap and
+    /// lighter than a dark one.
+    enum Writing {
+        case light
+        case either
+    }
+
+    /// The contrast of `writing` against `ground`: the 98th percentile of
+    /// `values` (the brightest strokes) or, for `.either`, the 2nd percentile
+    /// (the darkest) where that stands out more. `values` are sorted.
+    static func contrast(ofWriting values: [Double], against ground: Double, writing: Writing) -> Double {
+        func ratio(_ a: Double, _ b: Double) -> Double { (max(a, b) + 0.05) / (min(a, b) + 0.05) }
+        guard !values.isEmpty else { return 0 }
+        let light = ratio(values[min(values.count - 1, Int(Double(values.count) * 0.98))], ground)
+        guard writing == .either else { return light }
+        return max(light, ratio(values[Int(Double(values.count) * 0.02)], ground))
+    }
+
+    /// The contrast of the label of a button against its plate or cap: the
+    /// strokes of the label in the inner half of the button against the
+    /// median of a ring just inside its edge (the plate, or the cap of a key
+    /// of the console). `rect` is in pixels.
+    func labelContrast(in rect: CGRect, writing: Writing = .light) -> Double {
         var inner: [Double] = []
         let core = rect.insetBy(dx: rect.width / 4, dy: rect.height / 4)
         for y in Int(core.minY)..<Int(core.maxY) {
@@ -243,9 +294,22 @@ extension Pixels {
         inner.sort()
         rim.sort()
         guard !inner.isEmpty, !rim.isEmpty else { return 0 }
-        let label = inner[min(inner.count - 1, Int(Double(inner.count) * 0.98))]
-        let plate = rim[rim.count / 2]
-        return (max(label, plate) + 0.05) / (min(label, plate) + 0.05)
+        return Self.contrast(ofWriting: inner, against: rim[rim.count / 2], writing: writing)
+    }
+
+    /// The name of a small button written on the case, in `rect` (pixels)
+    /// around it: the darkest or brightest strokes against the median, the
+    /// case, which the name covers less than half of.
+    func inscriptionContrast(in rect: CGRect) -> Double {
+        var values: [Double] = []
+        for y in Int(rect.minY)..<Int(rect.maxY) {
+            for x in Int(rect.minX)..<Int(rect.maxX) {
+                values.append(luminance(x: x, y: y))
+            }
+        }
+        values.sort()
+        guard !values.isEmpty else { return 0 }
+        return Self.contrast(ofWriting: values, against: values[values.count / 2], writing: .either)
     }
 
     /// Text against its background in `rect` (pixels): the 98th percentile of
@@ -270,15 +334,17 @@ extension Pixels {
     /// height on the left and right, pixels just inside the edge, where the
     /// border of Increase Contrast or the rim of the glass lies, against the
     /// median just outside. Returns the weaker side. `rect` is in pixels,
-    /// `scale` pixels per point.
-    func edgeContrast(in rect: CGRect, scale: CGFloat) -> Double {
+    /// `scale` pixels per point of what is drawn (less on a gallery page
+    /// scaled down); `rows` the share of the height above and below the
+    /// middle that is measured, where the edge runs straight up and down.
+    func edgeContrast(in rect: CGRect, scale: CGFloat, rows share: CGFloat = 0.15) -> Double {
         func side(edge: CGFloat, inward: CGFloat) -> Double {
             var outside: [Double] = []
             var inside: [Double] = []
-            let rows = stride(from: Int(rect.midY - rect.height * 0.15), through: Int(rect.midY + rect.height * 0.15), by: 1)
+            let rows = stride(from: Int(rect.midY - rect.height * share), through: Int(rect.midY + rect.height * share), by: 1)
             for y in rows {
-                // Close to the edge: a key that lies beside the picture
-                // stands out from the deck, not from a picture 3 pt away.
+                // Close to the edge: a key stands out from its well and the
+                // case around it, not from a bezel a few points away.
                 for step in stride(from: 1, through: 2, by: 0.5) {
                     outside.append(luminance(x: Int(edge - inward * step * scale), y: y))
                 }
@@ -295,35 +361,39 @@ extension Pixels {
         return min(side(edge: rect.minX, inward: 1), side(edge: rect.maxX - 1, inward: -1))
     }
 
-    /// The ring of a pressed button with Differentiate Without Color (inset
-    /// 3 pt, 1.5 pt wide) against the fill inside it, at mid height on the
-    /// left. `rect` is in pixels, `scale` pixels per point.
-    func ringContrast(in rect: CGRect, scale: CGFloat) -> Double {
+    /// The ring of a pressed button with Differentiate Without Color against
+    /// the fill inside it, at mid height on the left: the ring is 1.5 pt
+    /// wide and lies `inset` points inside the edge of the cap (3 pt on a
+    /// key, less on a small button or a low L or R, as `KeyCap` draws it).
+    /// `rect` is the cap in pixels, `scale` pixels per point of what is drawn.
+    func ringContrast(in rect: CGRect, scale: CGFloat, inset: CGFloat = 3) -> Double {
         var ring: [Double] = []
         var fill: [Double] = []
         for y in Int(rect.midY - rect.height * 0.1)...Int(rect.midY + rect.height * 0.1) {
-            for step in stride(from: 2.5, through: 5, by: 1 / scale) {
+            for step in stride(from: inset - 0.5, through: inset + 2, by: 1 / scale) {
                 ring.append(luminance(x: Int(rect.minX + step * scale), y: y))
             }
-            for step in stride(from: 6.5, through: 8.5, by: 1 / scale) {
+            for step in stride(from: inset + 3.5, through: inset + 5.5, by: 1 / scale) {
                 fill.append(luminance(x: Int(rect.minX + step * scale), y: y))
             }
         }
         ring.sort()
         fill.sort()
         guard !ring.isEmpty, !fill.isEmpty else { return 0 }
-        let brightest = ring[min(ring.count - 1, Int(Double(ring.count) * 0.95))]
-        let inside = fill[fill.count / 2]
-        return (max(brightest, inside) + 0.05) / (min(brightest, inside) + 0.05)
+        // The ring is darker than a light cap or lighter than a dark one.
+        return Self.contrast(ofWriting: ring, against: fill[fill.count / 2], writing: .either)
     }
 
-    /// The contrast of the up arrow of the direction pad against what lies
-    /// behind it: the brightest strokes in a box around the arrow against the
-    /// median of points beside it, inside the same sector. `rect` is the pad's
-    /// disc in pixels.
-    func padArrowContrast(in rect: CGRect) -> Double {
+    /// The contrast of the up arrow of the direction pad against the arm it
+    /// lies on: the strokes in a box around the arrow against the median of
+    /// points beside it on the same arm. `ConsolePad` draws the arrow at
+    /// (padCross − padArm · padCross) / 2 · 0.86 of the dish's diameter from
+    /// its middle, 0.48 r; the points beside it, 0.22 r to the left and
+    /// right, lie on the arm, whose half width is 0.32 r. `rect` is the pad's
+    /// dish in pixels.
+    func padArrowContrast(in rect: CGRect, writing: Writing = .either) -> Double {
         let radius = rect.width / 2
-        let center = CGPoint(x: rect.midX, y: rect.midY - radius * 0.62)
+        let center = CGPoint(x: rect.midX, y: rect.midY - radius * Self.padArrowDistance)
         var arrow: [Double] = []
         let half = radius * 0.16
         for y in Int(center.y - half)..<Int(center.y + half) {
@@ -339,8 +409,10 @@ extension Pixels {
         arrow.sort()
         beside.sort()
         guard !arrow.isEmpty, !beside.isEmpty else { return 0 }
-        let label = arrow[min(arrow.count - 1, Int(Double(arrow.count) * 0.98))]
-        let plate = beside[beside.count / 2]
-        return (max(label, plate) + 0.05) / (min(label, plate) + 0.05)
+        return Self.contrast(ofWriting: arrow, against: beside[beside.count / 2], writing: writing)
     }
+
+    /// Where `ConsolePad` draws its arrows, in radii of the dish from its
+    /// middle: the cross takes 0.88 of the dish, an arm 0.36 of the cross.
+    static let padArrowDistance: CGFloat = (0.88 * 2 - 0.88 * 2 * 0.36) / 2 * 0.86
 }

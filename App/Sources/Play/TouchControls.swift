@@ -2,8 +2,9 @@ import FoldLayout
 import LibretroKit
 import SwiftUI
 
-/// Draws the on-screen buttons of a `TouchLayout` in glass (`TouchControlsArt`,
-/// ADR 0007) in the coordinates of the game view. Touches arrive at
+/// Draws the on-screen buttons of a `TouchLayout` (`TouchControlsArt`, ADR
+/// 0007) in the coordinates of the game view: keys of the console in its
+/// case, glass where a button lies over a screen. Touches arrive at
 /// `TouchSurface`, which sees every finger; this view only shows what is
 /// pressed, the mask that went to the session. Each button is an
 /// accessibility element of its own (`touch-button-<label>`, `touch-pad`), so
@@ -11,14 +12,16 @@ import SwiftUI
 struct TouchControls: View {
     let layout: TouchLayout
     let pressed: JoypadButtons
-    /// The screens in points of the game view: a button over one sits on the
-    /// plate for the picture, every other one on the deck.
+    /// The screens in points of the game view: a button over one is glass
+    /// on the plate for the picture, every other one a key in the case.
     let screens: [CGRect]
-    /// The glass of the pause button, in the container of the buttons.
+    /// The menu button, drawn with the buttons beside it.
     var pause: PauseGlass?
+    /// A sheet covers the game: buttons in glass fade out meanwhile.
+    var hidesGlass = false
 
     var body: some View {
-        TouchControlsArt(layout: layout, pressed: pressed, screens: screens, pause: pause)
+        TouchControlsArt(layout: layout, pressed: pressed, screens: screens, pause: pause, hidesGlass: hidesGlass)
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
             .allowsHitTesting(false)
             .accessibilityElement(children: .contain)

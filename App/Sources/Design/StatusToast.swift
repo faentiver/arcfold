@@ -76,9 +76,13 @@ struct StatusToast: View {
         .multilineTextAlignment(.leading)
         .padding(.horizontal, 14)
         .padding(.vertical, 9)
-        .gameGlass(in: RoundedRectangle(cornerRadius: 20, style: .continuous), isSmallLabel: true)
+        .readAsOneText(text, identifier: "status-notice", in: Self.shape)
+        .gameGlass(in: Self.shape, isSmallLabel: true)
         .glassEffectTransition(.materialize)
+        .accessibilityContainerAroundTheGlass()
     }
+
+    private static let shape = RoundedRectangle(cornerRadius: 20, style: .continuous)
 
     /// How a notice comes and goes: rising 8 pt, or a fade only with Reduce
     /// Motion.
@@ -102,9 +106,38 @@ struct StatusChip: View {
         .foregroundStyle(.white)
         .padding(.horizontal, 10)
         .padding(.vertical, 6)
-        // A capsule as long as it is one line at the usual sizes; with
-        // large text it wraps, and a capsule's round ends cut the text.
-        .gameGlass(in: RoundedRectangle(cornerRadius: 12.5, style: .continuous), isSmallLabel: true)
+        .readAsOneText(text, identifier: "status-chip", in: Self.shape)
+        .gameGlass(in: Self.shape, isSmallLabel: true)
+        .accessibilityContainerAroundTheGlass()
+    }
+
+    /// A capsule as long as it is one line at the usual sizes; with large
+    /// text it wraps, and a capsule's round ends cut the text.
+    private static let shape = RoundedRectangle(cornerRadius: 12.5, style: .continuous)
+}
+
+private extension View {
+    /// Inside the glass of a notice or of the chip: one accessibility
+    /// element that reads `text` and has the shape of the glass around
+    /// the padded label. The symbol beside the text says nothing more.
+    /// Without the shape the element was as large as the padded label
+    /// under iOS 27.1 and as the label without its padding under iOS 27.2.
+    func readAsOneText<S: Shape>(_ text: String, identifier: String, in shape: S) -> some View {
+        contentShape(.accessibility, shape)
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel(Text(text))
+            .accessibilityAddTraits(.isStaticText)
+            .accessibilityIdentifier(identifier)
+    }
+
+    /// Around the glass: a container for the element inside. The system
+    /// gives the outermost accessibility node of a glass shape the frame
+    /// of its glass, and under iOS 27.2 the first shape of a glass
+    /// container gets the frame of all of its shapes: while a notice
+    /// showed, the chip reported the frame of the whole stack. The
+    /// container takes that frame, and the element inside keeps its own.
+    func accessibilityContainerAroundTheGlass() -> some View {
+        accessibilityElement(children: .contain)
     }
 }
 

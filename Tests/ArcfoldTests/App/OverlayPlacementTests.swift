@@ -24,7 +24,7 @@ struct OverlayPlacementTests {
         }
 
         var controls: TouchLayout? {
-            GameStage.controls(of: layout, scale: geometry.geometry.scale, system: system, shows: showsControls)
+            GameStage.controls(of: layout, geometry: geometry.geometry, system: system, shows: showsControls)
         }
 
         var placement: OverlayPlacement {

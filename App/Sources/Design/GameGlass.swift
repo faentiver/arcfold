@@ -13,43 +13,49 @@ extension EnvironmentValues {
     @Entry var controlSurface: ControlSurface = .glass
 }
 
-/// What lies beneath in-game glass: the moving game picture, or the still
-/// deck beside or below the screens.
+/// What lies beneath a control: the moving game picture, where the control
+/// is in-game glass, or the case of the console beside or below the
+/// screens, where it is a key of the case and carries no glass (ADR 0007).
 nonisolated enum GlassBackdrop: Hashable, Sendable {
     case picture
     case deck
 
     /// The backdrop of a control at `frame`: the picture when it lies over
-    /// one of `screens`, otherwise the deck.
+    /// one of `screens`, otherwise the case.
     static func under(_ frame: CGRect, screens: [CGRect]) -> GlassBackdrop {
         screens.contains { $0.intersects(frame) } ? .picture : .deck
     }
 }
 
 extension View {
-    /// In-game glass: clear glass over a dimming plate, so the game picture
-    /// never decides how a control looks. The keys are never interactive;
-    /// the touch surface owns their touches. Only the pause button, a real
-    /// button, reacts like the system's glass buttons (`isInteractive`).
+    /// In-game glass over the picture: clear glass over a dimming plate, so
+    /// the game picture never decides how a control looks. Beside or below
+    /// the screens a control is a key of the case instead. The keys are
+    /// never interactive; the touch surface owns their touches. Only the
+    /// pause button, a real button, reacts like the system's glass buttons
+    /// (`isInteractive`).
     func gameGlass<S: InsettableShape>(in shape: S, isPressed: Bool = false, isSmallLabel: Bool = false,
-                                       backdrop: GlassBackdrop = .picture, isInteractive: Bool = false) -> some View {
-        modifier(GameGlass(shape: shape, isPressed: isPressed, isSmallLabel: isSmallLabel, backdrop: backdrop,
+                                       isInteractive: Bool = false) -> some View {
+        modifier(GameGlass(shape: shape, isPressed: isPressed, isSmallLabel: isSmallLabel,
                            isInteractive: isInteractive, plate: EmptyView()))
     }
 
     /// The same, with something drawn on the plate beneath the glass, such as
     /// the pressed sector of the direction pad.
     func gameGlass<S: InsettableShape, Plate: View>(
-        in shape: S, isSmallLabel: Bool = false, backdrop: GlassBackdrop = .picture, @ViewBuilder plate: () -> Plate
+        in shape: S, isSmallLabel: Bool = false, @ViewBuilder plate: () -> Plate
     ) -> some View {
-        modifier(GameGlass(shape: shape, isPressed: false, isSmallLabel: isSmallLabel, backdrop: backdrop,
+        modifier(GameGlass(shape: shape, isPressed: false, isSmallLabel: isSmallLabel,
                            isInteractive: false, plate: plate()))
     }
 
     /// Decides glass or flat for a game screen: flat while the system prefers
-    /// reduced resource usage (iOS 27), glass otherwise. In debug builds the
-    /// launch argument `-ArcfoldControlSurface flat|glass` wins, for A/B
-    /// measurements.
+    /// reduced resource usage (iOS 27), glass otherwise. It decides only what
+    /// lies over a picture: the menu button with a controller where no
+    /// corner of the case is free, the notices and the status chip, and keys
+    /// over a picture where a display leaves no room for the case. The keys
+    /// of the console are never glass. In debug builds the launch argument
+    /// `-ArcfoldControlSurface flat|glass` wins, for the screenshot tour.
     func resolvesControlSurface() -> some View {
         modifier(ResolvesControlSurface())
     }
@@ -65,25 +71,19 @@ nonisolated enum GamePlate {
         var borderOpacity: Double
     }
 
-    /// The plate at rest. Small labels (capsules up to 40 pt high, notices)
-    /// get a darker plate, because their text is small. Over the picture,
-    /// measured over white in the screenshot tour (the glass itself lightens
-    /// a little): 0.60 and 0.70 as first planned gave 2.9 : 1 and 3.8 : 1,
-    /// below 3 and 4.5, so both went up by 0.1. Over the dark, still deck a
-    /// plate that dark hid the glass; there white reads well above 7 : 1 on
-    /// a light plate (docs/wissen/oberflaeche.md).
+    /// The plate at rest; glass lies over the picture only. Small labels
+    /// (capsules up to 40 pt high, notices) get a darker plate, because
+    /// their text is small. Measured over white in the screenshot tour (the
+    /// glass itself lightens a little): 0.60 and 0.70 as first planned gave
+    /// 2.9 : 1 and 3.8 : 1, below 3 and 4.5, so both went up by 0.1
+    /// (docs/wissen/oberflaeche.md).
     ///
     /// Increase Contrast draws a white edge at `contrastBorderOpacity`
-    /// around every control, over the picture and over the deck alike: over
-    /// a dark picture the plate has nothing to stand out from, so the edge
-    /// has to, and the keys of one pad look the same wherever they lie.
-    /// Show Borders alone draws the edge at `borderOpacity`.
-    static func look(isSmallLabel: Bool, backdrop: GlassBackdrop = .picture, increasedContrast: Bool,
-                     reduceTransparency: Bool, showsBorders: Bool) -> Look {
-        var opacity = switch backdrop {
-        case .picture: isSmallLabel ? 0.80 : 0.70
-        case .deck: isSmallLabel ? 0.45 : 0.35
-        }
+    /// around every control: over a dark picture the plate has nothing to
+    /// stand out from, so the edge has to. Show Borders alone draws the edge
+    /// at `borderOpacity`.
+    static func look(isSmallLabel: Bool, increasedContrast: Bool, reduceTransparency: Bool, showsBorders: Bool) -> Look {
+        var opacity = isSmallLabel ? 0.80 : 0.70
         if increasedContrast {
             opacity = max(opacity, isSmallLabel ? 0.90 : 0.80)
         }
@@ -100,9 +100,7 @@ nonisolated enum GamePlate {
     /// The white edge with Increase Contrast. At 0.35 it measured 2.84 to
     /// 2.92 : 1 against the dark picture of the test programs; from 0.90 on
     /// either the edge or the plate keeps 3 : 1 against a background of any
-    /// brightness (`GamePlateTests`). Over the deck 0.35 was enough (3.5 to
-    /// 4.2 : 1), but L and R over the picture then looked unlike A and B
-    /// beside it.
+    /// brightness (`GamePlateTests`).
     static let contrastBorderOpacity = 0.90
 
     /// A pressed control shows the game's colour, nearly opaque: at 0.85 the
@@ -114,15 +112,11 @@ nonisolated enum GamePlate {
         isSmallLabel ? style.pressedFill.mix(with: .black, by: 0.25) : style.pressedFill
     }
 
-    /// Flat: the look of M1, white with an edge; over a screen a little
-    /// more transparent, as in M2.
-    static let flatOpacity = 0.15
-    static let flatOpacityOverPicture = 0.10
-
-    static func flatOpacity(over backdrop: GlassBackdrop) -> Double {
-        backdrop == .picture ? flatOpacityOverPicture : flatOpacity
-    }
-    static let flatPressedOpacity = 0.45
+    /// Flat: the same plate and the same pressed colour without the glass
+    /// over them, so that a control reads over a picture of any brightness
+    /// as it does in glass, and a white edge, because no glass bends the
+    /// picture at its rim. The white plate of M1 at 0.10 left the menu
+    /// button and the notices at 1.0 : 1 over a white picture.
     static let flatBorderWidth: CGFloat = 1.5
     static let flatBorderOpacity = 0.4
 }
@@ -131,7 +125,6 @@ private struct GameGlass<S: InsettableShape, Plate: View>: ViewModifier {
     let shape: S
     let isPressed: Bool
     let isSmallLabel: Bool
-    let backdrop: GlassBackdrop
     /// Reacts to a touch like the system's glass buttons; only for the pause
     /// button, never for the game's keys (rule R5).
     let isInteractive: Bool
@@ -144,7 +137,7 @@ private struct GameGlass<S: InsettableShape, Plate: View>: ViewModifier {
     @Environment(\.gameStyle) private var gameStyle
 
     func body(content: Content) -> some View {
-        let look = GamePlate.look(isSmallLabel: isSmallLabel, backdrop: backdrop,
+        let look = GamePlate.look(isSmallLabel: isSmallLabel,
                                   increasedContrast: contrast == .increased,
                                   reduceTransparency: reduceTransparency, showsBorders: showsBorders)
         content
@@ -171,14 +164,13 @@ private struct GameGlass<S: InsettableShape, Plate: View>: ViewModifier {
             }
     }
 
+    /// The plate is the same in glass and flat.
     private func plateFill(look: GamePlate.Look) -> some View {
         Group {
-            switch (surface, isPressed) {
-            case (.flat, false): Color.white.opacity(GamePlate.flatOpacity(over: backdrop))
-            case (.flat, true): Color.white.opacity(GamePlate.flatPressedOpacity)
-            case (.glass, false): Color.gamePlate(look.plateOpacity)
-            case (.glass, true):
+            if isPressed {
                 GamePlate.pressedFill(gameStyle, isSmallLabel: isSmallLabel).opacity(GamePlate.pressedOpacity)
+            } else {
+                Color.gamePlate(look.plateOpacity)
             }
         }
     }
@@ -186,7 +178,9 @@ private struct GameGlass<S: InsettableShape, Plate: View>: ViewModifier {
     @ViewBuilder
     private func border(look: GamePlate.Look) -> some View {
         if surface == .flat {
-            shape.strokeBorder(.white.opacity(GamePlate.flatBorderOpacity), lineWidth: GamePlate.flatBorderWidth)
+            // Never weaker than the edge of Increase Contrast or Show Borders.
+            shape.strokeBorder(.white.opacity(max(GamePlate.flatBorderOpacity, look.borderOpacity)),
+                               lineWidth: GamePlate.flatBorderWidth)
         } else if look.borderWidth > 0 {
             shape.strokeBorder(.white.opacity(look.borderOpacity), lineWidth: look.borderWidth)
         }

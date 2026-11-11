@@ -3,47 +3,71 @@ import LibretroKit
 import Renderer
 import SwiftUI
 
-/// What the on-screen controls look like: one glass shape per button of a
-/// `TouchLayout`, which this view never changes, in the zones `GameLayout`
-/// gave it for the pose (ADR 0006, ADR 0007). Drawing only: it takes no
-/// touches, `TouchSurface` above it does. Each button stays an accessibility
-/// element of its own (`touch-button-<label>`, `touch-pad`), so UI tests find
-/// it; VoiceOver plays through the surface, a direct touch area.
+/// What the on-screen controls look like, for a `TouchLayout`, which this
+/// view never changes, in the zones `GameLayout` gave it for the pose (ADR
+/// 0006, ADR 0007). A control that lies over no screen is a key of the
+/// console and stands in its case (`ConsoleControls`); a control over a
+/// screen stays in-game glass over a dimming plate, so that the game picture
+/// never decides how it looks. Drawing only: it takes no touches,
+/// `TouchSurface` above it does. Each button stays an accessibility element
+/// of its own (`touch-button-<label>`, `touch-pad`), so UI tests find it;
+/// VoiceOver plays through the surface, a direct touch area.
 ///
 /// Rule R5: what is shown pressed is the mask that went to the session, at
 /// once and without animation. No `.interactive()` glass, no springs, no
-/// scaling: a reaction of the glass would lag behind the game and lift the
-/// compositor to 120 Hz on every press.
+/// scaling: a reaction would lag behind the game and lift the compositor to
+/// 120 Hz on every press.
 struct TouchControlsArt: View {
     typealias Backdrop = GlassBackdrop
 
     let layout: TouchLayout
     let pressed: JoypadButtons
     /// The screens, in the coordinates of the controls: a control over one
-    /// gets the plate for the moving picture, every other one the lighter
-    /// plate for the still deck.
+    /// is glass on the plate for the moving picture, every other one a key
+    /// in the case.
     let screens: [CGRect]
-    /// The glass of the pause button, 8 pt from Select and Start, drawn in
-    /// the same container as theirs (rule R4); nil without a pause button.
-    /// The button that takes its touches lies above the touch surface
-    /// (`PauseButton`).
+    /// The menu button, which pauses the game, drawn with the buttons
+    /// beside it; nil without one. The button that takes its touches lies
+    /// above the touch surface (`PauseButton`).
     var pause: PauseGlass?
+    /// A sheet covers the game: its glass would show the glass of the
+    /// controls below it as smudges, so they fade out meanwhile. The keys
+    /// of the console stay.
+    var hidesGlass = false
 
     var body: some View {
-        // Spacing 0: neighbouring buttons (A and B 26.6 pt apart outside,
-        // Select and Start 15.2 pt) must never melt into one shape.
+        ZStack(alignment: .topLeading) {
+            ConsoleControls(layout: layout, pressed: pressed, screens: screens, pause: pause)
+            if hasGlass {
+                glass
+                    .opacity(hidesGlass ? 0 : 1)
+                    .animation(Motion.fade, value: hidesGlass)
+            }
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+    }
+
+    /// A control lies over a screen and is drawn in glass.
+    private var hasGlass: Bool {
+        Backdrop.under(layout.pad.frame, screens: screens) == .picture
+            || layout.buttons.contains { Backdrop.under($0.frame, screens: screens) == .picture }
+            || pause.map { Backdrop.under($0.frame, screens: screens) == .picture } == true
+    }
+
+    /// The controls over a screen, in one container (rule R4).
+    private var glass: some View {
+        // Spacing 0: neighbouring buttons must never melt into one shape.
         GlassEffectContainer(spacing: 0) {
             ZStack(alignment: .topLeading) {
-                GlassPad(pad: layout.pad, pressed: pressed,
-                         backdrop: Backdrop.under(layout.pad.frame, screens: screens))
-                ForEach(layout.buttons) { button in
-                    GlassKey(button: button, isPressed: pressed.isSuperset(of: button.buttons),
-                             backdrop: Backdrop.under(button.frame, screens: screens))
+                if Backdrop.under(layout.pad.frame, screens: screens) == .picture {
+                    GlassPad(pad: layout.pad, pressed: pressed)
                 }
-                if let pause {
+                ForEach(layout.buttons.filter { Backdrop.under($0.frame, screens: screens) == .picture }) { button in
+                    GlassKey(button: button, isPressed: pressed.isSuperset(of: button.buttons))
+                }
+                if let pause, Backdrop.under(pause.frame, screens: screens) == .picture {
                     PauseSymbol(diameter: min(pause.frame.width, pause.frame.height))
-                        .gameGlass(in: Circle(), isPressed: pause.isPressed,
-                                   backdrop: Backdrop.under(pause.frame, screens: screens))
+                        .gameGlass(in: Circle(), isPressed: pause.isPressed)
                         // The button above the touch surface is the element.
                         .accessibilityHidden(true)
                         .position(x: pause.frame.midX, y: pause.frame.midY)
@@ -54,43 +78,20 @@ struct TouchControlsArt: View {
     }
 }
 
-/// The pause button as the controls draw it: where it sits, and whether a
-/// finger holds it down, which the button reports.
-nonisolated struct PauseGlass: Sendable, Hashable {
-    var frame: CGRect
-    var isPressed = false
-
-    /// Who draws the glass of a pause button in `frame`: the touch controls
-    /// in their container while they show, so that no glass shape of the
-    /// menu row stands outside it; without them the button itself, alone in
-    /// its corner.
-    static func drawnByControls(_ controls: TouchLayout?, frame: CGRect?, isPressed: Bool) -> PauseGlass? {
-        guard controls != nil, let frame else { return nil }
-        return PauseGlass(frame: frame, isPressed: isPressed)
-    }
-}
-
-extension TouchLayout.Pad {
-    /// The square around the pad's disc.
-    nonisolated var frame: CGRect {
-        CGRect(x: center.x - radius, y: center.y - radius, width: 2 * radius, height: 2 * radius)
-    }
-}
-
-/// A round or capsule button of the touch layout.
+/// A round or capsule button of the touch layout, in glass over a screen.
 struct GlassKey: View {
     let button: TouchLayout.Button
     let isPressed: Bool
-    let backdrop: TouchControlsArt.Backdrop
 
     @Environment(\.legibilityWeight) private var legibilityWeight
     @Environment(\.accessibilityDifferentiateWithoutColor) private var differentiateWithoutColor
 
     var body: some View {
-        // Two branches, so the shape stays an InsettableShape.
+        // Two branches, so the shape stays an InsettableShape. Over a
+        // picture a small button is a capsule with its name in it.
         switch button.shape {
         case .circle: key(in: Circle())
-        case .capsule: key(in: Capsule())
+        case .capsule, .knob: key(in: Capsule())
         }
     }
 
@@ -101,7 +102,7 @@ struct GlassKey: View {
             .lineLimit(1)
             .minimumScaleFactor(0.6)
             .foregroundStyle(.white)
-            .shadow(color: .black.opacity(backdrop == .picture ? 0.35 : 0), radius: 1.5)
+            .shadow(color: .black.opacity(0.35), radius: 1.5)
             .padding(.horizontal, 4)
             .frame(width: button.frame.width, height: button.frame.height)
             // Pressed without colour: a ring, drawn as content of the glass
@@ -112,7 +113,7 @@ struct GlassKey: View {
                     shape.inset(by: 3).strokeBorder(.white, lineWidth: 1.5)
                 }
             }
-            .gameGlass(in: shape, isPressed: isPressed, isSmallLabel: button.frame.height <= 40, backdrop: backdrop)
+            .gameGlass(in: shape, isPressed: isPressed, isSmallLabel: button.frame.height <= 40)
             .accessibilityElement(children: .ignore)
             .accessibilityLabel(Text(verbatim: button.label))
             .accessibilityIdentifier("touch-button-\(button.label)")
@@ -126,6 +127,7 @@ struct GlassKey: View {
         switch button.shape {
         case .circle: min(button.frame.width * 0.38, 34)
         case .capsule: min(button.frame.height * 0.42, 22)
+        case .knob: min(button.frame.height * 0.42, 15)
         }
     }
 }
@@ -137,10 +139,8 @@ struct GlassKey: View {
 struct GlassPad: View {
     let pad: TouchLayout.Pad
     let pressed: JoypadButtons
-    let backdrop: TouchControlsArt.Backdrop
 
     @Environment(\.gameStyle) private var gameStyle
-    @Environment(\.controlSurface) private var surface
     @Environment(\.accessibilityDifferentiateWithoutColor) private var differentiateWithoutColor
 
     var body: some View {
@@ -165,12 +165,10 @@ struct GlassPad: View {
             }
         }
         .frame(width: radius * 2, height: radius * 2)
-        .gameGlass(in: Circle(), backdrop: backdrop) {
+        .gameGlass(in: Circle()) {
             if let sector {
                 PadSector(degrees: sector)
-                    .fill(surface == .flat
-                          ? Color.white.opacity(GamePlate.flatPressedOpacity - GamePlate.flatOpacity)
-                          : gameStyle.pressedFill.opacity(GamePlate.pressedOpacity))
+                    .fill(gameStyle.pressedFill.opacity(GamePlate.pressedOpacity))
             }
         }
         .accessibilityElement(children: .ignore)
@@ -243,8 +241,8 @@ nonisolated struct PadSector: Shape {
 }
 
 #if DEBUG
-/// The controls of a system in a geometry of the Simulator's Duo, over the
-/// deck and the test pattern, as `GameStage` draws them.
+/// The controls of a system in a geometry of the Simulator's Duo, in the
+/// case of the console around the test pattern, as `GameStage` draws them.
 private struct ArtPreview: View {
     let system: GameSystem
     let geometry: FoldGeometry
@@ -262,7 +260,7 @@ private struct ArtPreview: View {
                     .frame(width: screen.width, height: screen.height)
                     .offset(x: screen.minX, y: screen.minY)
             }
-            ControlDeck(areas: DeckLayout.areas(of: layout, in: geometry).map { $0.points(scale: scale) })
+            ConsoleCase(layout: CaseLayout(layout: layout, geometry: geometry), skin: ConsoleSkin.skin(forSystem: system.id))
             if let zones = layout.controls {
                 TouchControlsArt(layout: TouchLayout(zones: zones, scale: scale, hasXYButtons: system.hasXYButtons),
                                  pressed: pressed, screens: screens)
@@ -271,6 +269,7 @@ private struct ArtPreview: View {
         .frame(width: size.width, height: size.height, alignment: .topLeading)
         .background(.black)
         .environment(\.gameStyle, GameStyle(id: "1", name: "Selftest"))
+        .environment(\.consoleSkin, ConsoleSkin.skin(forSystem: system.id))
         .environment(\.controlSurface, flat ? .flat : .glass)
     }
 }
@@ -279,8 +278,8 @@ private struct ArtPreview: View {
     HStack(spacing: 0) {
         ArtPreview(system: .gba, geometry: PreviewGeometry.closedBarOnTop, pressed: [])
         ArtPreview(system: .gba, geometry: PreviewGeometry.closedBarOnTop, pressed: [.a, .up])
-        ArtPreview(system: .ds, geometry: PreviewGeometry.closed, pressed: [.x, .left])
-        ArtPreview(system: .ds, geometry: PreviewGeometry.closed, pressed: [.a, .up], flat: true)
+        ArtPreview(system: .ds, geometry: PreviewGeometry.closedBarOnTop, pressed: [.x, .left])
+        ArtPreview(system: .ds, geometry: PreviewGeometry.closedBarOnTop, pressed: [.a, .up], flat: true)
     }
 }
 
@@ -300,8 +299,6 @@ private struct ArtPreview: View {
 
 /// Geometries of the Simulator's Duo for previews (docs/wissen/falz.md).
 private enum PreviewGeometry {
-    static let closed = FoldGeometry(container: PixelSize(width: 1398, height: 2034),
-                                     safeArea: PixelInsets(bottom: 102, right: 252))
     static let closedBarOnTop = FoldGeometry(container: PixelSize(width: 1398, height: 2034),
                                              safeArea: PixelInsets(top: 246, bottom: 102))
     static let tabletop = FoldGeometry(container: PixelSize(width: 2007, height: 2853),

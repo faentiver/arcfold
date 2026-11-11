@@ -59,6 +59,14 @@ final class GameOverlayUITests: XCTestCase {
         app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH %@", beginning)).firstMatch
     }
 
+    /// The status chip (`status-chip`) or a notice (`status-notice`) whose
+    /// text begins with `beginning`: the element that has the shape of
+    /// its glass, not the text inside it.
+    @MainActor
+    private func overlayGlass(_ app: XCUIApplication, _ identifier: String, beginning: String) -> XCUIElement {
+        app.staticTexts.matching(identifier: identifier).matching(NSPredicate(format: "label BEGINSWITH %@", beginning)).firstMatch
+    }
+
     // MARK: Notices
 
     /// The chip and a long notice never overlap and cover no control, at the
@@ -74,10 +82,10 @@ final class GameOverlayUITests: XCTestCase {
                 overlayWaitForTheGame(app)
                 let card = app.descendants(matching: .any)["debug-overlay"].firstMatch
                 postDebugNotification("chip.show")
-                let chip = overlayText(app, beginning: Self.chip)
+                let chip = overlayGlass(app, "status-chip", beginning: Self.chip)
                 XCTAssertTrue(chip.waitForExistence(timeout: 5), "\(system) \(size): no chip")
                 postDebugNotification("notice.long")
-                let notice = overlayText(app, beginning: Self.notice)
+                let notice = overlayGlass(app, "status-notice", beginning: Self.notice)
                 XCTAssertTrue(notice.waitForExistence(timeout: 5), "\(system) \(size): no notice")
                 // The chip moved up for the notice; read both once they rest.
                 Thread.sleep(forTimeInterval: 0.6)
@@ -141,13 +149,18 @@ final class GameOverlayUITests: XCTestCase {
             let pause = app.buttons["pause"]
             XCTAssertTrue(pause.waitForExistence(timeout: 10))
             let target = pause.frame
-            XCTAssertGreaterThanOrEqual(target.width, 44)
-            XCTAssertGreaterThanOrEqual(target.height, 44)
+            // The frame comes in points of the window, at a fraction of a
+            // point in the inner display (43.99999999999994 in the tabletop).
+            XCTAssertGreaterThanOrEqual(target.width, 44 - 1e-9, "\(system): \(target)")
+            XCTAssertGreaterThanOrEqual(target.height, 44 - 1e-9, "\(system): \(target)")
             for name in ["touch-button-Select", "touch-button-Start"] {
                 let neighbour = app.descendants(matching: .any)[name].firstMatch.frame
                 XCTAssertFalse(neighbour.isEmpty, "\(system): \(name) is missing")
-                // The circle is drawn 36 pt wide inside its target.
-                XCTAssertFalse(neighbour.intersects(target.insetBy(dx: 4, dy: 4)),
+                // The menu button is a cell of the row beside Select and
+                // Start, or of the column below them; its target of at
+                // least 44 pt ends where their cells begin. A point of
+                // tolerance for the rounding of the frames.
+                XCTAssertFalse(neighbour.intersects(target.insetBy(dx: 1, dy: 1)),
                                "\(system): the pause button \(target) lies on \(name) \(neighbour)")
             }
             overlayKeep(app, named: "pause-button-\(system)")

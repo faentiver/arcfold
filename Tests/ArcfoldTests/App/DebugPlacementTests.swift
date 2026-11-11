@@ -100,14 +100,14 @@ struct DebugPlacementTests {
     /// The faults found in the real poses stay fixed: sideways on the outer
     /// display the card lay on L, R and X of the DS and on L, R and A of the
     /// GBA, open and in the book pose on L of the GBA.
-    @Test func theCardStaysBetweenTheShoulderButtons() throws {
+    @Test func theCardStaysOffTheShoulderButtons() throws {
         for system in [GameSystem.ds, .gba] {
             let sideways = Case(system: system, geometry: NoticePlacementTests.measuredSideways, showsControls: true)
             let area = sideways.placement.debugArea
             let buttons = OverlayPlacementTests.buttonAreas(sideways.controls)
             let l = try #require(buttons.first { $0.0 == "L" }).1
             let r = try #require(buttons.first { $0.0 == "R" }).1
-            #expect(area.minX >= l.maxX && area.maxX <= r.minX, "\(system.name): \(area) between \(l) and \(r)")
+            #expect(!area.intersects(l) && !area.intersects(r), "\(system.name): \(area) on \(l) or \(r)")
         }
         let book = DuoGeometries.Case(name: "book", geometry: FoldGeometry(
             container: DuoGeometries.innerLandscape, fold: PixelRect(x: 1366, y: 0, width: 121, height: 2007),
