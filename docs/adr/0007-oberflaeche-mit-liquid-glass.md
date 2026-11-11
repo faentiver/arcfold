@@ -214,7 +214,7 @@ Größe und Aussehen der Tasten sind davon unberührt. Fatih wünscht sich die S
 
 ## Bilder
 
-Bildschirmfotos aus der Tour dieses Stands (Variante und Pose im Namen; Spielbilder ohne Debug-Overlay aus Zustand 38, sonst Zustände 30, 32, 35 und 36), aufrecht gedreht und verkleinert, Außendisplay 466 × 678 pt (quer 678 × 466), Innendisplay 700 × 492 (Tabletop 492 × 700):
+Bildschirmfotos aus der Tour dieses Stands (Variante und Pose im Namen; Spielbilder ohne Debug-Overlay aus Zustand 38, sonst Zustände 30, 32, 35 und 36), aufrecht gedreht und verkleinert, Außendisplay 466 × 678 pt (quer 678 × 466), Innendisplay 700 × 492 (Tabletop 492 × 700). Die fünf Spielbilder ohne Debug-Overlay sind vom 11. November 2026 und zeigen die neue Lage der Tasten (Abschnitt „Lage der Tasten“); die Bilder mit Sheet und Hinweis zeigen noch den Stand davor:
 
 ![Bibliothek zugeklappt, hell](0007/glass-bibliothek-zugeklappt-hell.jpg)
 
@@ -242,23 +242,23 @@ Lizenzen im Buch: Liste links, Text rechts des Falzes.
 
 ![DS zugeklappt ohne Debug-Overlay](0007/glass-ds-zugeklappt.png)
 
-DS zugeklappt ohne Debug-Overlay: L und R auf dem Bild, Steuerkreuz, Select, Start, X, Y, A, B und Pause auf dem Deck.
+DS zugeklappt ohne Debug-Overlay: L und R auf dem Bild; auf dem Deck das Steuerkreuz, in der Mitte Select, Start und Pause untereinander, rechts X, Y, A, B.
 
 ![DS im Buch](0007/glass-ds-buch.png)
 
-DS im Buch: ein Bildschirm links, der Touchscreen rechts des Falzes, Tasten auf dem Deck.
+DS im Buch: ein Bildschirm links, der Touchscreen rechts des Falzes; darunter die Leiste mit L, Select, Pause, Start und R, darunter Steuerkreuz und Raute auf einer Höhe.
 
 ![DS im Tabletop](0007/glass-ds-tabletop.png)
 
-DS im Tabletop: Bild oben, der Touchscreen unter dem Falz, Tasten daneben.
+DS im Tabletop: Bild oben, der Touchscreen unter dem Falz, Steuerkreuz und Raute daneben auf einer Höhe, Select, Pause und Start darunter.
 
 ![GBA zugeklappt quer](0007/glass-gba-zugeklappt-quer.png)
 
-GBA zugeklappt quer: Steuerkreuz, L und R auf dem Bild, B, A, Select, Start und Pause auf dem Deck.
+GBA zugeklappt quer: L und R an den oberen Ecken des Bildes, Steuerkreuz und B, A daneben auf einer Höhe, Select, Pause und Start unter dem Bild.
 
 ![GBA im Buch](0007/glass-gba-buch.png)
 
-GBA im Buch: das Bild über dem Falz, Tasten in Spalten links und rechts.
+GBA im Buch: das Bild über dem Falz, Steuerkreuz und B, A in den Spalten auf einer Höhe, Select, Pause und Start unter dem Bild beiderseits des Falzes.
 
 ![Pausen-Sheet zugeklappt](0007/glass-pause-sheet-zugeklappt.png)
 

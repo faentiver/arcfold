@@ -148,6 +148,8 @@ Zahlen mit den Maßen des Simulators (Faktor 3; außen gemessener sicherer Berei
 | DS | flach quer, Buch | beide 5×, links und rechts vom Falz |
 | DS | Tabletop | oben 7× 1792 × 1344 px, Touchscreen 5× 1280 × 960 px |
 
+Seit dem 11. November 2026 gelten für die Lage der Tasten in jeder Vorlage zwei Regeln aus ADR 0007, Abschnitt „Lage der Tasten“: Steuerkreuz und Aktionstasten liegen auf einer Höhe, und Select, Pause und Start sitzen mittig direkt unter dem Bild statt in den Spalten unter den Aktionstasten. Zugeklappt quer rücken die Bilder dafür nach oben; die Faktoren der Tabelle bleiben.
+
 Ergänzt in der Umsetzung: Beim DS zugeklappt ist das Band unter den Bildschirmen nur 132 pt hoch. L und R liegen deshalb über den unteren Ecken des oberen Bildschirms, 8 pt über dem Touchscreen, Start und Select in einer Spalte zwischen Steuerkreuz und Raute. Mit Touch-Tasten sitzt die Pausentaste in der Menüzone zwischen Select und Start. Geändert nach der Prüfung: L und R lagen zuerst über den oberen Ecken, die Pausentaste ohne Touch-Tasten oben rechts wie in M1. Jetzt sitzt sie ohne Touch-Tasten in der ersten Ecke des sicheren Bereichs unter dem Schutzrand, die weder Touchscreen noch aktiven Falz noch eine Verdeckungsregion berührt, in der Reihenfolge unten rechts, unten links, oben rechts, oben links (`GameLayout.pauseButton`). Im Buch und flach quer beginnen beide DS-Bildschirme am Schutzrand, innen bei y = 192 px statt 0; der Faktor bleibt.
 
 Die Planrechnung „DS-Tabletop oben 6-fach“ stimmt für 1878 × 2670 px. Mit den 2007 × 2853 px des Simulators passt 7-fach, solange das Falzband höchstens 55 pt hoch ist. Die Layouts rechnen nur mit dem Rahmen des Views; welche Zahl gilt, entscheidet das Gerät (Gerätetest, Punkt 12).
