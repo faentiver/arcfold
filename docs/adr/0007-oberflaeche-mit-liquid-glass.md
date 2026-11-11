@@ -210,6 +210,8 @@ Entschieden:
 
 Umgesetzt in `Packages/FoldLayout` (`ControlZones.menuTrailing` für das geteilte Menü, die Bausteine `bandZones`, `sideZones`, `pageZones`, `raised`, `divided`; `finished` gleicht die Zeilen von Steuerkreuz und Aktionstasten an) und in `TouchLayout.menu(in:trailing:)`. Die Bausteine stehen in `docs/wissen/falz.md`. `LayoutInvariantTests` prüft beide Regeln über 47 Geometrien, darunter jetzt die sechs Posen mit den Maßen, die der Simulator meldet; `MenuPlacementTests` hält die Zonen je Pose fest, `TouchLayoutTests` die Tasten je Pose (Höhe, Abstand, Teilung am Falz).
 
+Belegt am 11. November 2026 im Duo-Simulator (iOS 27.1, Xcode 27.2): Store 391 Tests, davon 359 bestanden und 32 übersprungen (ArcfoldTests 174, LibretroKitTests 64, FoldLayoutTests 39, RendererTests 39, ArcfoldUITests 75 mit 43 bestanden), JIT 316 bestanden, kein Fehlschlag; DS und GBA in allen sechs echten Posen fotografiert (Zustand 38 der Tour). Die ganze Tour in allen Varianten und die Posenprüfung sind nach dieser Änderung noch nicht neu gelaufen.
+
 Größe und Aussehen der Tasten sind davon unberührt. Fatih wünscht sich die Spielansicht insgesamt anders, mit einem Gehäuse und größeren Tasten; das folgt als eigener Schritt.
 
 ## Bilder
